@@ -1,0 +1,413 @@
+-- =====================================================================
+--  Madkastellet · arrangementsværktøj — databaseskema (v1, med roller)
+--  Kør hele filen i Supabase → SQL Editor → New query → Run.
+--  Roller: admin (IT-ansvarlig, org-bred) · coordinator (menig, egne arr.)
+-- =====================================================================
+
+drop trigger if exists on_auth_user_created on auth.users;
+drop trigger if exists on_event_created on events;
+drop table if exists activity_log  cascade;
+drop table if exists agenda_items  cascade;
+drop table if exists guests        cascade;
+drop table if exists invites       cascade;
+drop table if exists event_access  cascade;
+drop table if exists event_staff   cascade;
+drop table if exists event_rooms   cascade;
+drop table if exists events        cascade;
+drop table if exists staff         cascade;
+drop table if exists rooms         cascade;
+drop table if exists venues        cascade;
+drop table if exists organisations cascade;
+
+-- =====================================================================
+--  1. TABELLER
+-- =====================================================================
+create table organisations (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  created_at timestamptz not null default now()
+);
+
+create table venues (
+  id uuid primary key default gen_random_uuid(),
+  org_id uuid not null references organisations(id) on delete cascade,
+  name text not null,
+  created_at timestamptz not null default now()
+);
+
+-- Lokaler (rum) på en lokation
+create table rooms (
+  id uuid primary key default gen_random_uuid(),
+  venue_id uuid not null references venues(id) on delete cascade,
+  name text not null,
+  sort_order integer not null default 0,
+  created_at timestamptz not null default now()
+);
+
+-- Én profilrække pr. medarbejder. id = auth-brugerens id.
+create table staff (
+  id uuid primary key references auth.users(id) on delete cascade,
+  org_id uuid not null references organisations(id) on delete cascade,
+  name text not null,
+  role text not null default 'coordinator',   -- 'admin' | 'coordinator'
+  created_at timestamptz not null default now()
+);
+
+-- Ventende invitationer. Admin opretter; trigger forbruger ved første login.
+create table invites (
+  id uuid primary key default gen_random_uuid(),
+  org_id uuid not null references organisations(id) on delete cascade,
+  email text not null,
+  name text not null,
+  role text not null default 'coordinator',
+  created_at timestamptz not null default now(),
+  unique (org_id, email)
+);
+
+create table events (
+  id uuid primary key default gen_random_uuid(),
+  venue_id uuid not null references venues(id) on delete cascade,
+  org_id uuid not null references organisations(id) on delete cascade,
+  title text not null,
+  event_date date not null,
+  offer_total_kr integer not null default 0,
+  status text not null default 'bekræftet',   -- kladde | bekræftet | afviklet | aflyst
+  baseline_locked boolean not null default false,
+  created_at timestamptz not null default now()
+);
+
+create table event_staff (
+  event_id uuid not null references events(id) on delete cascade,
+  staff_id uuid not null references staff(id)  on delete cascade,
+  primary key (event_id, staff_id)
+);
+
+create table event_access (
+  id uuid primary key default gen_random_uuid(),
+  event_id uuid not null references events(id) on delete cascade,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  display_name text not null,
+  created_at timestamptz not null default now(),
+  unique (event_id, user_id)
+);
+
+-- Lokale pr. fase: ét lokale for hver fase i arrangementet
+create table event_rooms (
+  event_id uuid not null references events(id) on delete cascade,
+  phase text not null,                 -- reception | middag | fest
+  room_id uuid not null references rooms(id) on delete cascade,
+  primary key (event_id, phase)
+);
+
+create table guests (
+  id uuid primary key default gen_random_uuid(),
+  event_id uuid not null references events(id) on delete cascade,
+  name text not null default '',
+  category text not null default 'voksen',   -- voksen | barn | baby
+  reception boolean not null default true,
+  dinner boolean not null default true,      -- middag
+  dietary text not null default '',
+  sort_order integer not null default 0,
+  created_at timestamptz not null default now()
+);
+
+create table agenda_items (
+  id uuid primary key default gen_random_uuid(),
+  event_id uuid not null references events(id) on delete cascade,
+  title text not null,
+  owner text not null default 'jer',         -- 'jer' | 'kilden'
+  status text not null default 'mangler',    -- mangler | udkast | aftalt
+  due_date date,
+  note text not null default '',
+  sort_order integer not null default 0
+);
+
+create table activity_log (
+  id uuid primary key default gen_random_uuid(),
+  event_id uuid not null references events(id) on delete cascade,
+  ts timestamptz not null default now(),
+  actor_id uuid references auth.users(id),
+  actor_name text not null,
+  actor_side text not null,                  -- 'kilden' | 'kunde'
+  entry_type text not null,                  -- 'change' | 'view' | 'message'
+  area text not null default 'system',
+  label text not null default '',
+  from_val text not null default '',
+  to_val text not null default '',
+  customer_visible boolean not null default false,
+  friendly text not null default '',
+  message_text text not null default ''
+);
+
+create index on activity_log (event_id, ts desc);
+create index on guests       (event_id);
+create index on agenda_items (event_id);
+create index on events       (org_id, event_date);
+
+-- =====================================================================
+--  2. HJÆLPEFUNKTIONER (security definer — undgår RLS-rekursion)
+-- =====================================================================
+create or replace function my_org()
+returns uuid language sql security definer stable set search_path = public as $$
+  select org_id from staff where id = auth.uid()
+$$;
+
+create or replace function my_role()
+returns text language sql security definer stable set search_path = public as $$
+  select role from staff where id = auth.uid()
+$$;
+
+-- Admin i en bestemt organisation?
+create or replace function is_org_admin(target_org uuid)
+returns boolean language sql security definer stable set search_path = public as $$
+  select exists (select 1 from staff
+                 where id = auth.uid() and org_id = target_org and role = 'admin')
+$$;
+
+-- Må denne bruger arbejde på arrangementet?
+-- Sandt hvis: tildelt koordinator PÅ arrangementet, ELLER admin i arrangementets org.
+create or replace function is_org_staff(target_event uuid)
+returns boolean language sql security definer stable set search_path = public as $$
+  select exists (
+    select 1 from events e
+    where e.id = target_event
+      and ( exists (select 1 from event_staff es
+                    where es.event_id = e.id and es.staff_id = auth.uid())
+            or exists (select 1 from staff s
+                    where s.id = auth.uid() and s.org_id = e.org_id and s.role = 'admin') )
+  )
+$$;
+
+create or replace function is_event_guest(target_event uuid)
+returns boolean language sql security definer stable set search_path = public as $$
+  select exists (select 1 from event_access a
+                 where a.event_id = target_event and a.user_id = auth.uid())
+$$;
+
+-- =====================================================================
+--  3. TRIGGERE
+-- =====================================================================
+-- Ny auth-bruger med en ventende invitation → bliv medarbejder automatisk.
+create or replace function handle_new_user()
+returns trigger language plpgsql security definer set search_path = public as $$
+declare inv invites%rowtype;
+begin
+  select * into inv from invites where lower(email) = lower(new.email) limit 1;
+  if found then
+    insert into staff (id, org_id, name, role)
+      values (new.id, inv.org_id, inv.name, inv.role)
+      on conflict (id) do nothing;
+    delete from invites where id = inv.id;
+  end if;
+  return new;
+end;
+$$;
+create trigger on_auth_user_created
+  after insert on auth.users
+  for each row execute function handle_new_user();
+
+-- Den, der opretter et arrangement, kobles automatisk på det.
+create or replace function assign_event_creator()
+returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  if exists (select 1 from staff where id = auth.uid()) then
+    insert into event_staff (event_id, staff_id)
+      values (new.id, auth.uid()) on conflict do nothing;
+  end if;
+  return new;
+end;
+$$;
+create trigger on_event_created
+  after insert on events
+  for each row execute function assign_event_creator();
+
+-- =====================================================================
+--  4. RLS
+-- =====================================================================
+alter table organisations enable row level security;
+alter table venues        enable row level security;
+alter table staff         enable row level security;
+alter table invites       enable row level security;
+alter table events        enable row level security;
+alter table event_staff   enable row level security;
+alter table event_access  enable row level security;
+alter table guests        enable row level security;
+alter table agenda_items  enable row level security;
+alter table activity_log  enable row level security;
+alter table rooms         enable row level security;
+alter table event_rooms   enable row level security;
+
+-- Organisation / lokationer
+create policy org_read on organisations for select using (
+  id = my_org()
+  or exists (select 1 from events e join event_access a on a.event_id = e.id
+             where e.org_id = organisations.id and a.user_id = auth.uid())
+);
+
+create policy venue_read on venues for select using (
+  org_id = my_org()
+  or exists (select 1 from events e join event_access a on a.event_id = e.id
+             where e.venue_id = venues.id and a.user_id = auth.uid())
+);
+-- Kun admin må oprette/ændre/slette lokationer
+create policy venue_insert on venues for insert with check ( is_org_admin(org_id) );
+create policy venue_update on venues for update using ( is_org_admin(org_id) ) with check ( is_org_admin(org_id) );
+create policy venue_delete on venues for delete using ( is_org_admin(org_id) );
+
+-- Lokaler: læsbare for org'ens folk + brudepar ved lokationen; kun admin redigerer
+create policy rooms_read on rooms for select using (
+  exists (select 1 from venues v where v.id = rooms.venue_id and v.org_id = my_org())
+  or exists (select 1 from events e join event_access a on a.event_id = e.id
+             where e.venue_id = rooms.venue_id and a.user_id = auth.uid())
+);
+create policy rooms_ins on rooms for insert with check ( is_org_admin((select org_id from venues where id = rooms.venue_id)) );
+create policy rooms_upd on rooms for update using ( is_org_admin((select org_id from venues where id = rooms.venue_id)) ) with check ( is_org_admin((select org_id from venues where id = rooms.venue_id)) );
+create policy rooms_del on rooms for delete using ( is_org_admin((select org_id from venues where id = rooms.venue_id)) );
+
+-- Lokale pr. fase: begge parter læser; medarbejdere sætter
+create policy erooms_read on event_rooms for select using ( is_org_staff(event_id) or is_event_guest(event_id) );
+create policy erooms_ins  on event_rooms for insert with check ( is_org_staff(event_id) );
+create policy erooms_upd  on event_rooms for update using ( is_org_staff(event_id) ) with check ( is_org_staff(event_id) );
+create policy erooms_del  on event_rooms for delete using ( is_org_staff(event_id) );
+
+-- Medarbejdere kan se kolleger (til tildeling); kun admin må ændre brugere
+create policy staff_read   on staff for select using ( org_id = my_org() );
+create policy staff_insert on staff for insert with check ( is_org_admin(org_id) );
+create policy staff_update on staff for update using ( is_org_admin(org_id) ) with check ( is_org_admin(org_id) );
+create policy staff_delete on staff for delete using ( is_org_admin(org_id) );
+
+-- Invitationer: kun admin
+create policy invites_admin on invites for all
+  using ( is_org_admin(org_id) ) with check ( is_org_admin(org_id) );
+
+-- Arrangementer: admin ser alle i org; koordinator ser tildelte; brudepar ser eget
+create policy event_read on events for select
+  using ( is_org_staff(id) or is_event_guest(id) );
+create policy event_insert on events for insert
+  with check ( org_id = my_org() );                 -- enhver medarbejder må oprette
+create policy event_update on events for update
+  using ( is_org_staff(id) ) with check ( is_org_staff(id) );
+create policy event_delete on events for delete
+  using ( is_org_admin(org_id) );                   -- kun admin må slette
+
+-- Tildeling: admin eller nogen, der allerede er på arrangementet
+create policy estaff_read   on event_staff for select using ( is_org_staff(event_id) );
+create policy estaff_insert on event_staff for insert with check ( is_org_staff(event_id) );
+create policy estaff_delete on event_staff for delete using ( is_org_staff(event_id) );
+
+create policy eaccess_read   on event_access for select using ( user_id = auth.uid() or is_org_staff(event_id) );
+create policy eaccess_insert on event_access for insert with check ( is_org_staff(event_id) );
+create policy eaccess_delete on event_access for delete using ( is_org_staff(event_id) );
+
+-- Gæster + punkter: begge parter må læse og redigere
+create policy guests_all on guests for all
+  using ( is_org_staff(event_id) or is_event_guest(event_id) )
+  with check ( is_org_staff(event_id) or is_event_guest(event_id) );
+
+create policy agenda_all on agenda_items for all
+  using ( is_org_staff(event_id) or is_event_guest(event_id) )
+  with check ( is_org_staff(event_id) or is_event_guest(event_id) );
+
+-- LOG: append-only. Begge parter må indsætte.
+create policy log_insert on activity_log for insert
+  with check ( is_org_staff(event_id) or is_event_guest(event_id) );
+-- Medarbejdere ser hele strømmen.
+create policy log_read_staff on activity_log for select
+  using ( is_org_staff(event_id) );
+-- Brudeparret ser KUN beskeder + kundevendte ændringer (kigge-tid-spærring i db).
+create policy log_read_guest on activity_log for select
+  using ( is_event_guest(event_id) and (entry_type = 'message' or customer_visible = true) );
+
+-- =====================================================================
+--  5. SEED — Madkastellet, to lokationer, flere arrangementer
+-- =====================================================================
+insert into organisations (id, name) values
+  ('11111111-1111-1111-1111-111111111111', 'Madkastellet');
+
+insert into venues (id, org_id, name) values
+  ('22222222-2222-2222-2222-222222222222','11111111-1111-1111-1111-111111111111','Kilden'),
+  ('22222222-2222-2222-2222-222222222223','11111111-1111-1111-1111-111111111111','Madkastellet Havnen');
+
+insert into rooms (id, venue_id, name, sort_order) values
+  ('44444444-4444-4444-4444-444444444441','22222222-2222-2222-2222-222222222222','Terrassen ved vejen',1),
+  ('44444444-4444-4444-4444-444444444442','22222222-2222-2222-2222-222222222222','Lokalet indendørs',2),
+  ('44444444-4444-4444-4444-444444444443','22222222-2222-2222-2222-222222222223','Havnesalen',1);
+
+-- Hovedarrangementet: Emily & Lars (kommende)
+insert into events (id, venue_id, org_id, title, event_date, offer_total_kr, status) values
+  ('33333333-3333-3333-3333-333333333333','22222222-2222-2222-2222-222222222222',
+   '11111111-1111-1111-1111-111111111111','Emily & Lars','2026-09-04',108245,'bekræftet');
+
+-- Ekstra arrangementer, så admin-overblikket har noget at vise
+insert into events (venue_id, org_id, title, event_date, offer_total_kr, status) values
+  ('22222222-2222-2222-2222-222222222222','11111111-1111-1111-1111-111111111111','Sofie & Mikkel','2026-05-16',94500,'afviklet'),
+  ('22222222-2222-2222-2222-222222222223','11111111-1111-1111-1111-111111111111','Firmajubilæum · Nordkraft','2026-06-20',61200,'afviklet'),
+  ('22222222-2222-2222-2222-222222222222','11111111-1111-1111-1111-111111111111','Anna & Jonas','2026-10-11',102300,'bekræftet'),
+  ('22222222-2222-2222-2222-222222222223','11111111-1111-1111-1111-111111111111','Konfirmation · Berg','2026-11-01',0,'kladde');
+
+-- lokale pr. fase for Emily & Lars: reception på terrassen, resten indendørs
+insert into event_rooms (event_id, phase, room_id) values
+  ('33333333-3333-3333-3333-333333333333','reception','44444444-4444-4444-4444-444444444441'),
+  ('33333333-3333-3333-3333-333333333333','middag',   '44444444-4444-4444-4444-444444444442'),
+  ('33333333-3333-3333-3333-333333333333','fest',     '44444444-4444-4444-4444-444444444442');
+
+-- Gæster til Emily & Lars: 65 voksne (64 middag), 6 børn, 6 babyer
+insert into guests (event_id, name, category, reception, dinner, dietary, sort_order) values
+ ('33333333-3333-3333-3333-333333333333','Emily',    'voksen',true,true,'',1),
+ ('33333333-3333-3333-3333-333333333333','Lars',     'voksen',true,true,'',2),
+ ('33333333-3333-3333-3333-333333333333','Sarah K',  'voksen',true,true,'Glutenallergi',3),
+ ('33333333-3333-3333-3333-333333333333','Christina','voksen',true,true,'Glutenallergi',4),
+ ('33333333-3333-3333-3333-333333333333','Lærke',    'voksen',true,true,'Laktoseintolerant',5),
+ ('33333333-3333-3333-3333-333333333333','Helle',    'voksen',true,true,'Nøddeallergi',6),
+ ('33333333-3333-3333-3333-333333333333','Nanna E',  'voksen',true,true,'Ingen jordskokker',7),
+ ('33333333-3333-3333-3333-333333333333','Mie',      'voksen',true,true,'Skaldyrsallergi',8),
+ ('33333333-3333-3333-3333-333333333333','Per',      'voksen',true,true,'Spiser ikke fisk',9);
+insert into guests (event_id, name, category, reception, dinner, dietary, sort_order)
+select '33333333-3333-3333-3333-333333333333','Voksen '||g,'voksen',true,true,'',100+g from generate_series(1,56) g;
+update guests set dinner=false where id=(select id from guests
+  where event_id='33333333-3333-3333-3333-333333333333' and category='voksen' order by sort_order desc limit 1);
+insert into guests (event_id, name, category, reception, dinner, dietary, sort_order)
+select '33333333-3333-3333-3333-333333333333','Barn '||g,'barn',true,false,'',200+g from generate_series(1,6) g;
+insert into guests (event_id, name, category, reception, dinner, dietary, sort_order)
+select '33333333-3333-3333-3333-333333333333','Baby '||g,'baby',true,(g<=3),'',300+g from generate_series(1,6) g;
+
+insert into agenda_items (event_id, title, owner, status, due_date, note, sort_order) values
+ ('33333333-3333-3333-3333-333333333333','Bordplan','jer','mangler','2026-08-28','',1),
+ ('33333333-3333-3333-3333-333333333333','DJ – ankomsttidspunkt','jer','mangler','2026-08-21','DJ bruger Kildens udstyr',2),
+ ('33333333-3333-3333-3333-333333333333','Endeligt deltagerantal','jer','udkast','2026-08-21','67/69 til middag skal blive ét tal',3),
+ ('33333333-3333-3333-3333-333333333333','Allergier og særlig kost','jer','udkast','2026-08-25','Bekræftes mod gæstelisten',4),
+ ('33333333-3333-3333-3333-333333333333','Bordkort og pynt afleveres','jer','aftalt','2026-09-03','Dagen inden',5),
+ ('33333333-3333-3333-3333-333333333333','Blomster leveres','jer','aftalt','2026-09-03','Dagen inden eller på dagen. Kildens vaser',6),
+ ('33333333-3333-3333-3333-333333333333','Bobler medbringes (2 slags)','jer','aftalt','2026-09-04','Serveres i champagneskål',7),
+ ('33333333-3333-3333-3333-333333333333','Bryllupskage til reception','jer','aftalt','2026-09-04','Medbringes',8),
+ ('33333333-3333-3333-3333-333333333333','Cocio til natmad','jer','aftalt','2026-09-04','Medbringes, sættes ud kl. 01',9),
+ ('33333333-3333-3333-3333-333333333333','Weissbier på flaske','kilden','aftalt','2026-09-04','',10),
+ ('33333333-3333-3333-3333-333333333333','Opdækning og servietringe','kilden','aftalt','2026-09-03','Lysegrå duge, hvide stofservietter, krondyrsservietringe, hvide bloklys',11),
+ ('33333333-3333-3333-3333-333333333333','Bordopstilling','kilden','aftalt','2026-09-03','2 langborde + gavebord, DJ-udstyr stilles frem',12),
+ ('33333333-3333-3333-3333-333333333333','Lejlighed til babyer','kilden','aftalt','2026-09-04','',13),
+ ('33333333-3333-3333-3333-333333333333','Hovedret til fotograf','kilden','aftalt','2026-09-04','Anden ret end den almindelige menu',14),
+ ('33333333-3333-3333-3333-333333333333','Vin på bordene','kilden','aftalt','2026-09-04','Både almindelig vin og naturvin',15);
+
+insert into activity_log (event_id, ts, actor_name, actor_side, entry_type, area, label, from_val, to_val, customer_visible, friendly, message_text) values
+ ('33333333-3333-3333-3333-333333333333', now()-interval '21 days','Christina (Kilden)','kilden','change','system','Aftale oprettet fra tilbud','','108.245 kr.',true,'Jeres aftale blev oprettet ud fra tilbuddet',''),
+ ('33333333-3333-3333-3333-333333333333', now()-interval '14 days','Lars','kunde','change','gaester','Deltagerantal (middag)','62','64',true,'Deltagerantal til middag opdateret til 64',''),
+ ('33333333-3333-3333-3333-333333333333', now()-interval '10 days','Emily','kunde','change','gaester','Særlig kost','','Helle: nøddeallergi',true,'Særlig kost tilføjet for Helle (nøddeallergi)',''),
+ ('33333333-3333-3333-3333-333333333333', now()-interval '7 days','Malene (Kilden)','kilden','change','system','Medarbejder tildelt','','Christina',false,'',''),
+ ('33333333-3333-3333-3333-333333333333', now()-interval '4 days','Emily','kunde','message','system','','','',false,'','Hej Kilden. Vi overvejer at rykke forretten en lille smule senere — er der plads i tidsplanen til det?'),
+ ('33333333-3333-3333-3333-333333333333', now()-interval '3 days','Christina (Kilden)','kilden','message','system','','','',false,'','Hej Emily. Fint, vi rykker gerne forretten en anelse — sig til, når I har et ønsket tidspunkt, så justerer jeg programmet.');
+
+-- =====================================================================
+--  6. BOOTSTRAP — kør, når du har logget ind via magic link mindst én gang.
+--     Find dit UUID under Authentication → Users.
+-- =====================================================================
+-- -- Gør dig selv til ADMIN i Madkastellet:
+-- insert into staff (id, org_id, name, role) values
+--   ('DIT-AUTH-UUID','11111111-1111-1111-1111-111111111111','Dit navn','admin');
+--
+-- Herefter styrer du resten fra konsollen: opret lokationer, inviter
+-- koordinatorer (de forfremmes automatisk ved første login), og tildel
+-- brudepar til arrangementer.
+--
+-- -- Brudepar (indtil adgang gives fra UI'et):
+-- insert into event_access (event_id, user_id, display_name) values
+--   ('33333333-3333-3333-3333-333333333333','EMILYS-AUTH-UUID','Emily');

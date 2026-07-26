@@ -1,0 +1,840 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Emily &amp; Lars · 4. september 2026</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Familjen+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#12151B; --ink-60:rgba(18,21,27,.60); --ink-40:rgba(18,21,27,.40);
+  --line:rgba(18,21,27,.14); --paper:#EAEDE6; --card:#FBFBF9;
+  --blue:#1435D6; --amber:#A8681C; --moss:#3E6B4C; --radius:3px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{background:var(--paper);color:var(--ink);font-family:'Familjen Grotesk',system-ui,sans-serif;font-size:16px;line-height:1.45;-webkit-font-smoothing:antialiased}
+.wrap{max-width:960px;margin:0 auto;padding:24px 18px 96px}
+h1,h2,h3{margin:0}
+button{font:inherit;color:inherit}
+input,select,textarea{font:inherit;color:inherit}
+
+.mark{font-family:'Instrument Serif',serif;font-style:italic;font-size:26px;color:var(--blue);letter-spacing:-.01em}
+.brand{display:flex;flex-direction:column;line-height:1.02}
+.brand .org{font-size:12px;font-weight:600;color:var(--ink-60);letter-spacing:.02em;margin-top:1px}
+.eventloc{margin-top:8px;font-size:14px;color:var(--ink-60)}
+.eventloc .loc{font-weight:600;color:var(--ink)}
+.topline{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.eyebrow{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-40);font-weight:600}
+
+/* role switcher */
+.rolebar{display:flex;align-items:center;gap:10px}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:99px;overflow:hidden;background:var(--card)}
+.seg button{border:0;background:none;padding:6px 13px;font-size:13px;font-weight:600;cursor:pointer;color:var(--ink-60)}
+.seg button[aria-pressed="true"]{background:var(--ink);color:#fff}
+.seg button:first-child[aria-pressed="true"]{background:var(--ink)}
+.whoami{font-size:12px;color:var(--ink-40)}
+
+.hero{margin:28px 0 8px}
+.hero h1{font-family:'Instrument Serif',serif;font-style:italic;font-size:clamp(44px,10vw,84px);line-height:.92;letter-spacing:-.02em;font-weight:400}
+.hero .sub{margin-top:14px;display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+
+.chip{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--line);background:var(--card);border-radius:99px;padding:5px 12px;font-size:13px;font-weight:500}
+.chip .dot{width:7px;height:7px;border-radius:99px;background:var(--ink-40)}
+.chip.warn{border-color:rgba(168,104,28,.4);color:var(--amber)} .chip.warn .dot{background:var(--amber)}
+.chip.ok{border-color:rgba(62,107,76,.35);color:var(--moss)} .chip.ok .dot{background:var(--moss)}
+.chip.blue{border-color:rgba(20,53,214,.3);color:var(--blue)} .chip.blue .dot{background:var(--blue)}
+
+nav.tabs{display:flex;gap:2px;margin:26px 0 20px;border-bottom:1px solid var(--line);overflow-x:auto}
+nav.tabs button{background:none;border:0;padding:10px 14px;cursor:pointer;font-weight:600;font-size:14px;color:var(--ink-60);border-bottom:2px solid transparent;white-space:nowrap;margin-bottom:-1px}
+nav.tabs button:hover{color:var(--ink)}
+nav.tabs button[aria-selected="true"]{color:var(--blue);border-bottom-color:var(--blue)}
+nav.tabs button:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:18px 18px 20px;margin-bottom:16px}
+.card > header{display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin-bottom:14px}
+.card h2{font-size:15px;font-weight:700;letter-spacing:-.01em}
+.card .note{font-size:13px;color:var(--ink-60)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media(max-width:720px){.grid2{grid-template-columns:1fr}}
+
+.num{font-variant-numeric:tabular-nums}
+.stat{display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px dotted var(--line);font-size:14px}
+.stat:last-child{border-bottom:0}
+.stat b{font-weight:600;font-variant-numeric:tabular-nums}
+.big{font-family:'Instrument Serif',serif;font-size:40px;line-height:1;font-variant-numeric:tabular-nums}
+
+.recon{margin-top:14px;border-left:3px solid var(--blue);background:rgba(20,53,214,.05);padding:12px 14px;border-radius:0 var(--radius) var(--radius) 0}
+.recon.off{border-left-color:var(--amber);background:rgba(168,104,28,.07)}
+.recon .t{font-weight:700;font-size:14px}
+.recon .d{font-size:13px;color:var(--ink-60);margin-top:2px}
+
+.item{display:grid;grid-template-columns:3px 1fr auto;gap:14px;align-items:start;border-bottom:1px solid var(--line);padding:12px 0}
+.item:last-child{border-bottom:0}
+.stripe{align-self:stretch;border-radius:99px;background:var(--ink-40)}
+.stripe.jer{background:var(--blue)} .stripe.kilden{background:var(--ink)}
+.item .name{font-weight:600;font-size:15px}
+.item .meta{font-size:12.5px;color:var(--ink-60);margin-top:2px}
+.item .meta .due{color:var(--amber);font-weight:600}
+.item .meta .due.past{text-decoration:underline}
+select.status{border:1px solid var(--line);background:#fff;border-radius:var(--radius);padding:5px 8px;font-size:13px}
+select.status:focus-visible,input:focus-visible,button:focus-visible{outline:2px solid var(--blue);outline-offset:1px}
+
+.tbl{width:100%;border-collapse:collapse;font-size:14px}
+.tbl th{text-align:left;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-40);font-weight:600;padding:6px 8px;border-bottom:1px solid var(--line)}
+.tbl td{padding:6px 8px;border-bottom:1px solid var(--line);vertical-align:middle}
+.tbl input[type=text]{width:100%;border:0;background:transparent;padding:3px 0}
+.tbl input[type=text]:focus{outline:0;border-bottom:1px solid var(--blue)}
+.tbl select{border:0;background:transparent;padding:2px}
+.tbl td.c{text-align:center;width:70px}
+.tbl .del{border:0;background:none;color:var(--ink-40);cursor:pointer;font-size:16px;line-height:1}
+.tbl .del:hover{color:var(--amber)}
+.scroll{overflow-x:auto}
+
+.btn{border:1px solid var(--line);background:#fff;border-radius:var(--radius);padding:7px 13px;font-size:13px;font-weight:600;cursor:pointer}
+.btn:hover{border-color:var(--ink)}
+.btn.primary{background:var(--blue);border-color:var(--blue);color:#fff}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.search{border:1px solid var(--line);border-radius:var(--radius);padding:7px 10px;font-size:14px;background:#fff;min-width:180px}
+.empty{color:var(--ink-60);font-size:14px;padding:14px 0}
+
+/* --- staff log --- */
+.logfilters{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.logfilters select{border:1px solid var(--line);border-radius:var(--radius);padding:6px 9px;font-size:13px;background:#fff}
+.logrow{display:grid;grid-template-columns:120px 128px 1fr;gap:12px;align-items:baseline;padding:9px 0;border-bottom:1px solid var(--line);font-size:13.5px}
+.logrow:last-child{border-bottom:0}
+.logrow .when{font-variant-numeric:tabular-nums;color:var(--ink-60);font-size:12.5px}
+.logrow .who{display:inline-flex;align-items:center;gap:6px;font-weight:600;font-size:12.5px}
+.logrow .who .dot{width:7px;height:7px;border-radius:99px}
+.logrow .who .dot.kilden{background:var(--ink)} .logrow .who .dot.kunde{background:var(--blue)}
+.logrow .what .tag{font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-40);font-weight:600;margin-right:8px}
+.logrow .what .view{color:var(--ink-40)}
+.logrow .delta{font-variant-numeric:tabular-nums}
+.logrow .delta .arrow{color:var(--ink-40);margin:0 5px}
+.logrow.viewrow{opacity:.72}
+
+/* --- customer timeline --- */
+.tl{position:relative;margin-top:6px;padding-left:22px}
+.tl:before{content:"";position:absolute;left:5px;top:6px;bottom:6px;width:1px;background:var(--line)}
+.tlday{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-40);font-weight:600;margin:18px 0 8px}
+.tlday:first-child{margin-top:0}
+.tlitem{position:relative;padding:6px 0 10px}
+.tlitem:before{content:"";position:absolute;left:-21px;top:11px;width:9px;height:9px;border-radius:99px;background:var(--card);border:2px solid var(--blue)}
+.tlitem.kilden:before{border-color:var(--ink)}
+.tlitem .txt{font-size:15px}
+.tlitem .by{font-size:12.5px;color:var(--ink-60);margin-top:1px}
+
+/* --- beskeder (tråd, ikke chat) --- */
+.tabbadge{display:inline-flex;align-items:center;justify-content:center;min-width:16px;height:16px;padding:0 5px;margin-left:6px;border-radius:99px;background:var(--blue);color:#fff;font-size:11px;font-weight:700;vertical-align:middle}
+.compose{border:1px solid var(--line);border-radius:var(--radius);background:#fff;padding:12px;margin-bottom:8px}
+.compose textarea{width:100%;border:0;resize:vertical;min-height:60px;font:inherit;outline:0;line-height:1.45}
+.compose .crow{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:8px;flex-wrap:wrap}
+.compose .hint{font-size:12px;color:var(--ink-40);max-width:60%}
+.msg{border-left:3px solid var(--ink);border-radius:0 var(--radius) var(--radius) 0;background:#fff;padding:11px 14px;margin:10px 0}
+.msg.kunde{border-left-color:var(--blue)}
+.msg .mhead{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:3px}
+.msg .mwho{font-weight:600;font-size:13.5px}
+.msg .mtime{font-size:12px;color:var(--ink-40);font-variant-numeric:tabular-nums;white-space:nowrap}
+.msg .mtext{font-size:14.5px;white-space:pre-wrap;line-height:1.5}
+.logrow .msgq{font-style:italic}
+
+footer.legal{margin-top:28px;font-size:12px;color:var(--ink-40);line-height:1.6}
+
+@media print{body{background:#fff} nav.tabs,.btn,.row.noprint,.rolebar{display:none!important} .card{border:0;padding:0;margin-bottom:22px}}
+@media (prefers-reduced-motion:no-preference){.card{animation:rise .32s ease both}@keyframes rise{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}}
+</style>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="topline">
+    <div class="brand">
+      <span class="mark">Verta</span>
+      <span class="org" id="orgName">Madkastellet</span>
+    </div>
+    <div class="rolebar">
+      <span class="whoami" id="whoami"></span>
+      <button class="btn" id="backToList" style="display:none">‹ Arrangementer</button>
+      <button class="btn" id="logout" style="display:none">Log ud</button>
+      <span class="seg" role="group" aria-label="Skift rolle">
+        <button data-role="kilden" aria-pressed="true">Kilden</button>
+        <button data-role="kunde" aria-pressed="false">Brudepar</button>
+      </span>
+    </div>
+  </div>
+
+  <div class="hero">
+    <h1 id="heroTitle">Emily &amp; Lars</h1>
+    <div class="eventloc" id="eventLoc"></div>
+    <div class="sub" id="heroChips"></div>
+  </div>
+
+  <nav class="tabs" role="tablist" id="tabs"></nav>
+
+  <main id="view"></main>
+
+  <div id="gate" style="display:none;position:fixed;inset:0;background:var(--paper);z-index:50;align-items:center;justify-content:center;padding:20px">
+    <div style="max-width:380px;width:100%;background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:26px">
+      <div class="mark" style="margin-bottom:6px">Verta</div>
+      <h2 style="font-family:'Instrument Serif',serif;font-style:italic;font-size:30px;font-weight:400;margin:0 0 4px">Log ind</h2>
+      <p id="gateMsg" class="note" style="color:var(--ink-60);font-size:14px;margin:0 0 16px">Skriv din mail — du får et link, du logger ind med. Ingen adgangskode.</p>
+      <input id="gateEmail" class="search" style="width:100%;margin-bottom:10px" type="email" placeholder="dig@eksempel.dk" autocomplete="email">
+      <button class="btn primary" id="gateSend" style="width:100%">Send login-link</button>
+    </div>
+  </div>
+
+  <footer class="legal" id="legal"></footer>
+</div>
+
+<script>
+/* =========================================================
+   1. DATA
+   ========================================================= */
+const EVENT = { dato:'2026-09-04', sted:'Kilden', org:'Madkastellet',
+  rooms:{reception:'Terrassen ved vejen', middag:'Lokalet indendørs', fest:'Lokalet indendørs'},
+  tilbud:108245, toastmaster:'Christian' };
+const PHASES = [['reception','Reception'],['middag','Middag'],['fest','Fest']];
+
+const AKTORER = {
+  kilden:{ id:'kilden', navn:'Christina (Kilden)', side:'kilden' },
+  kunde: { id:'kunde',  navn:'Emily',              side:'kunde'  }
+};
+
+const PRISER = [
+  {id:'pakke',    navn:'Bryllupspakke, middag',     sats:1220, grundlag:'middag',   boernHalv:true},
+  {id:'reception',navn:'Reception 14–15:30',        sats:150,  grundlag:'reception',boernHalv:true},
+  {id:'time',     navn:'Ekstra time',               sats:100,  grundlag:'middag',   boernHalv:false},
+  {id:'natmad',   navn:'Natmad, gourmet hotdogs',   sats:85,   grundlag:'middag',   boernHalv:false},
+  {id:'naturvin', navn:'Naturvin',                  sats:75,   grundlag:'middag',   boernHalv:false},
+  {id:'fotograf', navn:'Forplejning fotograf + DJ', sats:325,  grundlag:'fast'},
+  {id:'dj',       navn:'DJ-udstyr',                 sats:3000, grundlag:'fast'}
+];
+
+const NAVNGIVNE = [
+  ['Emily','voksen',true,true,''],['Lars','voksen',true,true,''],
+  ['Sarah K','voksen',true,true,'Glutenallergi'],['Christina','voksen',true,true,'Glutenallergi'],
+  ['Lærke','voksen',true,true,'Laktoseintolerant'],['Helle','voksen',true,true,'Nøddeallergi'],
+  ['Nanna E','voksen',true,true,'Ingen jordskokker'],['Mie','voksen',true,true,'Skaldyrsallergi'],
+  ['Per','voksen',true,true,'Spiser ikke fisk']
+];
+
+function seedGaester(){
+  const g = NAVNGIVNE.map((r,i)=>({id:'g'+i,navn:r[0],kat:r[1],reception:r[2],middag:r[3],kost:r[4]}));
+  for(let i=g.length;i<65;i++) g.push({id:'g'+i,navn:'Voksen '+(i-8),kat:'voksen',reception:true,middag:true,kost:''});
+  g[64].middag=false;
+  for(let i=0;i<6;i++) g.push({id:'b'+i,navn:'Barn '+(i+1),kat:'barn',reception:true,middag:false,kost:''});
+  for(let i=0;i<6;i++) g.push({id:'s'+i,navn:'Baby '+(i+1),kat:'baby',reception:true,middag:i<3,kost:''});
+  return g;
+}
+
+const PUNKTER_SEED = [
+  {id:'p1',titel:'Bordplan',ejer:'jer',status:'mangler',frist:'2026-08-28',note:''},
+  {id:'p2',titel:'DJ – ankomsttidspunkt',ejer:'jer',status:'mangler',frist:'2026-08-21',note:'DJ bruger Kildens udstyr'},
+  {id:'p3',titel:'Endeligt deltagerantal',ejer:'jer',status:'udkast',frist:'2026-08-21',note:'67/69 til middag skal blive ét tal'},
+  {id:'p4',titel:'Allergier og særlig kost',ejer:'jer',status:'udkast',frist:'2026-08-25',note:'Bekræftes mod gæstelisten'},
+  {id:'p5',titel:'Bordkort og pynt afleveres',ejer:'jer',status:'aftalt',frist:'2026-09-03',note:'Dagen inden'},
+  {id:'p6',titel:'Blomster leveres',ejer:'jer',status:'aftalt',frist:'2026-09-03',note:'Dagen inden eller på dagen. Kildens vaser'},
+  {id:'p7',titel:'Bobler medbringes (2 slags)',ejer:'jer',status:'aftalt',frist:'2026-09-04',note:'Serveres i champagneskål'},
+  {id:'p8',titel:'Bryllupskage til reception',ejer:'jer',status:'aftalt',frist:'2026-09-04',note:'Medbringes'},
+  {id:'p9',titel:'Cocio til natmad',ejer:'jer',status:'aftalt',frist:'2026-09-04',note:'Medbringes, sættes ud kl. 01'},
+  {id:'p10',titel:'Weissbier på flaske',ejer:'kilden',status:'aftalt',frist:'2026-09-04',note:''},
+  {id:'p11',titel:'Opdækning og servietringe',ejer:'kilden',status:'aftalt',frist:'2026-09-03',note:'Lysegrå duge, hvide stofservietter, krondyrsservietringe, hvide bloklys'},
+  {id:'p12',titel:'Bordopstilling',ejer:'kilden',status:'aftalt',frist:'2026-09-03',note:'2 langborde + gavebord, DJ-udstyr stilles frem'},
+  {id:'p13',titel:'Lejlighed til babyer',ejer:'kilden',status:'aftalt',frist:'2026-09-04',note:''},
+  {id:'p14',titel:'Hovedret til fotograf',ejer:'kilden',status:'aftalt',frist:'2026-09-04',note:'Anden ret end den almindelige menu'},
+  {id:'p15',titel:'Vin på bordene',ejer:'kilden',status:'aftalt',frist:'2026-09-04',note:'Både almindelig vin og naturvin'}
+];
+
+const PROGRAM = [
+  ['14:00','Ankomst til reception'],['15:30','Reception slutter, gæsterne går på Bakken'],
+  ['17:00','Gæsterne kommer tilbage og går til bords'],['17:30','Forret'],['18:15','Forret ryddes'],
+  ['19:15','Hovedret'],['20:15','Hovedret ryddes'],['21:15','Dessert + kaffe- og te-buffet'],
+  ['22:00','Dessert ryddes'],['22:45','Brudevals'],['23:00','Fest med fri bar'],
+  ['01:00','Natmad'],['03:00','Tak for i dag']
+];
+
+const MENU = {
+  Forret:'Hiramasa. Ceviche på dansk ravfisk med syltede ferskner, farvede tomater, koriander og ponzu med lime. Brød og rørt smør.',
+  Hovedret:'Grillet havtaske med kaffir lime hollandaise, grøn tomatcarpaccio og grillede grøntsager. Sharing: lun kartoffelsalat, grøn salat og brød.',
+  Dessert:'Rødgrød med jordbær, ribs og rabarber. Hyldeblomst, fløde og vanilje.',
+  Natmad:'Gourmet hotdogs.'
+};
+
+const DAG = 86400000;
+function seedLog(){
+  const now = Date.now();
+  return [
+    {ts:now-2*DAG, side:'kilden', who:'Christina (Kilden)', type:'change', area:'punkter', label:'Bordkort og pynt', from:'udkast', to:'aftalt', cust:true,  friendly:'Bordkort og pynt er bekræftet — afleveres dagen inden'},
+    {ts:now-3*DAG, side:'kunde',  who:'Emily',              type:'view',   area:'system',  label:'Åbnede arrangementet', from:'', to:'', cust:false, friendly:''},
+    {ts:now-3.5*DAG, side:'kilden', who:'Christina (Kilden)', type:'message', area:'system', text:'Hej Emily. Fint, vi rykker gerne forretten en anelse — sig endelig til, når I har et ønsket tidspunkt, så justerer jeg programmet. Vi ses snart.', from:'', to:'', cust:false, friendly:''},
+    {ts:now-4*DAG, side:'kunde', who:'Emily', type:'message', area:'system', text:'Hej Kilden. Vi overvejer at rykke forretten en lille smule senere — er der plads i tidsplanen til det?', from:'', to:'', cust:false, friendly:''},
+    {ts:now-5*DAG, side:'kilden', who:'Christina (Kilden)', type:'view',   area:'system',  label:'Åbnede arrangementet', from:'', to:'', cust:false, friendly:''},
+    {ts:now-7*DAG, side:'kilden', who:'Malene (Kilden)',    type:'change', area:'system',  label:'Medarbejder tildelt', from:'', to:'Christina', cust:false, friendly:''},
+    {ts:now-10*DAG,side:'kunde',  who:'Emily',              type:'change', area:'gaester', label:'Særlig kost', from:'', to:'Helle: nøddeallergi', cust:true, friendly:'Særlig kost tilføjet for Helle (nøddeallergi)'},
+    {ts:now-14*DAG,side:'kunde',  who:'Lars',               type:'change', area:'gaester', label:'Deltagerantal (middag)', from:'62', to:'64', cust:true, friendly:'Deltagerantal til middag opdateret til 64'},
+    {ts:now-21*DAG,side:'kilden', who:'Christina (Kilden)', type:'change', area:'system',  label:'Aftale oprettet fra tilbud', from:'', to:'108.245 kr.', cust:true, friendly:'Jeres aftale blev oprettet ud fra tilbuddet'}
+  ].map((e,i)=>({id:'seed'+i, ...e}));
+}
+
+/* =========================================================
+   2. KONFIGURATION + LAGRING
+   Indsæt din Project URL + anon-nøgle for at køre mod Supabase.
+   Lades de tomme, kører appen lokalt som før (rolleskifter).
+   ========================================================= */
+const SUPA = { url:'', anon:'' };   // ← Supabase → Project Settings → API
+const MODE = SUPA.url ? 'cloud' : 'local';
+const sb = MODE==='cloud' ? window.supabase.createClient(SUPA.url, SUPA.anon) : null;
+
+const store = {
+  async load(){
+    try{
+      if(window.storage){ const r=await window.storage.get('bryllup'); return r?JSON.parse(r.value):null; }
+      const raw=localStorage.getItem('bryllup'); return raw?JSON.parse(raw):null;
+    }catch(e){ return null; }
+  },
+  async save(data){
+    try{
+      const s=JSON.stringify(data);
+      if(window.storage){ await window.storage.set('bryllup',s); } else { localStorage.setItem('bryllup',s); }
+    }catch(e){}
+  }
+};
+
+let state = { gaester:seedGaester(), punkter:PUNKTER_SEED.map(p=>({...p})), log:seedLog(),
+              tab:'oversigt', soeg:'', rolle:'kilden', logType:'alle', logWho:'alle', logArea:'alle',
+              lastRead:{kilden:0, kunde:0}, phaseRooms:{}, venueRooms:[] };
+function save(){
+  if(MODE==='cloud') cloudSaveGuestsAgenda();
+  else store.save({gaester:state.gaester, punkter:state.punkter, log:state.log, lastRead:state.lastRead});
+}
+const currentActor = () => MODE==='cloud' ? (state.actor||{navn:'?',side:'kilden'}) : AKTORER[state.rolle];
+
+/* =========================================================
+   3. LOG
+   ========================================================= */
+function pushLog({area,label,from='',to='',cust=false,friendly=''}){
+  const a=currentActor();
+  const ev={id:'e'+Date.now()+Math.random().toString(36).slice(2,5), ts:Date.now(),
+    side:a.side, who:a.navn, type:'change', area, label, from:String(from), to:String(to), cust, friendly, text:''};
+  state.log.unshift(ev);
+  if(MODE==='cloud') sb.from('activity_log').insert(logToDb(ev)).then(({error})=>error&&console.error('log',error));
+}
+function logView(){
+  const a=currentActor(), last=state.log[0];
+  if(last && last.type==='view' && last.side===a.side && (Date.now()-last.ts)<30*60000) return;
+  state.log.unshift({id:'v'+Date.now(), ts:Date.now(), side:a.side, who:a.navn,
+    type:'view', area:'system', label:'Åbnede arrangementet', from:'', to:'', cust:false, friendly:''});
+  save();
+}
+function pushMessage(text){
+  const a=currentActor();
+  const ev={id:'m'+Date.now(), ts:Date.now(), side:a.side, who:a.navn,
+    type:'message', area:'system', text:text.trim(), from:'', to:'', cust:false, friendly:''};
+  state.log.unshift(ev);
+  state.lastRead[a.side]=Date.now();
+  if(MODE==='cloud') sb.from('activity_log').insert(logToDb(ev)).then(({error})=>error&&console.error('msg',error));
+  else save();
+  /* v2: her udløser en Edge Function en mail til den anden part */
+}
+const unread = rolle => { const last=state.lastRead[rolle]||0;
+  return state.log.filter(e=>e.type==='message'&&e.side!==rolle&&e.ts>last).length; };
+
+/* =========================================================
+   4. BEREGNINGER
+   ========================================================= */
+const kr = n => n.toLocaleString('da-DK')+' kr.';
+function dageTil(iso){ return Math.ceil((new Date(iso+'T00:00:00')-new Date())/DAG); }
+function datoKort(iso){ return new Date(iso+'T00:00:00').toLocaleDateString('da-DK',{day:'numeric',month:'short'}); }
+
+function antal(){
+  const g=state.gaester, t=k=>({
+    voksne:g.filter(x=>x[k]&&x.kat==='voksen').length,
+    boern: g.filter(x=>x[k]&&x.kat==='barn').length,
+    babyer:g.filter(x=>x[k]&&x.kat==='baby').length });
+  const r=t('reception'), m=t('middag');
+  r.total=r.voksne+r.boern+r.babyer; m.total=m.voksne+m.boern+m.babyer;
+  return {reception:r, middag:m};
+}
+function prisLinjer(){
+  const a=antal();
+  return PRISER.map(p=>{
+    if(p.grundlag==='fast') return {...p,stk:1,belob:p.sats,grundlagTxt:'fast beløb'};
+    const b=a[p.grundlag];
+    const v=b.voksne*p.sats, bo=p.boernHalv?b.boern*(p.sats/2):b.boern*p.sats;
+    return {...p,stk:b.voksne+b.boern,belob:v+bo,
+      grundlagTxt:b.voksne+' voksne'+(b.boern?' + '+b.boern+' børn til halv pris':'')+' · babyer gratis'};
+  });
+}
+const total = () => prisLinjer().reduce((s,l)=>s+l.belob,0);
+const aabnePunkter = () => state.punkter.filter(p=>p.status!=='aftalt');
+
+/* mutation-wrapper: logger + fanger antalsændring */
+function guestMutation(apply, staffLabel){
+  const b=antal(); apply(); const a=antal();
+  pushLog({area:'gaester', label:staffLabel});
+  if(a.middag.total!==b.middag.total)
+    pushLog({area:'gaester',label:'Deltagerantal (middag)',from:b.middag.total,to:a.middag.total,cust:true,friendly:'Deltagerantal til middag opdateret til '+a.middag.total});
+  else if(a.reception.total!==b.reception.total)
+    pushLog({area:'gaester',label:'Deltagerantal (reception)',from:b.reception.total,to:a.reception.total,cust:true,friendly:'Deltagerantal til reception opdateret til '+a.reception.total});
+  save(); render();
+}
+
+/* =========================================================
+   5. VISNING
+   ========================================================= */
+const esc = s => String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+const TABS = {
+  kilden:[['oversigt','Oversigt'],['gaester','Gæster'],['punkter','Aftalepunkter'],['koekken','Køkkenseddel'],['log','Log'],['beskeder','Beskeder']],
+  kunde: [['oversigt','Oversigt'],['gaester','Gæster'],['punkter','Aftalepunkter'],['tidslinje','Tidslinje'],['beskeder','Beskeder']]
+};
+
+function renderTabs(){
+  const el=document.getElementById('tabs'), n=unread(state.rolle);
+  el.innerHTML = TABS[state.rolle].map(([id,label])=>
+    `<button role="tab" data-tab="${id}" aria-selected="${state.tab===id}">${label}${id==='beskeder'&&n?`<span class="tabbadge">${n}</span>`:''}</button>`).join('');
+  el.querySelectorAll('button').forEach(b=>b.onclick=()=>{state.tab=b.dataset.tab;state.soeg='';render();});
+}
+
+const PHLABEL = {reception:'reception', middag:'middag', fest:'fest'};
+function roomsLine(){
+  const src = MODE==='cloud'
+    ? {reception:(state.phaseRooms.reception||{}).name, middag:(state.phaseRooms.middag||{}).name, fest:(state.phaseRooms.fest||{}).name}
+    : (EVENT.rooms||{});
+  const byRoom={};
+  ['reception','middag','fest'].forEach(ph=>{ const rm=src[ph]; if(rm){ (byRoom[rm]=byRoom[rm]||[]).push(PHLABEL[ph]); } });
+  return Object.entries(byRoom).map(([rm,phs])=>esc(rm)+' ('+phs.join(' & ')+')').join(' · ');
+}
+
+function heroChips(){
+  const d=dageTil(EVENT.dato), aabne=aabnePunkter();
+  const jer=aabne.filter(p=>p.ejer==='jer').length, kilden=aabne.filter(p=>p.ejer==='kilden').length;
+  const datoTxt = MODE==='cloud'
+    ? new Date(EVENT.dato+'T00:00:00').toLocaleDateString('da-DK',{weekday:'long',day:'numeric',month:'long',year:'numeric'})
+    : 'Fredag 4. september 2026';
+  document.getElementById('heroChips').innerHTML=`
+    <span class="chip blue"><span class="dot"></span>${datoTxt}</span>
+    <span class="chip"><span class="dot"></span><b class="num">${d}</b>&nbsp;dage til</span>
+    <span class="chip ${jer?'warn':'ok'}"><span class="dot"></span>${jer?jer+' punkter afventer jer':'Intet afventer jer'}</span>
+    ${kilden&&state.rolle==='kilden'?`<span class="chip warn"><span class="dot"></span>${kilden} afventer Kilden</span>`:''}`;
+}
+
+function viewOversigt(){
+  const a=antal(), linjer=prisLinjer(), t=total(), diff=t-EVENT.tilbud;
+  const aabne=aabnePunkter().sort((x,y)=>x.frist.localeCompare(y.frist));
+  const koordKort = (MODE==='cloud' && state.rolle==='kilden') ? `
+  <section class="card">
+    <header><h2>Medarbejdere på arrangementet</h2><span class="note">${(state.eventStaff||[]).length} tilkoblet</span></header>
+    ${(state.eventStaff||[]).map(s=>`<div class="stat"><span>${esc(s.name)}${s.role==='admin'?' · admin':''}</span></div>`).join('')}
+    <div class="row" style="margin-top:12px">
+      <select id="coordSel" class="search">
+        <option value="">Tilføj sekundær koordinator…</option>
+        ${(state.roster||[]).filter(r=>!(state.eventStaff||[]).find(s=>s.id===r.id)).map(r=>`<option value="${r.id}">${esc(r.name)}</option>`).join('')}
+      </select>
+      <button class="btn" id="coordAdd">Tilføj</button>
+    </div>
+  </section>` : '';
+  const lokaleKort = (MODE==='cloud' && state.rolle==='kilden') ? `
+  <section class="card">
+    <header><h2>Lokaler pr. fase</h2><span class="note">${esc(state.venueName||'')}</span></header>
+    ${PHASES.map(([ph,lbl])=>`<div class="stat"><span>${lbl}</span>
+      <select class="status" data-phase="${ph}">
+        <option value="">— ikke valgt —</option>
+        ${(state.venueRooms||[]).map(r=>`<option value="${r.id}" ${state.phaseRooms[ph]&&state.phaseRooms[ph].id===r.id?'selected':''}>${esc(r.name)}</option>`).join('')}
+      </select></div>`).join('')}
+  </section>` : '';
+  return `
+  ${koordKort}
+  ${lokaleKort}
+  <div class="grid2">
+    <section class="card">
+      <header><h2>Gæster</h2><span class="note">udledt af gæstelisten</span></header>
+      <div class="stat"><span>Reception</span><b class="num">${a.reception.total}</b></div>
+      <div class="stat"><span class="note">&nbsp;&nbsp;voksne / børn / babyer</span><b class="num note">${a.reception.voksne} / ${a.reception.boern} / ${a.reception.babyer}</b></div>
+      <div class="stat"><span>Middag</span><b class="num">${a.middag.total}</b></div>
+      <div class="stat"><span class="note">&nbsp;&nbsp;voksne / børn / babyer</span><b class="num note">${a.middag.voksne} / ${a.middag.boern} / ${a.middag.babyer}</b></div>
+      <div class="stat"><span>Særlig kost</span><b class="num">${state.gaester.filter(g=>g.kost.trim()).length}</b></div>
+    </section>
+    <section class="card">
+      <header><h2>Pris</h2><span class="note">inkl. moms</span></header>
+      ${linjer.map(l=>`<div class="stat"><span>${l.navn}<br><span class="note">${l.grundlagTxt}</span></span><b class="num">${kr(l.belob)}</b></div>`).join('')}
+      <div class="stat" style="border-top:1px solid var(--line);margin-top:6px;padding-top:12px"><span style="font-weight:700">I alt</span><b class="big">${kr(t)}</b></div>
+      <div class="recon ${diff!==0?'off':''}">
+        <div class="t">${diff===0?'Stemmer med Kildens tilbud':'Afviger '+kr(Math.abs(diff))+(diff>0?' over':' under')+' tilbuddet'}</div>
+        <div class="d">Tilbud af 4. september: ${kr(EVENT.tilbud)}. Tallet genberegnes, hver gang gæstelisten ændres.</div>
+      </div>
+    </section>
+  </div>
+  <section class="card">
+    <header><h2>Udestående</h2><span class="note">sorteret efter frist</span></header>
+    ${aabne.length?aabne.map(p=>{const d=dageTil(p.frist);return `<div class="item">
+      <span class="stripe ${p.ejer}"></span>
+      <div><div class="name">${esc(p.titel)}</div><div class="meta">${p.ejer==='jer'?'Jer':'Kilden'} · frist ${datoKort(p.frist)} <span class="due ${d<0?'past':''}">${d<0?Math.abs(d)+' dage over':'om '+d+' dage'}</span></div></div>
+      <span class="chip ${p.status==='mangler'?'warn':''}"><span class="dot"></span>${p.status}</span></div>`;}).join(''):'<div class="empty">Alt er aftalt. Intet udestående.</div>'}
+  </section>
+  <section class="card">
+    <header><h2>Program</h2><span class="note">14:00–03:00</span></header>
+    ${PROGRAM.map(([t,x])=>`<div class="stat"><span class="num" style="font-weight:600;width:56px;display:inline-block">${t}</span><span style="flex:1;text-align:left;margin-left:12px">${x}</span></div>`).join('')}
+  </section>`;
+}
+
+function viewGaester(){
+  const q=state.soeg.toLowerCase();
+  const rows=state.gaester.filter(g=>!q||g.navn.toLowerCase().includes(q)||g.kost.toLowerCase().includes(q));
+  return `
+  <section class="card">
+    <header><h2>Gæsteliste</h2><span class="note">${state.gaester.length} personer · driver antal, kost og pris</span></header>
+    <div class="row noprint" style="margin-bottom:12px">
+      <input class="search" id="soeg" placeholder="Søg navn eller kost" value="${esc(state.soeg)}">
+      <button class="btn primary" id="tilfoej">Tilføj gæst</button>
+      <button class="btn" id="eksport">Eksportér JSON</button>
+    </div>
+    <div class="scroll"><table class="tbl">
+      <thead><tr><th>Navn</th><th>Kategori</th><th class="c">Reception</th><th class="c">Middag</th><th>Særlig kost</th><th></th></tr></thead>
+      <tbody>${rows.map(g=>`<tr data-id="${g.id}">
+        <td><input type="text" data-f="navn" value="${esc(g.navn)}"></td>
+        <td><select data-f="kat">${['voksen','barn','baby'].map(k=>`<option value="${k}" ${g.kat===k?'selected':''}>${k}</option>`).join('')}</select></td>
+        <td class="c"><input type="checkbox" data-f="reception" ${g.reception?'checked':''}></td>
+        <td class="c"><input type="checkbox" data-f="middag" ${g.middag?'checked':''}></td>
+        <td><input type="text" data-f="kost" value="${esc(g.kost)}" placeholder="—"></td>
+        <td class="c"><button class="del" data-slet="${g.id}" title="Slet">×</button></td>
+      </tr>`).join('')}</tbody>
+    </table></div>
+    ${rows.length?'':'<div class="empty">Ingen gæster matcher søgningen.</div>'}
+  </section>`;
+}
+
+function viewPunkter(){
+  return [['jer','Jeres ansvar'],['kilden','Kildens ansvar']].map(([ejer,titel])=>`
+  <section class="card">
+    <header><h2>${titel}</h2><span class="note">${state.punkter.filter(p=>p.ejer===ejer&&p.status!=='aftalt').length} udestående</span></header>
+    ${state.punkter.filter(p=>p.ejer===ejer).sort((a,b)=>a.frist.localeCompare(b.frist)).map(p=>{const d=dageTil(p.frist);return `<div class="item" data-pid="${p.id}">
+      <span class="stripe ${p.ejer}"></span>
+      <div><div class="name">${esc(p.titel)}</div><div class="meta">Frist ${datoKort(p.frist)} · <span class="due ${d<0?'past':''}">${d<0?Math.abs(d)+' dage over':'om '+d+' dage'}</span>${p.note?' · '+esc(p.note):''}</div></div>
+      <select class="status" data-status>${['mangler','udkast','aftalt'].map(s=>`<option value="${s}" ${p.status===s?'selected':''}>${s}</option>`).join('')}</select></div>`;}).join('')}
+  </section>`).join('');
+}
+
+function viewKoekken(){
+  const a=antal(), kost=state.gaester.filter(g=>g.kost.trim()), samlet={};
+  kost.forEach(g=>{(samlet[g.kost.trim()]=samlet[g.kost.trim()]||[]).push(g.navn);});
+  return `
+  <section class="card">
+    <header><h2>Køkkenseddel</h2><button class="btn noprint" id="print">Print</button></header>
+    <div class="stat"><span>Kuverter til middag</span><b class="num">${a.middag.voksne+a.middag.boern}</b></div>
+    <div class="stat"><span>Heraf børnekuverter</span><b class="num">${a.middag.boern}</b></div>
+    <div class="stat"><span>Babyer til middag (uden kuvert)</span><b class="num">${a.middag.babyer}</b></div>
+    <div class="stat"><span>Snacks til reception</span><b class="num">${a.reception.total}</b></div>
+    <div class="stat"><span>Natmad</span><b class="num">${a.middag.voksne+a.middag.boern}</b></div>
+    <div class="stat"><span>Ekstra hovedret</span><b class="num">1 (fotograf, anden ret)</b></div>
+  </section>
+  <section class="card">
+    <header><h2>Særlig kost</h2><span class="note">${kost.length} kuverter</span></header>
+    ${Object.keys(samlet).length?Object.entries(samlet).map(([k,n])=>`<div class="stat"><span><b>${esc(k)}</b><br><span class="note">${n.map(esc).join(', ')}</span></span><b class="num">${n.length}</b></div>`).join(''):'<div class="empty">Ingen registreret endnu.</div>'}
+  </section>
+  <section class="card">
+    <header><h2>Menu</h2><span class="note">3 retter + natmad</span></header>
+    ${Object.entries(MENU).map(([k,v])=>`<div style="padding:9px 0;border-bottom:1px dotted var(--line)"><div class="name">${k}</div><div class="note">${v}</div></div>`).join('')}
+  </section>`;
+}
+
+function tid(ts){ return new Date(ts).toLocaleString('da-DK',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}); }
+const AREA_TXT = {gaester:'Gæster',punkter:'Punkter',pris:'Pris',system:'System'};
+
+function viewLog(){
+  const whoList=[...new Set(state.log.map(e=>e.who))];
+  let rows=state.log.filter(e=>
+    (state.logType==='alle'||(state.logType==='aendringer'&&e.type==='change')||(state.logType==='opslag'&&e.type==='view')||(state.logType==='beskeder'&&e.type==='message')) &&
+    (state.logWho==='alle'||e.who===state.logWho) &&
+    (state.logArea==='alle'||e.area===state.logArea));
+  return `
+  <section class="card">
+    <header><h2>Aktivitetslog</h2><span class="note">${rows.length} af ${state.log.length} hændelser</span></header>
+    <div class="logfilters noprint">
+      <select id="fType"><option value="alle">Alle typer</option><option value="aendringer" ${state.logType==='aendringer'?'selected':''}>Kun ændringer</option><option value="opslag" ${state.logType==='opslag'?'selected':''}>Kun opslag</option><option value="beskeder" ${state.logType==='beskeder'?'selected':''}>Kun beskeder</option></select>
+      <select id="fWho"><option value="alle">Alle personer</option>${whoList.map(w=>`<option value="${esc(w)}" ${state.logWho===w?'selected':''}>${esc(w)}</option>`).join('')}</select>
+      <select id="fArea"><option value="alle">Alle områder</option>${Object.entries(AREA_TXT).map(([k,v])=>`<option value="${k}" ${state.logArea===k?'selected':''}>${v}</option>`).join('')}</select>
+    </div>
+    ${rows.length?rows.map(e=>`<div class="logrow ${e.type==='view'?'viewrow':''}">
+      <span class="when">${tid(e.ts)}</span>
+      <span class="who"><span class="dot ${e.side}"></span>${esc(e.who.split(' (')[0])}</span>
+      <span class="what">${
+        e.type==='view' ? '<span class="view">kiggede ind</span>' :
+        e.type==='message' ? `<span class="tag">Besked</span><span class="msgq">”${esc(e.text||'')}”</span>` :
+        `<span class="tag">${AREA_TXT[e.area]}</span>${esc(e.label)}${(e.from||e.to)?` <span class="delta">${e.from?esc(e.from):'—'}<span class="arrow">→</span>${esc(e.to)}</span>`:''}`}</span>
+    </div>`).join(''):'<div class="empty">Ingen hændelser matcher filteret.</div>'}
+  </section>`;
+}
+
+function viewTidslinje(){
+  const evs=state.log.filter(e=>e.type==='change'&&e.cust).sort((a,b)=>b.ts-a.ts);
+  const grupper={};
+  evs.forEach(e=>{const d=new Date(e.ts).toLocaleDateString('da-DK',{day:'numeric',month:'long',year:'numeric'});(grupper[d]=grupper[d]||[]).push(e);});
+  return `
+  <section class="card">
+    <header><h2>Ændringer i jeres aftale</h2><span class="note">nyeste øverst</span></header>
+    ${evs.length?`<div class="tl">${Object.entries(grupper).map(([dag,liste])=>`
+      <div class="tlday">${dag}</div>
+      ${liste.map(e=>`<div class="tlitem ${e.side}">
+        <div class="txt">${esc(e.friendly)}</div>
+        <div class="by">${e.side==='kunde'?'af jer':'af Kilden'} · ${new Date(e.ts).toLocaleTimeString('da-DK',{hour:'2-digit',minute:'2-digit'})}</div>
+      </div>`).join('')}`).join('')}</div>`
+    :'<div class="empty">Ingen ændringer endnu.</div>'}
+  </section>`;
+}
+
+function viewBeskeder(){
+  const msgs=state.log.filter(e=>e.type==='message').sort((a,b)=>b.ts-a.ts);
+  const modpart = state.rolle==='kilden' ? 'brudeparret' : 'Kilden';
+  return `
+  <section class="card">
+    <header><h2>Beskeder</h2><span class="note">${msgs.length} i tråden</span></header>
+    <div class="compose">
+      <textarea id="msgtext" placeholder="Skriv en besked til ${modpart}…"></textarea>
+      <div class="crow">
+        <span class="hint">Sendes som mail til ${modpart}. Ikke en live-chat — svar kommer i åbningstiden.</span>
+        <button class="btn primary" id="sendmsg">Send besked</button>
+      </div>
+    </div>
+    ${msgs.length?msgs.map(m=>`<div class="msg ${m.side}">
+      <div class="mhead"><span class="mwho">${esc(m.who)}</span><span class="mtime">${tid(m.ts)}</span></div>
+      <div class="mtext">${esc(m.text||'')}</div>
+    </div>`).join(''):'<div class="empty">Ingen beskeder endnu. Skriv den første ovenfor.</div>'}
+  </section>`;
+}
+
+/* =========================================================
+   6. RENDER + HÆNDELSER
+   ========================================================= */
+function render(){
+  const cloud = MODE==='cloud';
+  document.querySelector('.seg').style.display = cloud ? 'none' : '';
+  document.getElementById('logout').style.display = cloud ? '' : 'none';
+  document.getElementById('backToList').style.display = (cloud && state.rolle==='kilden' && (state.events||[]).length>1 && state.view==='workspace') ? '' : 'none';
+
+  if(cloud && state.view==='picker'){
+    document.getElementById('whoami').textContent = state.actor?('Logget ind som '+state.actor.navn):'';
+    document.getElementById('orgName').textContent = state.orgName||'';
+    document.getElementById('eventLoc').innerHTML='';
+    document.getElementById('heroTitle').textContent = 'Arrangementer';
+    document.getElementById('heroChips').innerHTML='';
+    document.getElementById('tabs').innerHTML='';
+    const v=document.getElementById('view'); v.innerHTML=viewPicker();
+    v.querySelectorAll('[data-open]').forEach(el=>el.onclick=()=>openEvent(el.dataset.open));
+    return;
+  }
+
+  if(cloud) document.getElementById('heroTitle').textContent = state.eventTitle||'Arrangement';
+  document.getElementById('orgName').textContent = cloud ? (state.orgName||'') : EVENT.org;
+  const locName = cloud ? (state.venueName||'') : EVENT.sted;
+  const rl = roomsLine();
+  document.getElementById('eventLoc').innerHTML = locName
+    ? '<span class="loc">'+esc(locName)+'</span>'+(rl?' · '+rl:'') : '';
+  if(state.tab==='beskeder'){ state.lastRead[state.rolle]=Date.now(); if(MODE==='local') save(); }
+  document.getElementById('whoami').textContent='Logget ind som '+currentActor().navn;
+  heroChips(); renderTabs();
+  const map={oversigt:viewOversigt,gaester:viewGaester,punkter:viewPunkter,koekken:viewKoekken,log:viewLog,tidslinje:viewTidslinje,beskeder:viewBeskeder};
+  if(!map[state.tab]) state.tab='oversigt';
+  document.getElementById('view').innerHTML=map[state.tab]();
+  document.getElementById('legal').textContent = state.rolle==='kilden'
+    ? 'Medarbejdervisning. Fuld log med opslag og ændringer. Data ligger lokalt indtil Supabase kobles på.'
+    : 'Brudeparrets visning via magic link. Tidslinjen viser kun ændringer — ikke hvem der har kigget hvornår.';
+  bind();
+}
+
+function bind(){
+  const soeg=document.getElementById('soeg');
+  if(soeg) soeg.oninput=e=>{state.soeg=e.target.value;const p=e.target.selectionStart;render();const n=document.getElementById('soeg');n.focus();n.setSelectionRange(p,p);};
+
+  const add=document.getElementById('tilfoej');
+  if(add) add.onclick=()=>guestMutation(()=>state.gaester.push({id:'n'+Date.now(),navn:'Ny gæst',kat:'voksen',reception:true,middag:true,kost:''}),'Gæst tilføjet');
+
+  const eks=document.getElementById('eksport');
+  if(eks) eks.onclick=()=>{const blob=new Blob([JSON.stringify({event:EVENT,gaester:state.gaester,punkter:state.punkter,log:state.log},null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='bryllup-2026-09-04.json';a.click();};
+
+  const pr=document.getElementById('print'); if(pr) pr.onclick=()=>window.print();
+
+  document.querySelectorAll('.tbl tbody tr').forEach(tr=>{
+    const g=state.gaester.find(x=>x.id===tr.dataset.id);
+    tr.querySelectorAll('[data-f]').forEach(el=>{
+      const f=el.dataset.f;
+      if(el.type==='checkbox') el.onchange=()=>guestMutation(()=>g[f]=el.checked, (f==='middag'?'Middag':'Reception')+(el.checked?' tilføjet':' fjernet')+' · '+g.navn);
+      else if(el.tagName==='SELECT') el.onchange=()=>guestMutation(()=>g[f]=el.value, 'Kategori ændret · '+g.navn);
+      else { const before=g[f]; el.oninput=()=>g[f]=el.value;
+        el.onblur=()=>{ if(g[f]!==before){
+          if(f==='kost') pushLog({area:'gaester',label:'Særlig kost · '+g.navn,from:before||'—',to:g[f]||'—',cust:true,friendly:'Særlig kost opdateret for '+(g.navn||'en gæst')+(g[f]?' ('+g[f]+')':'')});
+          else pushLog({area:'gaester',label:'Navn ændret',from:before||'—',to:g[f]||'—'});
+          save(); render();
+        }};
+      }
+    });
+    const del=tr.querySelector('[data-slet]');
+    if(del) del.onclick=()=>guestMutation(()=>state.gaester=state.gaester.filter(x=>x.id!==g.id),'Gæst fjernet · '+g.navn);
+  });
+
+  document.querySelectorAll('[data-pid]').forEach(el=>{
+    const p=state.punkter.find(x=>x.id===el.dataset.pid);
+    const sel=el.querySelector('[data-status]');
+    if(sel) sel.onchange=()=>{const from=p.status;p.status=sel.value;
+      pushLog({area:'punkter',label:p.titel,from,to:p.status,cust:true,friendly:p.titel+' er nu '+p.status});
+      save();render();};
+  });
+
+  const fT=document.getElementById('fType'); if(fT) fT.onchange=()=>{state.logType=fT.value;render();};
+  const fW=document.getElementById('fWho');  if(fW) fW.onchange=()=>{state.logWho=fW.value;render();};
+  const fA=document.getElementById('fArea'); if(fA) fA.onchange=()=>{state.logArea=fA.value;render();};
+
+  const sm=document.getElementById('sendmsg');
+  if(sm) sm.onclick=()=>{const ta=document.getElementById('msgtext');const t=ta.value.trim();if(!t)return;pushMessage(t);render();};
+
+  const ca=document.getElementById('coordAdd');
+  if(ca) ca.onclick=()=>{const sel=document.getElementById('coordSel');if(sel.value)addCoordinator(sel.value);};
+
+  document.querySelectorAll('[data-phase]').forEach(sel=>{ sel.onchange=()=>setPhaseRoom(sel.dataset.phase, sel.value); });
+}
+
+document.querySelectorAll('.seg button').forEach(b=>{
+  b.onclick=()=>{
+    state.rolle=b.dataset.role; state.tab='oversigt'; state.soeg='';
+    document.querySelectorAll('.seg button').forEach(x=>x.setAttribute('aria-pressed',x.dataset.role===state.rolle));
+    logView(); render();
+  };
+});
+
+/* =========================================================
+   7. CLOUD-LAG (aktivt når SUPA er udfyldt)
+   ========================================================= */
+const gFromDb = r => ({id:r.id, navn:r.name, kat:r.category, reception:r.reception, middag:r.dinner, kost:r.dietary||''});
+const gToDb   = (g,i) => ({id:g.id, event_id:state.eventId, name:g.navn, category:g.kat, reception:g.reception, dinner:g.middag, dietary:g.kost, sort_order:i});
+const pFromDb = r => ({id:r.id, titel:r.title, ejer:r.owner, status:r.status, frist:r.due_date||'', note:r.note||''});
+const pToDb   = (p,i) => ({id:p.id, event_id:state.eventId, title:p.titel, owner:p.ejer, status:p.status, due_date:p.frist||null, note:p.note||'', sort_order:i});
+const logFromDb = r => ({id:r.id, ts:new Date(r.ts).getTime(), side:r.actor_side, who:r.actor_name, type:r.entry_type, area:r.area, label:r.label, from:r.from_val, to:r.to_val, cust:r.customer_visible, friendly:r.friendly, text:r.message_text});
+const logToDb   = e => ({event_id:state.eventId, ts:new Date(e.ts).toISOString(), actor_name:e.who, actor_side:e.side, entry_type:e.type, area:e.area, label:e.label||'', from_val:e.from||'', to_val:e.to||'', customer_visible:!!e.cust, friendly:e.friendly||'', message_text:e.text||''});
+
+async function cloudSaveGuestsAgenda(){
+  try{
+    await sb.from('guests').upsert(state.gaester.map(gToDb));
+    const goneG=[...state._dbG].filter(id=>!state.gaester.find(g=>g.id===id));
+    if(goneG.length) await sb.from('guests').delete().in('id',goneG);
+    state._dbG=new Set(state.gaester.map(g=>g.id));
+    await sb.from('agenda_items').upsert(state.punkter.map(pToDb));
+    state._dbP=new Set(state.punkter.map(p=>p.id));
+  }catch(e){ console.error('cloud save', e); }
+}
+
+async function cloudBoot(user){
+  state.userEmail=user.email;
+  const {data:st}=await sb.from('staff').select('*').eq('id',user.id).maybeSingle();
+  if(st){
+    state.rolle='kilden'; state.actor={navn:st.name, side:'kilden'}; state.isAdmin=(st.role==='admin'); state.orgId=st.org_id;
+    const {data:orgRow}=await sb.from('organisations').select('name').eq('id',st.org_id).maybeSingle();
+    state.orgName=orgRow?orgRow.name:'';
+    const {data:evs}=await sb.from('events').select('id,title,event_date,status,offer_total_kr,venues(name)').order('event_date',{ascending:false});
+    state.events=evs||[];
+    if(state.events.length===1) openEvent(state.events[0].id); else showPicker();
+    return;
+  }
+  const {data:acc}=await sb.from('event_access').select('event_id,display_name').eq('user_id',user.id);
+  if(acc&&acc.length){ state.rolle='kunde'; state.actor={navn:acc[0].display_name, side:'kunde'}; openEvent(acc[0].event_id); return; }
+  showNoAccess();
+}
+
+async function openEvent(id){
+  state.eventId=id;
+  const [{data:ev},{data:gs},{data:ps},{data:lg}]=await Promise.all([
+    sb.from('events').select('*,venues(name),organisations(name)').eq('id',id).maybeSingle(),
+    sb.from('guests').select('*').eq('event_id',id).order('sort_order'),
+    sb.from('agenda_items').select('*').eq('event_id',id).order('sort_order'),
+    sb.from('activity_log').select('*').eq('event_id',id).order('ts',{ascending:false})
+  ]);
+  if(ev){ EVENT.tilbud=ev.offer_total_kr; EVENT.dato=ev.event_date; state.eventTitle=ev.title; state.venueName=ev.venues?ev.venues.name:''; state.venueId=ev.venue_id; state.orgName=ev.organisations?ev.organisations.name:(state.orgName||''); }
+  state.gaester=(gs||[]).map(gFromDb);
+  state.punkter=(ps||[]).map(pFromDb);
+  state.log=(lg||[]).map(logFromDb);
+  state._dbG=new Set(state.gaester.map(g=>g.id));
+  state._dbP=new Set(state.punkter.map(p=>p.id));
+  await loadRooms(id);
+  if(state.rolle==='kilden'){ await loadEventStaff(); logCloudView(); }
+  state.view='workspace'; state.tab='oversigt';
+  showApp(); render();
+}
+
+async function loadEventStaff(){
+  const {data:es}=await sb.from('event_staff').select('staff_id, staff(name,role)').eq('event_id',state.eventId);
+  state.eventStaff=(es||[]).map(r=>({id:r.staff_id, name:r.staff?r.staff.name:'?', role:r.staff?r.staff.role:''}));
+  const {data:roster}=await sb.from('staff').select('id,name').eq('org_id',state.orgId);
+  state.roster=roster||[];
+}
+async function loadRooms(id){
+  const {data:er}=await sb.from('event_rooms').select('phase, room_id, rooms(name)').eq('event_id',id);
+  state.phaseRooms={}; (er||[]).forEach(r=>{ state.phaseRooms[r.phase]={id:r.room_id, name:r.rooms?r.rooms.name:''}; });
+  if(state.rolle==='kilden' && state.venueId){
+    const {data:vr}=await sb.from('rooms').select('id,name').eq('venue_id',state.venueId).order('sort_order');
+    state.venueRooms=vr||[];
+  }
+}
+async function setPhaseRoom(phase, roomId){
+  if(roomId) await sb.from('event_rooms').upsert({event_id:state.eventId, phase, room_id:roomId});
+  else await sb.from('event_rooms').delete().eq('event_id',state.eventId).eq('phase',phase);
+  const nm=(state.venueRooms.find(r=>r.id===roomId)||{}).name||'—';
+  pushLog({area:'system', label:'Lokale · '+phase, from:'', to:nm, cust:false});
+  await loadRooms(state.eventId); render();
+}
+async function addCoordinator(sid){
+  const {error}=await sb.from('event_staff').insert({event_id:state.eventId, staff_id:sid});
+  if(error){ alert('Kunne ikke tildele: '+error.message); return; }
+  const nm=(state.roster.find(r=>r.id===sid)||{}).name||'medarbejder';
+  pushLog({area:'system', label:'Medarbejder tildelt', from:'', to:nm, cust:false});
+  await loadEventStaff(); render();
+}
+function logCloudView(){
+  const a=currentActor();
+  sb.from('activity_log').insert(logToDb({ts:Date.now(), who:a.navn, side:a.side, type:'view', area:'system', label:'Åbnede arrangementet', from:'', to:'', cust:false, friendly:'', text:''}))
+    .then(({error})=>error&&console.error('view',error));
+}
+
+/* skærmstyring */
+function showGate(msg){ const g=document.getElementById('gate'); g.style.display='flex'; document.querySelector('.wrap').style.visibility='hidden'; if(msg) document.getElementById('gateMsg').textContent=msg; }
+function showApp(){ document.getElementById('gate').style.display='none'; document.querySelector('.wrap').style.visibility='visible'; }
+function showNoAccess(){ showGate('Du er logget ind som '+state.userEmail+', men har endnu ikke adgang til et arrangement. Bed admin om at koble dig på.'); }
+function showPicker(){ state.view='picker'; showApp(); render(); }
+
+function viewPicker(){
+  const grp={kommende:[],kladde:[],afviklet:[]};
+  const today=new Date().toISOString().slice(0,10);
+  state.events.forEach(e=>{ const k = e.status==='kladde'?'kladde' : (e.event_date>=today?'kommende':'afviklet'); grp[k].push(e); });
+  const sec=(titel,liste)=>liste.length?`<section class="card"><header><h2>${titel}</h2><span class="note">${liste.length}</span></header>
+    ${liste.map(e=>`<div class="item" data-open="${e.id}" style="cursor:pointer">
+      <span class="stripe ${e.event_date>=today||e.status==='kladde'?'jer':''}"></span>
+      <div><div class="name">${esc(e.title)}</div><div class="meta">${e.venues?esc(e.venues.name):''} · ${datoKort(e.event_date)} · ${e.status}</div></div>
+      <span class="chip"><span class="dot"></span>${e.offer_total_kr?kr(e.offer_total_kr):'—'}</span></div>`).join('')}</section>`:'';
+  return `<div style="margin:20px 0 10px"><span class="eyebrow">${state.isAdmin?'Admin · alle arrangementer':'Dine arrangementer'}</span></div>
+    ${sec('Kommende',grp.kommende)}${sec('Kladder',grp.kladde)}${sec('Afviklede',grp.afviklet)}
+    ${state.events.length?'':'<div class="empty">Ingen arrangementer endnu.</div>'}`;
+}
+
+(async function init(){
+  if(MODE==='local'){
+    const saved=await store.load();
+    if(saved&&saved.gaester){ state.gaester=saved.gaester; state.punkter=saved.punkter||state.punkter; state.log=saved.log||state.log; state.lastRead=saved.lastRead||state.lastRead; }
+    logView(); render();
+    return;
+  }
+  // CLOUD
+  document.getElementById('gateSend').onclick=async()=>{
+    const email=document.getElementById('gateEmail').value.trim(); if(!email) return;
+    const {error}=await sb.auth.signInWithOtp({email, options:{emailRedirectTo:location.href.split('#')[0]}});
+    document.getElementById('gateMsg').textContent = error ? ('Fejl: '+error.message) : ('Tjek din indbakke — vi har sendt et login-link til '+email+'.');
+  };
+  document.getElementById('logout').onclick=async()=>{ await sb.auth.signOut(); location.reload(); };
+  document.getElementById('backToList').onclick=()=>{ showPicker(); };
+  const {data:{session}}=await sb.auth.getSession();
+  if(session) cloudBoot(session.user); else showGate();
+  sb.auth.onAuthStateChange((_e,s)=>{ if(s&&!state.eventId&&state.view!=='picker') cloudBoot(s.user); });
+})();
+</script>
+</body>
+</html>
