@@ -93,9 +93,12 @@ select.status:focus-visible,input:focus-visible,button:focus-visible{outline:2px
 .tbl .del:hover{color:var(--amber)}
 .scroll{overflow-x:auto}
 
-.btn{border:1px solid var(--line);background:#fff;border-radius:var(--radius);padding:7px 13px;font-size:13px;font-weight:600;cursor:pointer}
+.btn{border:1px solid var(--line);background:#fff;border-radius:var(--radius);padding:7px 13px;font-size:13px;font-weight:600;cursor:pointer;transition:transform .1s ease,filter .15s ease,border-color .15s ease}
 .btn:hover{border-color:var(--ink)}
+.btn:active{transform:scale(.95)}
+.btn:disabled{opacity:.55;cursor:default;pointer-events:none}
 .btn.primary{background:var(--blue);border-color:var(--blue);color:#fff}
+.btn.primary:hover{filter:brightness(1.1)}
 .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 .search{border:1px solid var(--line);border-radius:var(--radius);padding:7px 10px;font-size:14px;background:#fff;min-width:180px}
 .empty{color:var(--ink-60);font-size:14px;padding:14px 0}
@@ -824,10 +827,13 @@ function viewPicker(){
     return;
   }
   // CLOUD
-  document.getElementById('gateSend').onclick=async()=>{
+  document.getElementById('gateSend').onclick=async(ev)=>{
     const email=document.getElementById('gateEmail').value.trim(); if(!email) return;
+    const btn=ev.currentTarget, orig=btn.textContent;
+    btn.disabled=true; btn.textContent='Sender…';
     const {error}=await sb.auth.signInWithOtp({email, options:{emailRedirectTo:location.href.split('#')[0]}});
     document.getElementById('gateMsg').textContent = error ? ('Fejl: '+error.message) : ('Tjek din indbakke — vi har sendt et login-link til '+email+'.');
+    btn.disabled=false; btn.textContent=orig;
   };
   document.getElementById('logout').onclick=async()=>{ await sb.auth.signOut(); location.reload(); };
   document.getElementById('backToList').onclick=()=>{ showPicker(); };
