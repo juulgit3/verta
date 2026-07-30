@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Madkastellet · Admin</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Familjen+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--ink:#12151B;--ink-60:rgba(18,21,27,.60);--ink-40:rgba(18,21,27,.40);
+--line:rgba(18,21,27,.14);--paper:#EAEDE6;--card:#FBFBF9;--blue:#1435D6;--amber:#A8681C;--moss:#3E6B4C;--radius:3px}
+*{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink);font-family:'Familjen Grotesk',system-ui,sans-serif;font-size:16px;line-height:1.45}
+.wrap{max-width:960px;margin:0 auto;padding:24px 18px 80px}
+.mark{font-family:'Instrument Serif',serif;font-style:italic;font-size:26px;color:var(--blue)}
+.eyebrow{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-40);font-weight:600}
+.topline{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.consolenav{display:flex;gap:2px}
+.consolenav a{text-decoration:none;color:var(--ink-60);font-weight:600;font-size:14px;padding:8px 12px;border-radius:99px}
+.consolenav a.on{background:var(--ink);color:#fff}
+.hero{margin:26px 0 4px}
+.hero h1{font-family:'Instrument Serif',serif;font-style:italic;font-size:clamp(38px,8vw,64px);line-height:.95;letter-spacing:-.02em;font-weight:400}
+.hero .who{margin-top:6px;color:var(--ink-60);font-size:14px}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:22px 0 10px}
+@media(max-width:640px){.stats{grid-template-columns:repeat(2,1fr)}}
+.stat{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:14px}
+.stat .k{font-size:12px;color:var(--ink-40);font-weight:600;letter-spacing:.04em}
+.stat .v{font-family:'Instrument Serif',serif;font-size:34px;line-height:1.1;font-variant-numeric:tabular-nums;margin-top:4px}
+.groups{margin-top:20px}
+.ghead{display:flex;align-items:baseline;gap:10px;margin:22px 0 8px}
+.ghead h2{font-size:14px;font-weight:700;letter-spacing:.02em}
+.ghead .c{font-size:12px;color:var(--ink-40)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden}
+.ev{display:grid;grid-template-columns:3px 1.4fr 1fr auto;gap:14px;align-items:center;padding:13px 16px;border-bottom:1px solid var(--line)}
+.ev:last-child{border-bottom:0}
+.ev .stripe{align-self:stretch;border-radius:99px;background:var(--blue)}
+.ev.past .stripe{background:var(--ink-40)} .ev.draft .stripe{background:var(--amber)}
+.ev .t{font-weight:600}
+.ev .sub{font-size:12.5px;color:var(--ink-60);margin-top:1px}
+.ev .mid{font-size:13px;color:var(--ink-60)}
+.ev .right{text-align:right}
+.ev .kr{font-variant-numeric:tabular-nums;font-weight:600;font-size:14px}
+.chip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:99px;padding:3px 10px;font-size:12px;font-weight:600;margin-top:3px}
+.chip .dot{width:6px;height:6px;border-radius:99px;background:var(--ink-40)}
+.chip.up{border-color:rgba(20,53,214,.3);color:var(--blue)} .chip.up .dot{background:var(--blue)}
+.chip.draft{border-color:rgba(168,104,28,.4);color:var(--amber)} .chip.draft .dot{background:var(--amber)}
+.chip.done{border-color:rgba(62,107,76,.35);color:var(--moss)} .chip.done .dot{background:var(--moss)}
+.note{margin-top:26px;font-size:12px;color:var(--ink-40);border-top:1px solid var(--line);padding-top:12px;line-height:1.6}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="topline">
+    <div style="display:flex;flex-direction:column;line-height:1.02">
+      <span class="mark">Verta</span>
+      <span style="font-size:12px;font-weight:600;color:var(--ink-60)">Madkastellet</span>
+    </div>
+    <nav class="consolenav">
+      <a class="on" href="#">Arrangementer</a>
+      <a href="#">Lokationer</a>
+      <a href="#">Brugere</a>
+    </nav>
+  </div>
+
+  <div class="hero">
+    <span class="eyebrow">Admin-konsol</span>
+    <h1>Alle arrangementer</h1>
+    <div class="who">Logget ind som IT-ansvarlig · 2 lokationer</div>
+  </div>
+
+  <div class="stats">
+    <div class="stat"><div class="k">Kommende</div><div class="v">2</div></div>
+    <div class="stat"><div class="k">Kladder</div><div class="v">1</div></div>
+    <div class="stat"><div class="k">Afviklet i år</div><div class="v">2</div></div>
+    <div class="stat"><div class="k">Værdi, kommende</div><div class="v">210.545</div></div>
+  </div>
+
+  <div class="groups">
+    <div class="ghead"><h2>KOMMENDE</h2><span class="c">2 arrangementer</span></div>
+    <div class="card">
+      <div class="ev">
+        <span class="stripe"></span>
+        <div><div class="t">Emily &amp; Lars</div><div class="sub">Kilden · fre 4. sep 2026 · Christina</div></div>
+        <div class="mid">77 til reception · 64 til middag</div>
+        <div class="right"><div class="kr">108.245 kr.</div><span class="chip up"><span class="dot"></span>bekræftet</span></div>
+      </div>
+      <div class="ev">
+        <span class="stripe"></span>
+        <div><div class="t">Anna &amp; Jonas</div><div class="sub">Kilden · søn 11. okt 2026 · Malene</div></div>
+        <div class="mid">70 til middag</div>
+        <div class="right"><div class="kr">102.300 kr.</div><span class="chip up"><span class="dot"></span>bekræftet</span></div>
+      </div>
+    </div>
+
+    <div class="ghead"><h2>KLADDER</h2><span class="c">1 arrangement</span></div>
+    <div class="card">
+      <div class="ev draft">
+        <span class="stripe"></span>
+        <div><div class="t">Konfirmation · Berg</div><div class="sub">Madkastellet Havnen · lør 1. nov 2026 · ikke tildelt</div></div>
+        <div class="mid">Afventer tilbud</div>
+        <div class="right"><div class="kr">—</div><span class="chip draft"><span class="dot"></span>kladde</span></div>
+      </div>
+    </div>
+
+    <div class="ghead"><h2>AFVIKLEDE</h2><span class="c">2 arrangementer</span></div>
+    <div class="card">
+      <div class="ev past">
+        <span class="stripe"></span>
+        <div><div class="t">Firmajubilæum · Nordkraft</div><div class="sub">Madkastellet Havnen · 20. jun 2026 · Malene</div></div>
+        <div class="mid">120 til reception</div>
+        <div class="right"><div class="kr">61.200 kr.</div><span class="chip done"><span class="dot"></span>afviklet</span></div>
+      </div>
+      <div class="ev past">
+        <span class="stripe"></span>
+        <div><div class="t">Sofie &amp; Mikkel</div><div class="sub">Kilden · 16. maj 2026 · Christina</div></div>
+        <div class="mid">58 til middag</div>
+        <div class="right"><div class="kr">94.500 kr.</div><span class="chip done"><span class="dot"></span>afviklet</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="note">Statisk billede. Admin ser alle lokationers arrangementer; en koordinator ser kun sine egne. Fanerne Lokationer og Brugere er admin-only.</div>
+</div>
+</body>
+</html>
