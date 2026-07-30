@@ -284,7 +284,7 @@ function seedLog(){
    Indsæt din Project URL + anon-nøgle for at køre mod Supabase.
    Lades de tomme, kører appen lokalt som før (rolleskifter).
    ========================================================= */
-const SUPA = { url:'', anon:'' };   // ← Supabase → Project Settings → API
+const SUPA = { url:'https://bksaazivbzgxzmgzhbqu.supabase.co', anon:'sb_publishable_y81wiQGZXEzwxO56U7BSFg_A2fwkaXg' };   // ← Supabase → Project Settings → API
 const MODE = SUPA.url ? 'cloud' : 'local';
 const sb = MODE==='cloud' ? window.supabase.createClient(SUPA.url, SUPA.anon) : null;
 
