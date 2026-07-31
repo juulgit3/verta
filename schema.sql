@@ -97,6 +97,8 @@ create table event_rooms (
   event_id uuid not null references events(id) on delete cascade,
   phase text not null,                 -- reception | middag | fest
   room_id uuid not null references rooms(id) on delete cascade,
+  start_time time,                     -- tidsrum for denne fase (bruges til at forhindre dobbeltbooking)
+  end_time time,                       -- hvis end_time <= start_time, regnes det som efter midnat
   primary key (event_id, phase)
 );
 
@@ -236,6 +238,51 @@ create trigger on_event_created
   after insert on events
   for each row execute function assign_event_creator();
 
+-- Forhindrer dobbeltbooking: samme lokale kan ikke bruges to steder samtidig
+-- samme dag. Samme lokale samme dag men forskudte tidsrum er ok; samme
+-- tidsrum i forskellige lokaler er ok.
+create or replace function check_room_conflict()
+returns trigger language plpgsql security definer set search_path = public as $$
+declare
+  ev_date date;
+  new_start timestamptz;
+  new_end timestamptz;
+  conflict_row record;
+begin
+  if new.start_time is null or new.end_time is null then
+    return new;   -- intet tidsrum sat endnu — kan ikke tjekkes
+  end if;
+
+  select event_date into ev_date from events where id = new.event_id;
+  new_start := ev_date + new.start_time;
+  new_end   := ev_date + new.end_time;
+  if new.end_time <= new.start_time then
+    new_end := new_end + interval '1 day';   -- fase går over midnat
+  end if;
+
+  select er.phase, e2.title into conflict_row
+  from event_rooms er
+  join events e2 on e2.id = er.event_id
+  where er.room_id = new.room_id
+    and er.start_time is not null and er.end_time is not null
+    and not (er.event_id = new.event_id and er.phase = new.phase)
+    and (e2.event_date + er.start_time) < new_end
+    and new_start < (e2.event_date + er.end_time
+        + (case when er.end_time <= er.start_time then interval '1 day' else interval '0' end))
+  limit 1;
+
+  if found then
+    raise exception 'Lokalet er allerede booket % – % (% · %)',
+      new.start_time, new.end_time, conflict_row.title, conflict_row.phase;
+  end if;
+
+  return new;
+end;
+$$;
+create trigger on_event_rooms_conflict
+  before insert or update on event_rooms
+  for each row execute function check_room_conflict();
+
 -- =====================================================================
 --  4. RLS
 -- =====================================================================
@@ -361,10 +408,10 @@ insert into events (venue_id, org_id, title, event_date, offer_total_kr, status)
   ('22222222-2222-2222-2222-222222222223','11111111-1111-1111-1111-111111111111','Konfirmation · Berg','2026-11-01',0,'kladde');
 
 -- lokale pr. fase for Emily & Lars: reception på terrassen, resten indendørs
-insert into event_rooms (event_id, phase, room_id) values
-  ('33333333-3333-3333-3333-333333333333','reception','44444444-4444-4444-4444-444444444441'),
-  ('33333333-3333-3333-3333-333333333333','middag',   '44444444-4444-4444-4444-444444444442'),
-  ('33333333-3333-3333-3333-333333333333','fest',     '44444444-4444-4444-4444-444444444442');
+insert into event_rooms (event_id, phase, room_id, start_time, end_time) values
+  ('33333333-3333-3333-3333-333333333333','reception','44444444-4444-4444-4444-444444444441','15:00','17:00'),
+  ('33333333-3333-3333-3333-333333333333','middag',   '44444444-4444-4444-4444-444444444442','18:00','21:00'),
+  ('33333333-3333-3333-3333-333333333333','fest',     '44444444-4444-4444-4444-444444444442','21:00','01:00');
 
 -- Gæster til Emily & Lars: 65 voksne (64 middag), 6 børn, 6 babyer
 insert into guests (event_id, name, category, reception, dinner, dietary, sort_order) values

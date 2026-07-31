@@ -448,11 +448,20 @@ function viewOversigt(){
   const lokaleKort = (MODE==='cloud' && state.rolle==='kilden') ? `
   <section class="card">
     <header><h2>Lokaler pr. fase</h2><span class="note">${esc(state.venueName||'')}</span></header>
-    ${PHASES.map(([ph,lbl])=>`<div class="stat"><span>${lbl}</span>
-      <select class="status" data-phase="${ph}">
-        <option value="">— ikke valgt —</option>
-        ${(state.venueRooms||[]).map(r=>`<option value="${r.id}" ${state.phaseRooms[ph]&&state.phaseRooms[ph].id===r.id?'selected':''}>${esc(r.name)}</option>`).join('')}
-      </select></div>`).join('')}
+    ${PHASES.map(([ph,lbl])=>{
+      const pr=state.phaseRooms[ph]||{}; const def=PHASE_DEFAULT_TIMES[ph];
+      return `<div class="stat" style="flex-wrap:wrap;gap:6px">
+      <span>${lbl}</span>
+      <span class="row" style="gap:6px">
+        <select class="status" data-phase-field="room" data-phase="${ph}">
+          <option value="">— ikke valgt —</option>
+          ${(state.venueRooms||[]).map(r=>`<option value="${r.id}" ${pr.id===r.id?'selected':''}>${esc(r.name)}</option>`).join('')}
+        </select>
+        <input type="time" class="search" style="width:88px" data-phase-field="start" data-phase="${ph}" value="${pr.start||def[0]}">
+        <span class="note">–</span>
+        <input type="time" class="search" style="width:88px" data-phase-field="end" data-phase="${ph}" value="${pr.end||def[1]}">
+      </span></div>`;
+    }).join('')}
   </section>` : '';
   return `
   ${lokaleKort}
@@ -702,7 +711,14 @@ function bind(){
   if(ca) ca.onclick=()=>{const sel=document.getElementById('coordSel');if(sel.value)addCoordinator(sel.value);};
   document.querySelectorAll('[data-remove-coord]').forEach(b=>{ b.onclick=()=>removeCoordinator(b.dataset.removeCoord); });
 
-  document.querySelectorAll('[data-phase]').forEach(sel=>{ sel.onchange=()=>setPhaseRoom(sel.dataset.phase, sel.value); });
+  PHASES.forEach(([ph])=>{
+    const roomEl=document.querySelector(`[data-phase-field="room"][data-phase="${ph}"]`);
+    const startEl=document.querySelector(`[data-phase-field="start"][data-phase="${ph}"]`);
+    const endEl=document.querySelector(`[data-phase-field="end"][data-phase="${ph}"]`);
+    if(!roomEl) return;
+    const fire=()=>setPhaseRoom(ph, roomEl.value, startEl.value, endEl.value);
+    roomEl.onchange=fire; startEl.onchange=fire; endEl.onchange=fire;
+  });
 }
 
 document.querySelectorAll('.seg button').forEach(b=>{
@@ -779,17 +795,22 @@ async function loadEventStaff(){
   const {data:roster}=await sb.from('staff').select('id,name').eq('org_id',state.orgId);
   state.roster=roster||[];
 }
+const PHASE_DEFAULT_TIMES = {reception:['15:00','17:00'], middag:['18:00','21:00'], fest:['21:00','01:00']};
 async function loadRooms(id){
-  const {data:er}=await sb.from('event_rooms').select('phase, room_id, rooms(name)').eq('event_id',id);
-  state.phaseRooms={}; (er||[]).forEach(r=>{ state.phaseRooms[r.phase]={id:r.room_id, name:r.rooms?r.rooms.name:''}; });
+  const {data:er}=await sb.from('event_rooms').select('phase, room_id, start_time, end_time, rooms(name)').eq('event_id',id);
+  state.phaseRooms={}; (er||[]).forEach(r=>{ state.phaseRooms[r.phase]={id:r.room_id, name:r.rooms?r.rooms.name:'', start:(r.start_time||'').slice(0,5), end:(r.end_time||'').slice(0,5)}; });
   if(state.rolle==='kilden' && state.venueId){
     const {data:vr}=await sb.from('rooms').select('id,name').eq('venue_id',state.venueId).order('sort_order');
     state.venueRooms=vr||[];
   }
 }
-async function setPhaseRoom(phase, roomId){
-  if(roomId) await sb.from('event_rooms').upsert({event_id:state.eventId, phase, room_id:roomId});
-  else await sb.from('event_rooms').delete().eq('event_id',state.eventId).eq('phase',phase);
+async function setPhaseRoom(phase, roomId, startTime, endTime){
+  if(roomId){
+    const {error}=await sb.from('event_rooms').upsert({event_id:state.eventId, phase, room_id:roomId, start_time:startTime||null, end_time:endTime||null});
+    if(error){ alert('Kunne ikke gemme lokale: '+error.message); await loadRooms(state.eventId); render(); return; }
+  } else {
+    await sb.from('event_rooms').delete().eq('event_id',state.eventId).eq('phase',phase);
+  }
   const nm=(state.venueRooms.find(r=>r.id===roomId)||{}).name||'—';
   pushLog({area:'system', label:'Lokale · '+phase, from:'', to:nm, cust:false});
   await loadRooms(state.eventId); render();
