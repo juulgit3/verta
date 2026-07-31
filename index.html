@@ -35,6 +35,9 @@ input,select,textarea{font:inherit;color:inherit}
 .seg button{border:0;background:none;padding:6px 13px;font-size:13px;font-weight:600;cursor:pointer;color:var(--ink-60)}
 .seg button[aria-pressed="true"]{background:var(--ink);color:#fff}
 .seg button:first-child[aria-pressed="true"]{background:var(--ink)}
+.consnav{display:inline-flex;border:1px solid var(--line);border-radius:99px;overflow:hidden;background:var(--card);margin-bottom:16px}
+.consnav button{border:0;background:none;padding:7px 15px;font-size:14px;font-weight:600;cursor:pointer;color:var(--ink-60)}
+.consnav button[aria-pressed="true"]{background:var(--ink);color:#fff}
 .whoami{font-size:12px;color:var(--ink-40)}
 
 .hero{margin:28px 0 8px}
@@ -308,7 +311,7 @@ const store = {
 
 let state = { gaester:seedGaester(), punkter:PUNKTER_SEED.map(p=>({...p})), log:seedLog(),
               tab:'oversigt', soeg:'', rolle:'kilden', logType:'alle', logWho:'alle', logArea:'alle',
-              lastRead:{kilden:0, kunde:0}, phaseRooms:{}, venueRooms:[] };
+              lastRead:{kilden:0, kunde:0}, phaseRooms:{}, venueRooms:[], staffList:[], invitesList:[] };
 function save(){
   if(MODE==='cloud') cloudSaveGuestsAgenda();
   else store.save({gaester:state.gaester, punkter:state.punkter, log:state.log, lastRead:state.lastRead});
@@ -632,16 +635,30 @@ function render(){
   document.getElementById('logout').style.display = cloud ? '' : 'none';
   document.getElementById('backToList').style.display = (cloud && state.rolle==='kilden' && (state.events||[]).length>1 && state.view==='workspace') ? '' : 'none';
 
-  if(cloud && state.view==='picker'){
+  if(cloud && (state.view==='picker' || state.view==='users')){
     document.getElementById('whoami').textContent = state.actor?('Logget ind som '+state.actor.navn):'';
     document.getElementById('orgName').textContent = state.orgName||'';
     document.getElementById('eventLoc').innerHTML='';
-    document.getElementById('heroTitle').textContent = 'Arrangementer';
+    document.getElementById('heroTitle').textContent = state.view==='users' ? 'Brugere' : 'Arrangementer';
     document.getElementById('heroChips').innerHTML='';
     document.getElementById('tabs').innerHTML='';
-    const v=document.getElementById('view'); v.innerHTML=viewPicker();
-    v.querySelectorAll('[data-open]').forEach(el=>el.onclick=()=>openEvent(el.dataset.open));
-    const nc=document.getElementById('neCreate'); if(nc) nc.onclick=createEvent;
+    const v=document.getElementById('view');
+    if(state.view==='users'){
+      v.innerHTML=viewBrugere();
+      const is=document.getElementById('invSend'); if(is) is.onclick=inviteStaff;
+      v.querySelectorAll('[data-cancel-invite]').forEach(el=>el.onclick=()=>cancelInvite(el.dataset.cancelInvite));
+      v.querySelectorAll('[data-remove-user]').forEach(el=>el.onclick=()=>removeStaff(el.dataset.removeUser));
+      v.querySelectorAll('[data-role-user]').forEach(el=>el.onchange=()=>changeStaffRole(el.dataset.roleUser, el.value));
+    } else {
+      v.innerHTML=viewPicker();
+      v.querySelectorAll('[data-open]').forEach(el=>el.onclick=()=>openEvent(el.dataset.open));
+      const nc=document.getElementById('neCreate'); if(nc) nc.onclick=createEvent;
+    }
+    v.querySelectorAll('[data-nav]').forEach(el=>el.onclick=async()=>{
+      state.view=el.dataset.nav;
+      if(state.view==='users') await loadUsers();
+      render();
+    });
     return;
   }
 
@@ -755,7 +772,7 @@ async function cloudSaveGuestsAgenda(){
 }
 
 async function cloudBoot(user){
-  state.userEmail=user.email;
+  state.userEmail=user.email; state.userId=user.id;
   const {data:st}=await sb.from('staff').select('*').eq('id',user.id).maybeSingle();
   if(st){
     state.rolle='kilden'; state.actor={navn:st.name, side:'kilden'}; state.isAdmin=(st.role==='admin'); state.orgId=st.org_id;
@@ -798,6 +815,40 @@ async function loadEventStaff(){
   state.eventStaff=(es||[]).map(r=>({id:r.staff_id, name:r.staff?r.staff.name:'?', role:r.staff?r.staff.role:''}));
   const {data:roster}=await sb.from('staff').select('id,name').eq('org_id',state.orgId);
   state.roster=roster||[];
+}
+async function loadUsers(){
+  const {data:st}=await sb.from('staff').select('id,name,role').eq('org_id',state.orgId).order('name');
+  state.staffList=st||[];
+  const {data:inv}=await sb.from('invites').select('id,name,email,role').eq('org_id',state.orgId).order('created_at');
+  state.invitesList=inv||[];
+}
+async function inviteStaff(){
+  const name=document.getElementById('invName').value.trim();
+  const email=document.getElementById('invEmail').value.trim();
+  const role=document.getElementById('invRole').value;
+  if(!name||!email){ alert('Udfyld navn og mail.'); return; }
+  const btn=document.getElementById('invSend'), orig=btn.textContent;
+  btn.disabled=true; btn.textContent='Inviterer…';
+  const {error}=await sb.from('invites').insert({org_id:state.orgId, name, email, role});
+  btn.disabled=false; btn.textContent=orig;
+  if(error){ alert('Kunne ikke invitere: '+error.message); return; }
+  await loadUsers(); render();
+}
+async function cancelInvite(id){
+  const {error}=await sb.from('invites').delete().eq('id',id);
+  if(error){ alert('Kunne ikke fortryde invitation: '+error.message); return; }
+  await loadUsers(); render();
+}
+async function changeStaffRole(id, role){
+  const {error}=await sb.from('staff').update({role}).eq('id',id);
+  if(error){ alert('Kunne ikke ændre rolle: '+error.message); }
+  await loadUsers(); render();
+}
+async function removeStaff(id){
+  if(!confirm('Fjern denne medarbejder? Handlingen kan ikke fortrydes.')) return;
+  const {error}=await sb.from('staff').delete().eq('id',id);
+  if(error){ alert('Kunne ikke fjerne medarbejder: '+error.message); return; }
+  await loadUsers(); render();
 }
 const PHASE_DEFAULT_TIMES = {reception:['15:00','17:00'], middag:['18:00','21:00'], fest:['21:00','01:00']};
 async function loadRooms(id){
@@ -863,6 +914,13 @@ function showApp(){ document.getElementById('gate').style.display='none'; docume
 function showNoAccess(){ showGate('Du er logget ind som '+state.userEmail+', men har endnu ikke adgang til et arrangement. Bed admin om at koble dig på.'); }
 function showPicker(){ state.view='picker'; showApp(); render(); }
 
+function consoleNav(active){
+  if(!state.isAdmin) return '';
+  return `<nav class="consnav">
+    <button data-nav="picker" aria-pressed="${active==='picker'}">Arrangementer</button>
+    <button data-nav="users" aria-pressed="${active==='users'}">Brugere</button>
+  </nav>`;
+}
 function viewPicker(){
   const grp={kommende:[],kladde:[],afviklet:[]};
   const today=new Date().toISOString().slice(0,10);
@@ -890,10 +948,45 @@ function viewPicker(){
       <button class="btn primary" id="neCreate">Opret arrangement</button>
     </div>
   </section>`;
-  return `<div style="margin:20px 0 10px"><span class="eyebrow">${state.isAdmin?'Admin · alle arrangementer':'Dine arrangementer'}</span></div>
+  return `${consoleNav('picker')}
+    <div style="margin:20px 0 10px"><span class="eyebrow">${state.isAdmin?'Admin · alle arrangementer':'Dine arrangementer'}</span></div>
     ${nyKort}
     ${sec('Kommende',grp.kommende)}${sec('Kladder',grp.kladde)}${sec('Afviklede',grp.afviklet)}
     ${state.events.length?'':'<div class="empty">Ingen arrangementer endnu.</div>'}`;
+}
+function viewBrugere(){
+  return `${consoleNav('users')}
+  <div style="margin:20px 0 10px"><span class="eyebrow">Medarbejdere i ${esc(state.orgName||'organisationen')}</span></div>
+  <section class="card">
+    <header><h2>Medarbejdere</h2><span class="note">${(state.staffList||[]).length}</span></header>
+    ${(state.staffList||[]).map(s=>`<div class="stat">
+      <span>${esc(s.name)}${s.id===state.userId?' <span class="note">(dig)</span>':''}</span>
+      <span class="row" style="gap:8px">
+        <select class="status" data-role-user="${s.id}" ${s.id===state.userId?'disabled':''}>
+          <option value="coordinator" ${s.role==='coordinator'?'selected':''}>coordinator</option>
+          <option value="admin" ${s.role==='admin'?'selected':''}>admin</option>
+        </select>
+        ${s.id===state.userId?'':`<button class="btn" data-remove-user="${s.id}">Fjern</button>`}
+      </span>
+    </div>`).join('')}
+  </section>
+  <section class="card">
+    <header><h2>Ventende invitationer</h2><span class="note">${(state.invitesList||[]).length}</span></header>
+    ${(state.invitesList||[]).length?(state.invitesList||[]).map(i=>`<div class="stat">
+      <span>${esc(i.name)} <span class="note">${esc(i.email)} · ${i.role}</span></span>
+      <button class="btn" data-cancel-invite="${i.id}">Fortryd</button>
+    </div>`).join(''):'<div class="empty">Ingen ventende invitationer.</div>'}
+    <div class="row" style="margin-top:12px;flex-wrap:wrap;gap:8px">
+      <input id="invName" class="search" placeholder="Navn" style="flex:1;min-width:140px">
+      <input id="invEmail" class="search" type="email" placeholder="Mail" style="flex:1;min-width:180px">
+      <select id="invRole" class="search" style="flex:1;min-width:120px">
+        <option value="coordinator">coordinator</option>
+        <option value="admin">admin</option>
+      </select>
+      <button class="btn primary" id="invSend">Invitér</button>
+    </div>
+    <div class="note" style="margin-top:10px">Der sendes ikke automatisk en mail endnu — giv personen selv besked om at logge ind med denne mail-adresse. Personen bliver automatisk medarbejder med den valgte rolle, første gang de logger ind.</div>
+  </section>`;
 }
 
 (async function init(){
