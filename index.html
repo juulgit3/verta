@@ -311,7 +311,7 @@ const store = {
 
 let state = { gaester:seedGaester(), punkter:PUNKTER_SEED.map(p=>({...p})), log:seedLog(),
               tab:'oversigt', soeg:'', rolle:'kilden', logType:'alle', logWho:'alle', logArea:'alle',
-              lastRead:{kilden:0, kunde:0}, phaseRooms:{}, venueRooms:[], staffList:[], invitesList:[] };
+              lastRead:{kilden:0, kunde:0}, phaseRooms:{}, venueRooms:[], staffList:[], invitesList:[], venuesFull:[] };
 function save(){
   if(MODE==='cloud') cloudSaveGuestsAgenda();
   else store.save({gaester:state.gaester, punkter:state.punkter, log:state.log, lastRead:state.lastRead});
@@ -635,11 +635,11 @@ function render(){
   document.getElementById('logout').style.display = cloud ? '' : 'none';
   document.getElementById('backToList').style.display = (cloud && state.rolle==='kilden' && (state.events||[]).length>1 && state.view==='workspace') ? '' : 'none';
 
-  if(cloud && (state.view==='picker' || state.view==='users')){
+  if(cloud && (state.view==='picker' || state.view==='users' || state.view==='venues')){
     document.getElementById('whoami').textContent = state.actor?('Logget ind som '+state.actor.navn):'';
     document.getElementById('orgName').textContent = state.orgName||'';
     document.getElementById('eventLoc').innerHTML='';
-    document.getElementById('heroTitle').textContent = state.view==='users' ? 'Brugere' : 'Arrangementer';
+    document.getElementById('heroTitle').textContent = state.view==='users' ? 'Brugere' : (state.view==='venues' ? 'Lokationer' : 'Arrangementer');
     document.getElementById('heroChips').innerHTML='';
     document.getElementById('tabs').innerHTML='';
     const v=document.getElementById('view');
@@ -649,6 +649,23 @@ function render(){
       v.querySelectorAll('[data-cancel-invite]').forEach(el=>el.onclick=()=>cancelInvite(el.dataset.cancelInvite));
       v.querySelectorAll('[data-remove-user]').forEach(el=>el.onclick=()=>removeStaff(el.dataset.removeUser));
       v.querySelectorAll('[data-role-user]').forEach(el=>el.onchange=()=>changeStaffRole(el.dataset.roleUser, el.value));
+    } else if(state.view==='venues'){
+      v.innerHTML=viewLokationer();
+      const vc=document.getElementById('venCreate'); if(vc) vc.onclick=createVenue;
+      v.querySelectorAll('[data-venue-name]').forEach(el=>{
+        const before=el.value;
+        el.onblur=()=>{ if(el.value!==before) renameVenue(el.dataset.venueName, el.value); };
+      });
+      v.querySelectorAll('[data-room-name]').forEach(el=>{
+        const before=el.value;
+        el.onblur=()=>{ if(el.value!==before) renameRoom(el.dataset.roomName, el.value); };
+      });
+      v.querySelectorAll('[data-delete-venue]').forEach(el=>el.onclick=()=>deleteVenue(el.dataset.deleteVenue));
+      v.querySelectorAll('[data-delete-room]').forEach(el=>el.onclick=()=>deleteRoom(el.dataset.deleteRoom));
+      v.querySelectorAll('[data-add-room]').forEach(el=>el.onclick=()=>{
+        const input=document.querySelector(`[data-new-room="${el.dataset.addRoom}"]`);
+        addRoom(el.dataset.addRoom, input.value);
+      });
     } else {
       v.innerHTML=viewPicker();
       v.querySelectorAll('[data-open]').forEach(el=>el.onclick=()=>openEvent(el.dataset.open));
@@ -657,6 +674,7 @@ function render(){
     v.querySelectorAll('[data-nav]').forEach(el=>el.onclick=async()=>{
       state.view=el.dataset.nav;
       if(state.view==='users') await loadUsers();
+      if(state.view==='venues') await loadVenuesFull();
       render();
     });
     return;
@@ -808,6 +826,21 @@ async function openEvent(id){
   if(state.rolle==='kilden'){ await loadEventStaff(); logCloudView(); }
   state.view='workspace'; state.tab='oversigt';
   showApp(); render();
+  subscribeRealtime(id);
+}
+
+let realtimeChannel=null;
+function unsubscribeRealtime(){
+  if(realtimeChannel){ sb.removeChannel(realtimeChannel); realtimeChannel=null; }
+}
+function subscribeRealtime(id){
+  unsubscribeRealtime();
+  realtimeChannel = sb.channel('event-'+id)
+    .on('postgres_changes', {event:'*', schema:'public', table:'activity_log', filter:'event_id=eq.'+id}, async()=>{
+      const {data:lg}=await sb.from('activity_log').select('*').eq('event_id',id).order('ts',{ascending:false});
+      state.log=(lg||[]).map(logFromDb); render();
+    })
+    .subscribe();
 }
 
 async function loadEventStaff(){
@@ -849,6 +882,52 @@ async function removeStaff(id){
   const {error}=await sb.from('staff').delete().eq('id',id);
   if(error){ alert('Kunne ikke fjerne medarbejder: '+error.message); return; }
   await loadUsers(); render();
+}
+async function loadVenuesFull(){
+  const {data:vens}=await sb.from('venues').select('id,name').eq('org_id',state.orgId).order('name');
+  state.venues=vens||[];
+  const {data:rms}=await sb.from('rooms').select('id,name,venue_id,sort_order').order('sort_order');
+  state.venuesFull=(vens||[]).map(v=>({...v, rooms:(rms||[]).filter(r=>r.venue_id===v.id)}));
+}
+async function createVenue(){
+  const el=document.getElementById('venName'); const name=el.value.trim();
+  if(!name){ alert('Skriv et navn.'); return; }
+  const btn=document.getElementById('venCreate'), orig=btn.textContent;
+  btn.disabled=true; btn.textContent='Opretter…';
+  const {error}=await sb.from('venues').insert({org_id:state.orgId, name});
+  btn.disabled=false; btn.textContent=orig;
+  if(error){ alert('Kunne ikke oprette lokation: '+error.message); return; }
+  await loadVenuesFull(); render();
+}
+async function renameVenue(id, name){
+  if(!name.trim()) return;
+  const {error}=await sb.from('venues').update({name:name.trim()}).eq('id',id);
+  if(error) alert('Kunne ikke omdøbe lokation: '+error.message);
+  await loadVenuesFull(); render();
+}
+async function deleteVenue(id){
+  if(!confirm('Slet lokationen? Alle lokaler under den slettes også. Kan ikke fortrydes.')) return;
+  const {error}=await sb.from('venues').delete().eq('id',id);
+  if(error){ alert('Kunne ikke slette lokation: '+error.message); return; }
+  await loadVenuesFull(); render();
+}
+async function addRoom(venueId, name){
+  if(!name||!name.trim()) return;
+  const {error}=await sb.from('rooms').insert({venue_id:venueId, name:name.trim(), sort_order:99});
+  if(error){ alert('Kunne ikke tilføje lokale: '+error.message); return; }
+  await loadVenuesFull(); render();
+}
+async function renameRoom(id, name){
+  if(!name.trim()) return;
+  const {error}=await sb.from('rooms').update({name:name.trim()}).eq('id',id);
+  if(error) alert('Kunne ikke omdøbe lokale: '+error.message);
+  await loadVenuesFull(); render();
+}
+async function deleteRoom(id){
+  if(!confirm('Slet lokalet? Kan ikke fortrydes.')) return;
+  const {error}=await sb.from('rooms').delete().eq('id',id);
+  if(error){ alert('Kunne ikke slette lokale: '+error.message); return; }
+  await loadVenuesFull(); render();
 }
 const PHASE_DEFAULT_TIMES = {reception:['15:00','17:00'], middag:['18:00','21:00'], fest:['21:00','01:00']};
 async function loadRooms(id){
@@ -912,14 +991,43 @@ function logCloudView(){
 function showGate(msg){ const g=document.getElementById('gate'); g.style.display='flex'; document.querySelector('.wrap').style.visibility='hidden'; if(msg) document.getElementById('gateMsg').textContent=msg; }
 function showApp(){ document.getElementById('gate').style.display='none'; document.querySelector('.wrap').style.visibility='visible'; }
 function showNoAccess(){ showGate('Du er logget ind som '+state.userEmail+', men har endnu ikke adgang til et arrangement. Bed admin om at koble dig på.'); }
-function showPicker(){ state.view='picker'; showApp(); render(); }
+function showPicker(){ unsubscribeRealtime(); state.view='picker'; showApp(); render(); }
 
 function consoleNav(active){
   if(!state.isAdmin) return '';
   return `<nav class="consnav">
     <button data-nav="picker" aria-pressed="${active==='picker'}">Arrangementer</button>
+    <button data-nav="venues" aria-pressed="${active==='venues'}">Lokationer</button>
     <button data-nav="users" aria-pressed="${active==='users'}">Brugere</button>
   </nav>`;
+}
+function viewLokationer(){
+  return `${consoleNav('venues')}
+  <div style="margin:20px 0 10px"><span class="eyebrow">Lokationer i ${esc(state.orgName||'organisationen')}</span></div>
+  ${(state.venuesFull||[]).map(v=>`
+  <section class="card">
+    <header>
+      <input class="search" data-venue-name="${v.id}" value="${esc(v.name)}" style="font-weight:700;border:0;background:transparent;padding:0;font-size:15px;flex:1">
+      <span class="note">${v.rooms.length} lokale${v.rooms.length===1?'':'r'}</span>
+    </header>
+    ${v.rooms.length?v.rooms.map(r=>`<div class="stat">
+      <input class="search" data-room-name="${r.id}" value="${esc(r.name)}" style="flex:1;margin-right:8px">
+      <button class="btn" data-delete-room="${r.id}">Slet</button>
+    </div>`).join(''):'<div class="empty">Ingen lokaler endnu.</div>'}
+    <div class="row" style="margin-top:12px;gap:8px">
+      <input class="search" placeholder="Nyt lokale…" data-new-room="${v.id}" style="flex:1">
+      <button class="btn" data-add-room="${v.id}">Tilføj lokale</button>
+      <button class="btn" data-delete-venue="${v.id}" style="margin-left:auto">Slet lokation</button>
+    </div>
+  </section>`).join('')}
+  ${(state.venuesFull||[]).length?'':'<div class="empty">Ingen lokationer endnu.</div>'}
+  <section class="card">
+    <header><h2>Ny lokation</h2></header>
+    <div class="row" style="gap:8px">
+      <input id="venName" class="search" placeholder="Navn, fx Kilden" style="flex:1">
+      <button class="btn primary" id="venCreate">Opret lokation</button>
+    </div>
+  </section>`;
 }
 function viewPicker(){
   const grp={kommende:[],kladde:[],afviklet:[]};

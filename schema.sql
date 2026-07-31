@@ -381,7 +381,13 @@ create policy log_read_guest on activity_log for select
   using ( is_event_guest(event_id) and (entry_type = 'message' or customer_visible = true) );
 
 -- =====================================================================
---  5. SEED — Madkastellet, to lokationer, flere arrangementer
+--  5. REALTIME — begge parter ser nye beskeder/log-hændelser live.
+--     RLS ovenfor filtrerer stadig hvem der må se hvad.
+-- =====================================================================
+alter publication supabase_realtime add table activity_log;
+
+-- =====================================================================
+--  6. SEED — Madkastellet, to lokationer, flere arrangementer
 -- =====================================================================
 insert into organisations (id, name) values
   ('11111111-1111-1111-1111-111111111111', 'Madkastellet');
@@ -459,7 +465,7 @@ insert into activity_log (event_id, ts, actor_name, actor_side, entry_type, area
  ('33333333-3333-3333-3333-333333333333', now()-interval '3 days','Christina (Kilden)','kilden','message','system','','','',false,'','Hej Emily. Fint, vi rykker gerne forretten en anelse — sig til, når I har et ønsket tidspunkt, så justerer jeg programmet.');
 
 -- =====================================================================
---  6. BOOTSTRAP — kør, når du har logget ind via magic link mindst én gang.
+--  7. BOOTSTRAP — kør, når du har logget ind via magic link mindst én gang.
 --     Find dit UUID under Authentication → Users.
 -- =====================================================================
 -- -- Gør dig selv til ADMIN i Madkastellet:
