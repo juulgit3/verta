@@ -816,14 +816,14 @@ async function createEvent(){
   if(!title||!venueId||!date){ alert('Udfyld titel, lokation og dato.'); return; }
   const btn=document.getElementById('neCreate'), orig=btn.textContent;
   btn.disabled=true; btn.textContent='Opretter…';
-  const {data,error}=await sb.from('events')
-    .insert({title, venue_id:venueId, org_id:state.orgId, event_date:date, offer_total_kr:price, status})
-    .select().maybeSingle();
+  const {error}=await sb.from('events')
+    .insert({title, venue_id:venueId, org_id:state.orgId, event_date:date, offer_total_kr:price, status});
   btn.disabled=false; btn.textContent=orig;
   if(error){ alert('Kunne ikke oprette: '+error.message); return; }
   const {data:evs}=await sb.from('events').select('id,title,event_date,status,offer_total_kr,venues(name)').order('event_date',{ascending:false});
   state.events=evs||[];
-  if(data) openEvent(data.id); else render();
+  const created=(state.events||[]).find(e=>e.title===title && e.event_date===date);
+  if(created) openEvent(created.id); else render();
 }
 function logCloudView(){
   const a=currentActor();
