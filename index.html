@@ -312,7 +312,7 @@ const store = {
 let state = { gaester:seedGaester(), punkter:PUNKTER_SEED.map(p=>({...p})), log:seedLog(),
               tab:'oversigt', soeg:'', rolle:'kilden', logType:'alle', logWho:'alle', logArea:'alle',
               lastRead:{kilden:0, kunde:0}, phaseRooms:{}, venueRooms:[], staffList:[], invitesList:[], venuesFull:[],
-              eventCatalog:PRISER, orgCatalog:[] };
+              eventCatalog:PRISER, orgCatalog:[], openRoomPickers:new Set() };
 function save(){
   if(MODE==='cloud') cloudSaveGuestsAgenda();
   else store.save({gaester:state.gaester, punkter:state.punkter, log:state.log, lastRead:state.lastRead});
@@ -686,6 +686,23 @@ function render(){
         if(el.checked) addCatalogItemRoom(el.dataset.item, el.dataset.room);
         else removeCatalogItemRoom(el.dataset.item, el.dataset.room);
       });
+      v.querySelectorAll('[data-toggle-venue-rooms]').forEach(el=>el.onclick=()=>{
+        const [itemId,venueId]=el.dataset.toggleVenueRooms.split('|');
+        const groupIds=(state.orgRooms||[]).filter(r=>r.venue_id===venueId).map(r=>r.id);
+        const item=(state.orgCatalog||[]).find(c=>c.id===itemId);
+        const allIn=groupIds.every(id=>(item.roomIds||[]).includes(id));
+        if(allIn) removeCatalogItemRooms(itemId, groupIds);
+        else addCatalogItemRooms(itemId, groupIds.filter(id=>!(item.roomIds||[]).includes(id)));
+      });
+      v.querySelectorAll('[data-ci-toggle-venue]').forEach(el=>el.onclick=()=>{
+        const boxes=[...document.querySelectorAll(`.ci-room[data-venue="${el.dataset.ciToggleVenue}"]`)];
+        const allChecked=boxes.length&&boxes.every(b=>b.checked);
+        boxes.forEach(b=>b.checked=!allChecked);
+      });
+      v.querySelectorAll('[data-picker]').forEach(el=>el.ontoggle=()=>{
+        if(el.open) state.openRoomPickers.add(el.dataset.picker);
+        else state.openRoomPickers.delete(el.dataset.picker);
+      });
     } else {
       v.innerHTML=viewPicker();
       v.querySelectorAll('[data-open]').forEach(el=>el.onclick=()=>openEvent(el.dataset.open));
@@ -977,6 +994,26 @@ async function removeCatalogItemRoom(itemId, roomId){
   if(error){ alert('Kunne ikke fjerne lokale: '+error.message); return; }
   await loadOrgCatalog(); render();
 }
+async function addCatalogItemRooms(itemId, roomIds){
+  if(!roomIds.length) return;
+  const {error}=await sb.from('catalog_item_rooms').insert(roomIds.map(rid=>({catalog_item_id:itemId, room_id:rid})));
+  if(error){ alert('Kunne ikke tilføje lokaler: '+error.message); return; }
+  await loadOrgCatalog(); render();
+}
+async function removeCatalogItemRooms(itemId, roomIds){
+  if(!roomIds.length) return;
+  const {error}=await sb.from('catalog_item_rooms').delete().eq('catalog_item_id',itemId).in('room_id',roomIds);
+  if(error){ alert('Kunne ikke fjerne lokaler: '+error.message); return; }
+  await loadOrgCatalog(); render();
+}
+function groupRoomsByVenue(rooms){
+  const order=[], map={};
+  (rooms||[]).forEach(r=>{
+    if(!map[r.venue_id]){ map[r.venue_id]={venueId:r.venue_id, venueName:r.venueName||'', rooms:[]}; order.push(r.venue_id); }
+    map[r.venue_id].rooms.push(r);
+  });
+  return order.map(id=>map[id]);
+}
 async function loadCatalog(id){
   const {data:sel}=await sb.from('event_catalog_items').select('catalog_item_id, catalog_items(id,name,price_kr,basis,child_half)').eq('event_id',id);
   state.eventCatalog=(sel||[]).map(r=>({id:r.catalog_item_id, navn:r.catalog_items?r.catalog_items.name:'?', sats:r.catalog_items?r.catalog_items.price_kr:0, grundlag:r.catalog_items?r.catalog_items.basis:'fast', boernHalv:r.catalog_items?r.catalog_items.child_half:false}));
@@ -1111,12 +1148,24 @@ function viewKatalog(){
         <span class="note">${c.price_kr} kr ${c.basis==='fast'?'(fast)':'/person'+(c.child_half?' · børn halv pris':'')}</span>
         <button class="btn" data-delete-catalog-item="${c.id}">Slet</button>
       </span>
-      <span class="row" style="width:100%;gap:12px;flex-wrap:wrap;margin-top:4px">
-        <span class="note">Lokaler (intet valgt = alle):</span>
-        ${(state.orgRooms||[]).map(r=>`<label class="row" style="gap:4px;font-size:13px">
-          <input type="checkbox" class="item-room" data-item="${c.id}" data-room="${r.id}" ${(c.roomIds||[]).includes(r.id)?'checked':''}>${esc(r.name)}${r.venueName?' · '+esc(r.venueName):''}
-        </label>`).join('')}
-      </span>
+      <details style="width:100%;margin-top:4px" data-picker="${c.id}" ${state.openRoomPickers.has(c.id)?'open':''}>
+        <summary class="note" style="cursor:pointer">${(c.roomIds||[]).length?(c.roomIds||[]).length+' af '+(state.orgRooms||[]).length+' lokaler':'Alle lokaler'} · vælg</summary>
+        <div style="margin-top:8px">
+          ${groupRoomsByVenue(state.orgRooms).map(g=>{
+            const allIn=g.rooms.every(r=>(c.roomIds||[]).includes(r.id));
+            return `<div style="margin-bottom:10px">
+            <div class="row" style="justify-content:space-between;align-items:center;max-width:380px">
+              <span class="note" style="font-weight:600">${esc(g.venueName)}</span>
+              <button class="btn" data-toggle-venue-rooms="${c.id}|${g.venueId}" style="font-size:11px;padding:3px 8px">${allIn?'Fjern alle':'Vælg alle'}</button>
+            </div>
+            <div class="row" style="gap:10px;flex-wrap:wrap;margin-top:4px">
+              ${g.rooms.map(r=>`<label class="row" style="gap:4px;font-size:13px">
+                <input type="checkbox" class="item-room" data-item="${c.id}" data-room="${r.id}" ${(c.roomIds||[]).includes(r.id)?'checked':''}>${esc(r.name)}
+              </label>`).join('')}
+            </div>
+          </div>`;}).join('')}
+        </div>
+      </details>
     </div>`;}).join(''):'<div class="empty">Ingen katalogvarer endnu.</div>'}
   </section>
   <section class="card">
@@ -1138,10 +1187,20 @@ function viewKatalog(){
       </select>
       <label class="row" style="gap:4px;font-size:13px"><input type="checkbox" id="ciChildHalf">Børn halv pris</label>
     </div>
-    <div class="row" style="gap:10px;flex-wrap:wrap;margin-top:10px">
-      <span class="note">Lokaler (ingen valgt = alle lokaler):</span>
-      ${(state.orgRooms||[]).map(r=>`<label class="row" style="gap:4px;font-size:13px"><input type="checkbox" class="ci-room" value="${r.id}">${esc(r.name)}${r.venueName?' · '+esc(r.venueName):''}</label>`).join('')}
-    </div>
+    <details style="margin-top:10px">
+      <summary class="note" style="cursor:pointer">Lokaler (ingen valgt = alle lokaler) · vælg</summary>
+      <div style="margin-top:8px">
+        ${groupRoomsByVenue(state.orgRooms).map(g=>`<div style="margin-bottom:10px">
+          <div class="row" style="justify-content:space-between;align-items:center;max-width:380px">
+            <span class="note" style="font-weight:600">${esc(g.venueName)}</span>
+            <button type="button" class="btn" data-ci-toggle-venue="${g.venueId}" style="font-size:11px;padding:3px 8px">Vælg alle</button>
+          </div>
+          <div class="row" style="gap:10px;flex-wrap:wrap;margin-top:4px">
+            ${g.rooms.map(r=>`<label class="row" style="gap:4px;font-size:13px"><input type="checkbox" class="ci-room" data-venue="${g.venueId}" value="${r.id}">${esc(r.name)}</label>`).join('')}
+          </div>
+        </div>`).join('')}
+      </div>
+    </details>
     <div class="row" style="margin-top:10px">
       <button class="btn primary" id="ciCreate">Opret katalogvare</button>
     </div>
