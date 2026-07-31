@@ -311,7 +311,8 @@ const store = {
 
 let state = { gaester:seedGaester(), punkter:PUNKTER_SEED.map(p=>({...p})), log:seedLog(),
               tab:'oversigt', soeg:'', rolle:'kilden', logType:'alle', logWho:'alle', logArea:'alle',
-              lastRead:{kilden:0, kunde:0}, phaseRooms:{}, venueRooms:[], staffList:[], invitesList:[], venuesFull:[] };
+              lastRead:{kilden:0, kunde:0}, phaseRooms:{}, venueRooms:[], staffList:[], invitesList:[], venuesFull:[],
+              eventCatalog:PRISER, orgCatalog:[] };
 function save(){
   if(MODE==='cloud') cloudSaveGuestsAgenda();
   else store.save({gaester:state.gaester, punkter:state.punkter, log:state.log, lastRead:state.lastRead});
@@ -366,7 +367,7 @@ function antal(){
 }
 function prisLinjer(){
   const a=antal();
-  return PRISER.map(p=>{
+  return (state.eventCatalog||[]).map(p=>{
     if(p.grundlag==='fast') return {...p,stk:1,belob:p.sats,grundlagTxt:'fast beløb'};
     const b=a[p.grundlag];
     const v=b.voksne*p.sats, bo=p.boernHalv?b.boern*(p.sats/2):b.boern*p.sats;
@@ -442,6 +443,17 @@ function viewAdmin(){
         ${(state.roster||[]).filter(r=>!(state.eventStaff||[]).find(s=>s.id===r.id)).map(r=>`<option value="${r.id}">${esc(r.name)}</option>`).join('')}
       </select>
       <button class="btn" id="coordAdd">Tilføj</button>
+    </div>
+  </section>
+  <section class="card">
+    <header><h2>Priskatalog for arrangementet</h2><span class="note">${(state.eventCatalog||[]).length} valgt</span></header>
+    ${(state.eventCatalog||[]).length?(state.eventCatalog||[]).map(c=>`<div class="stat"><span>${esc(c.navn)}</span><span class="row" style="gap:8px"><span class="note">${c.sats} kr${c.grundlag==='fast'?' (fast)':'/person'}</span><button class="btn" data-remove-catalog="${c.id}">Fjern</button></span></div>`).join(''):'<div class="empty">Ingen katalogvarer valgt endnu.</div>'}
+    <div class="row" style="margin-top:12px">
+      <select id="catalogSel" class="search">
+        <option value="">Tilføj katalogvare…</option>
+        ${(state.orgCatalog||[]).filter(c=>!(state.eventCatalog||[]).find(x=>x.id===c.id)).map(c=>`<option value="${c.id}">${esc(c.name)} · ${c.price_kr} kr</option>`).join('')}
+      </select>
+      <button class="btn" id="catalogAdd">Tilføj</button>
     </div>
   </section>`;
 }
@@ -635,11 +647,11 @@ function render(){
   document.getElementById('logout').style.display = cloud ? '' : 'none';
   document.getElementById('backToList').style.display = (cloud && state.rolle==='kilden' && (state.events||[]).length>1 && state.view==='workspace') ? '' : 'none';
 
-  if(cloud && (state.view==='picker' || state.view==='users' || state.view==='venues')){
+  if(cloud && (state.view==='picker' || state.view==='users' || state.view==='venues' || state.view==='katalog')){
     document.getElementById('whoami').textContent = state.actor?('Logget ind som '+state.actor.navn):'';
     document.getElementById('orgName').textContent = state.orgName||'';
     document.getElementById('eventLoc').innerHTML='';
-    document.getElementById('heroTitle').textContent = state.view==='users' ? 'Brugere' : (state.view==='venues' ? 'Lokationer' : 'Arrangementer');
+    document.getElementById('heroTitle').textContent = state.view==='users' ? 'Brugere' : (state.view==='venues' ? 'Lokationer' : (state.view==='katalog' ? 'Katalog' : 'Arrangementer'));
     document.getElementById('heroChips').innerHTML='';
     document.getElementById('tabs').innerHTML='';
     const v=document.getElementById('view');
@@ -666,6 +678,10 @@ function render(){
         const input=document.querySelector(`[data-new-room="${el.dataset.addRoom}"]`);
         addRoom(el.dataset.addRoom, input.value);
       });
+    } else if(state.view==='katalog'){
+      v.innerHTML=viewKatalog();
+      const cc=document.getElementById('ciCreate'); if(cc) cc.onclick=createCatalogItem;
+      v.querySelectorAll('[data-delete-catalog-item]').forEach(el=>el.onclick=()=>deleteCatalogItem(el.dataset.deleteCatalogItem));
     } else {
       v.innerHTML=viewPicker();
       v.querySelectorAll('[data-open]').forEach(el=>el.onclick=()=>openEvent(el.dataset.open));
@@ -675,6 +691,7 @@ function render(){
       state.view=el.dataset.nav;
       if(state.view==='users') await loadUsers();
       if(state.view==='venues') await loadVenuesFull();
+      if(state.view==='katalog') await loadOrgCatalog();
       render();
     });
     return;
@@ -747,6 +764,10 @@ function bind(){
   if(ca) ca.onclick=()=>{const sel=document.getElementById('coordSel');if(sel.value)addCoordinator(sel.value);};
   document.querySelectorAll('[data-remove-coord]').forEach(b=>{ b.onclick=()=>removeCoordinator(b.dataset.removeCoord); });
 
+  const cta=document.getElementById('catalogAdd');
+  if(cta) cta.onclick=()=>{const sel=document.getElementById('catalogSel');if(sel.value)addCatalogToEvent(sel.value);};
+  document.querySelectorAll('[data-remove-catalog]').forEach(b=>{ b.onclick=()=>removeCatalogFromEvent(b.dataset.removeCatalog); });
+
   PHASES.forEach(([ph])=>{
     const btn=document.querySelector(`[data-phase-save="${ph}"]`);
     if(!btn) return;
@@ -798,7 +819,7 @@ async function cloudBoot(user){
     state.orgName=orgRow?orgRow.name:'';
     const {data:vens}=await sb.from('venues').select('id,name').eq('org_id',st.org_id).order('name');
     state.venues=vens||[];
-    const {data:evs}=await sb.from('events').select('id,title,event_date,status,offer_total_kr,venues(name)').order('event_date',{ascending:false});
+    const {data:evs}=await sb.from('events').select('id,title,event_date,status,offer_total_kr,event_type,venues(name)').order('event_date',{ascending:false});
     state.events=evs||[];
     if(state.events.length===1) openEvent(state.events[0].id); else showPicker();
     return;
@@ -816,14 +837,15 @@ async function openEvent(id){
     sb.from('agenda_items').select('*').eq('event_id',id).order('sort_order'),
     sb.from('activity_log').select('*').eq('event_id',id).order('ts',{ascending:false})
   ]);
-  if(ev){ EVENT.tilbud=ev.offer_total_kr; EVENT.dato=ev.event_date; state.eventTitle=ev.title; state.venueName=ev.venues?ev.venues.name:''; state.venueId=ev.venue_id; state.orgName=ev.organisations?ev.organisations.name:(state.orgName||''); state.ownerStaffId=ev.owner_staff_id; }
+  if(ev){ EVENT.tilbud=ev.offer_total_kr; EVENT.dato=ev.event_date; state.eventTitle=ev.title; state.venueName=ev.venues?ev.venues.name:''; state.venueId=ev.venue_id; state.orgName=ev.organisations?ev.organisations.name:(state.orgName||''); state.ownerStaffId=ev.owner_staff_id; state.eventType=ev.event_type; }
   state.gaester=(gs||[]).map(gFromDb);
   state.punkter=(ps||[]).map(pFromDb);
   state.log=(lg||[]).map(logFromDb);
   state._dbG=new Set(state.gaester.map(g=>g.id));
   state._dbP=new Set(state.punkter.map(p=>p.id));
   await loadRooms(id);
-  if(state.rolle==='kilden'){ await loadEventStaff(); logCloudView(); }
+  await loadCatalog(id);
+  if(state.rolle==='kilden'){ await loadEventStaff(); await loadOrgCatalog(); logCloudView(); }
   state.view='workspace'; state.tab='oversigt';
   showApp(); render();
   subscribeRealtime(id);
@@ -929,6 +951,48 @@ async function deleteRoom(id){
   if(error){ alert('Kunne ikke slette lokale: '+error.message); return; }
   await loadVenuesFull(); render();
 }
+const CAT_CATEGORIES = ['menu','bar','reception','tilvalg','andet'];
+const CAT_EVENT_TYPES = ['bryllup','firmafest','konference','teambuilding','andet'];
+async function loadOrgCatalog(){
+  const {data}=await sb.from('catalog_items').select('*').eq('org_id',state.orgId).order('category').order('sort_order');
+  state.orgCatalog=data||[];
+}
+async function loadCatalog(id){
+  const {data:sel}=await sb.from('event_catalog_items').select('catalog_item_id, catalog_items(id,name,price_kr,basis,child_half)').eq('event_id',id);
+  state.eventCatalog=(sel||[]).map(r=>({id:r.catalog_item_id, navn:r.catalog_items?r.catalog_items.name:'?', sats:r.catalog_items?r.catalog_items.price_kr:0, grundlag:r.catalog_items?r.catalog_items.basis:'fast', boernHalv:r.catalog_items?r.catalog_items.child_half:false}));
+}
+async function createCatalogItem(){
+  const name=document.getElementById('ciName').value.trim();
+  const category=document.getElementById('ciCategory').value;
+  const price=parseInt(document.getElementById('ciPrice').value||'0',10)||0;
+  const basis=document.getElementById('ciBasis').value;
+  const childHalf=document.getElementById('ciChildHalf').checked;
+  const eventType=document.getElementById('ciEventType').value||null;
+  if(!name){ alert('Skriv et navn.'); return; }
+  const btn=document.getElementById('ciCreate'), orig=btn.textContent;
+  btn.disabled=true; btn.textContent='Opretter…';
+  const {error}=await sb.from('catalog_items').insert({org_id:state.orgId, name, category, price_kr:price, basis, child_half:childHalf, event_type:eventType});
+  btn.disabled=false; btn.textContent=orig;
+  if(error){ alert('Kunne ikke oprette katalogvare: '+error.message); return; }
+  await loadOrgCatalog(); render();
+}
+async function deleteCatalogItem(id){
+  if(!confirm('Slet katalogvaren? Kan ikke fortrydes.')) return;
+  const {error}=await sb.from('catalog_items').delete().eq('id',id);
+  if(error){ alert('Kunne ikke slette: '+error.message); return; }
+  await loadOrgCatalog(); render();
+}
+async function addCatalogToEvent(itemId){
+  if(!itemId) return;
+  const {error}=await sb.from('event_catalog_items').insert({event_id:state.eventId, catalog_item_id:itemId});
+  if(error){ alert('Kunne ikke tilføje: '+error.message); return; }
+  await loadCatalog(state.eventId); render();
+}
+async function removeCatalogFromEvent(itemId){
+  const {error}=await sb.from('event_catalog_items').delete().eq('event_id',state.eventId).eq('catalog_item_id',itemId);
+  if(error){ alert('Kunne ikke fjerne: '+error.message); return; }
+  await loadCatalog(state.eventId); render();
+}
 const PHASE_DEFAULT_TIMES = {reception:['15:00','17:00'], middag:['18:00','21:00'], fest:['21:00','01:00']};
 async function loadRooms(id){
   const {data:er}=await sb.from('event_rooms').select('phase, room_id, start_time, end_time, rooms(name)').eq('event_id',id);
@@ -969,14 +1033,15 @@ async function createEvent(){
   const date=document.getElementById('neDate').value;
   const price=parseInt(document.getElementById('nePrice').value||'0',10)||0;
   const status=document.getElementById('neStatus').value;
+  const eventType=document.getElementById('neType').value;
   if(!title||!venueId||!date){ alert('Udfyld titel, lokation og dato.'); return; }
   const btn=document.getElementById('neCreate'), orig=btn.textContent;
   btn.disabled=true; btn.textContent='Opretter…';
   const {error}=await sb.from('events')
-    .insert({title, venue_id:venueId, org_id:state.orgId, event_date:date, offer_total_kr:price, status});
+    .insert({title, venue_id:venueId, org_id:state.orgId, event_date:date, offer_total_kr:price, status, event_type:eventType});
   btn.disabled=false; btn.textContent=orig;
   if(error){ alert('Kunne ikke oprette: '+error.message); return; }
-  const {data:evs}=await sb.from('events').select('id,title,event_date,status,offer_total_kr,venues(name)').order('event_date',{ascending:false});
+  const {data:evs}=await sb.from('events').select('id,title,event_date,status,offer_total_kr,event_type,venues(name)').order('event_date',{ascending:false});
   state.events=evs||[];
   const created=(state.events||[]).find(e=>e.title===title && e.event_date===date);
   if(created) openEvent(created.id); else render();
@@ -998,8 +1063,44 @@ function consoleNav(active){
   return `<nav class="consnav">
     <button data-nav="picker" aria-pressed="${active==='picker'}">Arrangementer</button>
     <button data-nav="venues" aria-pressed="${active==='venues'}">Lokationer</button>
+    <button data-nav="katalog" aria-pressed="${active==='katalog'}">Katalog</button>
     <button data-nav="users" aria-pressed="${active==='users'}">Brugere</button>
   </nav>`;
+}
+function viewKatalog(){
+  return `${consoleNav('katalog')}
+  <div style="margin:20px 0 10px"><span class="eyebrow">Priskatalog for ${esc(state.orgName||'organisationen')}</span></div>
+  <section class="card">
+    <header><h2>Katalogvarer</h2><span class="note">${(state.orgCatalog||[]).length}</span></header>
+    ${(state.orgCatalog||[]).length?(state.orgCatalog||[]).map(c=>`<div class="stat">
+      <span>${esc(c.name)} <span class="note">${c.category}${c.event_type?' · '+c.event_type:''}</span></span>
+      <span class="row" style="gap:8px">
+        <span class="note">${c.price_kr} kr ${c.basis==='fast'?'(fast)':'/person'+(c.child_half?' · børn halv pris':'')}</span>
+        <button class="btn" data-delete-catalog-item="${c.id}">Slet</button>
+      </span>
+    </div>`).join(''):'<div class="empty">Ingen katalogvarer endnu.</div>'}
+  </section>
+  <section class="card">
+    <header><h2>Ny katalogvare</h2></header>
+    <div class="row" style="gap:8px;flex-wrap:wrap;margin-top:4px">
+      <input id="ciName" class="search" placeholder="Navn, fx Bryllupspakke" style="flex:2;min-width:180px">
+      <select id="ciCategory" class="search" style="flex:1;min-width:110px">
+        ${CAT_CATEGORIES.map(c=>`<option value="${c}">${c}</option>`).join('')}
+      </select>
+      <input id="ciPrice" type="number" class="search" placeholder="Pris, kr" style="flex:1;min-width:100px">
+      <select id="ciBasis" class="search" style="flex:1;min-width:120px">
+        <option value="middag">pr. person (middag)</option>
+        <option value="reception">pr. person (reception)</option>
+        <option value="fast">fast beløb</option>
+      </select>
+      <select id="ciEventType" class="search" style="flex:1;min-width:130px">
+        <option value="">Alle arrangementstyper</option>
+        ${CAT_EVENT_TYPES.map(t=>`<option value="${t}">${t}</option>`).join('')}
+      </select>
+      <label class="row" style="gap:4px;font-size:13px"><input type="checkbox" id="ciChildHalf">Børn halv pris</label>
+      <button class="btn primary" id="ciCreate">Opret katalogvare</button>
+    </div>
+  </section>`;
 }
 function viewLokationer(){
   return `${consoleNav('venues')}
@@ -1036,7 +1137,7 @@ function viewPicker(){
   const sec=(titel,liste)=>liste.length?`<section class="card"><header><h2>${titel}</h2><span class="note">${liste.length}</span></header>
     ${liste.map(e=>`<div class="item" data-open="${e.id}" style="cursor:pointer">
       <span class="stripe ${e.event_date>=today||e.status==='kladde'?'jer':''}"></span>
-      <div><div class="name">${esc(e.title)}</div><div class="meta">${e.venues?esc(e.venues.name):''} · ${datoKort(e.event_date)} · ${e.status}</div></div>
+      <div><div class="name">${esc(e.title)}</div><div class="meta">${e.event_type?e.event_type+' · ':''}${e.venues?esc(e.venues.name):''} · ${datoKort(e.event_date)} · ${e.status}</div></div>
       <span class="chip"><span class="dot"></span>${e.offer_total_kr?kr(e.offer_total_kr):'—'}</span></div>`).join('')}</section>`:'';
   const nyKort = `
   <section class="card">
@@ -1049,6 +1150,9 @@ function viewPicker(){
       </select>
       <input id="neDate" type="date" class="search" style="flex:1;min-width:140px">
       <input id="nePrice" type="number" class="search" placeholder="Tilbud, kr" style="flex:1;min-width:120px">
+      <select id="neType" class="search" style="flex:1;min-width:130px">
+        ${CAT_EVENT_TYPES.map(t=>`<option value="${t}">${t}</option>`).join('')}
+      </select>
       <select id="neStatus" class="search" style="flex:1;min-width:120px">
         <option value="kladde">Kladde</option>
         <option value="bekræftet">Bekræftet</option>

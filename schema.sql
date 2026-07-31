@@ -72,6 +72,7 @@ create table events (
   event_date date not null,
   offer_total_kr integer not null default 0,
   status text not null default 'bekræftet',   -- kladde | bekræftet | afviklet | aflyst
+  event_type text not null default 'bryllup', -- bryllup | firmafest | konference | teambuilding | andet
   baseline_locked boolean not null default false,
   owner_staff_id uuid references staff(id),   -- den, der oprettede arrangementet
   created_at timestamptz not null default now()
@@ -100,6 +101,28 @@ create table event_rooms (
   start_time time,                     -- tidsrum for denne fase (bruges til at forhindre dobbeltbooking)
   end_time time,                       -- hvis end_time <= start_time, regnes det som efter midnat
   primary key (event_id, phase)
+);
+
+-- Priskatalog: org'ens genbrugelige menuer/pakker/fri bar/tilvalg (fx natmad).
+-- Prissat pr. person (grundlag = reception/middag) eller som fast beløb (grundlag = fast).
+create table catalog_items (
+  id uuid primary key default gen_random_uuid(),
+  org_id uuid not null references organisations(id) on delete cascade,
+  name text not null,
+  category text not null default 'andet',    -- menu | bar | reception | tilvalg | andet — kun til gruppering
+  price_kr integer not null default 0,       -- pr. person, medmindre grundlag = 'fast'
+  basis text not null default 'middag',      -- reception | middag | fast
+  child_half boolean not null default false, -- børn betaler halv pris (babyer er altid gratis)
+  event_type text,                           -- null = alle typer, ellers samme værdier som events.event_type
+  sort_order integer not null default 0,
+  created_at timestamptz not null default now()
+);
+
+-- Hvilke katalogvarer er valgt til et bestemt arrangement
+create table event_catalog_items (
+  event_id uuid not null references events(id) on delete cascade,
+  catalog_item_id uuid not null references catalog_items(id) on delete cascade,
+  primary key (event_id, catalog_item_id)
 );
 
 create table guests (
@@ -298,6 +321,8 @@ alter table agenda_items  enable row level security;
 alter table activity_log  enable row level security;
 alter table rooms         enable row level security;
 alter table event_rooms   enable row level security;
+alter table catalog_items       enable row level security;
+alter table event_catalog_items enable row level security;
 
 -- Organisation / lokationer
 create policy org_read on organisations for select using (
@@ -331,6 +356,24 @@ create policy erooms_read on event_rooms for select using ( is_org_staff(event_i
 create policy erooms_ins  on event_rooms for insert with check ( is_org_staff(event_id) );
 create policy erooms_upd  on event_rooms for update using ( is_org_staff(event_id) ) with check ( is_org_staff(event_id) );
 create policy erooms_del  on event_rooms for delete using ( is_org_staff(event_id) );
+
+-- Priskatalog: org'ens folk læser hele kataloget (til at tilføje til arrangementer);
+-- brudepar må kun se de konkrete varer, der er valgt til deres eget arrangement.
+-- Kun admin opretter/ændrer/sletter katalogvarer.
+create policy catalog_read on catalog_items for select using (
+  org_id = my_org()
+  or exists (select 1 from event_catalog_items eci
+             join event_access a on a.event_id = eci.event_id
+             where eci.catalog_item_id = catalog_items.id and a.user_id = auth.uid())
+);
+create policy catalog_ins on catalog_items for insert with check ( is_org_admin(org_id) );
+create policy catalog_upd on catalog_items for update using ( is_org_admin(org_id) ) with check ( is_org_admin(org_id) );
+create policy catalog_del on catalog_items for delete using ( is_org_admin(org_id) );
+
+-- Hvilke katalogvarer er koblet til et arrangement: begge parter læser; medarbejdere sætter
+create policy eci_read on event_catalog_items for select using ( is_org_staff(event_id) or is_event_guest(event_id) );
+create policy eci_ins  on event_catalog_items for insert with check ( is_org_staff(event_id) );
+create policy eci_del  on event_catalog_items for delete using ( is_org_staff(event_id) );
 
 -- Medarbejdere kan se kolleger (til tildeling); kun admin må ændre brugere
 create policy staff_read   on staff for select using ( org_id = my_org() );
@@ -402,16 +445,36 @@ insert into rooms (id, venue_id, name, sort_order) values
   ('44444444-4444-4444-4444-444444444443','22222222-2222-2222-2222-222222222223','Havnesalen',1);
 
 -- Hovedarrangementet: Emily & Lars (kommende)
-insert into events (id, venue_id, org_id, title, event_date, offer_total_kr, status) values
+insert into events (id, venue_id, org_id, title, event_date, offer_total_kr, status, event_type) values
   ('33333333-3333-3333-3333-333333333333','22222222-2222-2222-2222-222222222222',
-   '11111111-1111-1111-1111-111111111111','Emily & Lars','2026-09-04',108245,'bekræftet');
+   '11111111-1111-1111-1111-111111111111','Emily & Lars','2026-09-04',108245,'bekræftet','bryllup');
 
 -- Ekstra arrangementer, så admin-overblikket har noget at vise
-insert into events (venue_id, org_id, title, event_date, offer_total_kr, status) values
-  ('22222222-2222-2222-2222-222222222222','11111111-1111-1111-1111-111111111111','Sofie & Mikkel','2026-05-16',94500,'afviklet'),
-  ('22222222-2222-2222-2222-222222222223','11111111-1111-1111-1111-111111111111','Firmajubilæum · Nordkraft','2026-06-20',61200,'afviklet'),
-  ('22222222-2222-2222-2222-222222222222','11111111-1111-1111-1111-111111111111','Anna & Jonas','2026-10-11',102300,'bekræftet'),
-  ('22222222-2222-2222-2222-222222222223','11111111-1111-1111-1111-111111111111','Konfirmation · Berg','2026-11-01',0,'kladde');
+insert into events (venue_id, org_id, title, event_date, offer_total_kr, status, event_type) values
+  ('22222222-2222-2222-2222-222222222222','11111111-1111-1111-1111-111111111111','Sofie & Mikkel','2026-05-16',94500,'afviklet','bryllup'),
+  ('22222222-2222-2222-2222-222222222223','11111111-1111-1111-1111-111111111111','Firmajubilæum · Nordkraft','2026-06-20',61200,'afviklet','firmafest'),
+  ('22222222-2222-2222-2222-222222222222','11111111-1111-1111-1111-111111111111','Anna & Jonas','2026-10-11',102300,'bekræftet','bryllup'),
+  ('22222222-2222-2222-2222-222222222223','11111111-1111-1111-1111-111111111111','Konfirmation · Berg','2026-11-01',0,'kladde','andet');
+
+-- Priskatalog for Madkastellet: menuer, pakker, fri bar, tilvalg (fx natmad) — prissat pr. person
+insert into catalog_items (id, org_id, name, category, price_kr, basis, child_half, event_type, sort_order) values
+  ('55555555-5555-5555-5555-555555555551','11111111-1111-1111-1111-111111111111','Bryllupspakke, middag','menu',1220,'middag',true,'bryllup',1),
+  ('55555555-5555-5555-5555-555555555552','11111111-1111-1111-1111-111111111111','Reception 14–15:30','reception',150,'reception',true,'bryllup',2),
+  ('55555555-5555-5555-5555-555555555553','11111111-1111-1111-1111-111111111111','Ekstra time','tilvalg',100,'middag',false,null,3),
+  ('55555555-5555-5555-5555-555555555554','11111111-1111-1111-1111-111111111111','Natmad, gourmet hotdogs','tilvalg',85,'middag',false,null,4),
+  ('55555555-5555-5555-5555-555555555555','11111111-1111-1111-1111-111111111111','Naturvin','bar',75,'middag',false,null,5),
+  ('55555555-5555-5555-5555-555555555556','11111111-1111-1111-1111-111111111111','Forplejning fotograf + DJ','tilvalg',325,'fast',false,null,6),
+  ('55555555-5555-5555-5555-555555555557','11111111-1111-1111-1111-111111111111','DJ-udstyr','tilvalg',3000,'fast',false,null,7);
+
+-- Emily & Lars har valgt hele det klassiske bryllupssortiment
+insert into event_catalog_items (event_id, catalog_item_id) values
+  ('33333333-3333-3333-3333-333333333333','55555555-5555-5555-5555-555555555551'),
+  ('33333333-3333-3333-3333-333333333333','55555555-5555-5555-5555-555555555552'),
+  ('33333333-3333-3333-3333-333333333333','55555555-5555-5555-5555-555555555553'),
+  ('33333333-3333-3333-3333-333333333333','55555555-5555-5555-5555-555555555554'),
+  ('33333333-3333-3333-3333-333333333333','55555555-5555-5555-5555-555555555555'),
+  ('33333333-3333-3333-3333-333333333333','55555555-5555-5555-5555-555555555556'),
+  ('33333333-3333-3333-3333-333333333333','55555555-5555-5555-5555-555555555557');
 
 -- lokale pr. fase for Emily & Lars: reception på terrassen, resten indendørs
 insert into event_rooms (event_id, phase, room_id, start_time, end_time) values
