@@ -682,13 +682,9 @@ function render(){
       v.innerHTML=viewKatalog();
       const cc=document.getElementById('ciCreate'); if(cc) cc.onclick=createCatalogItem;
       v.querySelectorAll('[data-delete-catalog-item]').forEach(el=>el.onclick=()=>deleteCatalogItem(el.dataset.deleteCatalogItem));
-      v.querySelectorAll('[data-add-item-room]').forEach(el=>el.onclick=()=>{
-        const sel=document.querySelector(`[data-item-room-sel="${el.dataset.addItemRoom}"]`);
-        if(sel&&sel.value) addCatalogItemRoom(el.dataset.addItemRoom, sel.value);
-      });
-      v.querySelectorAll('[data-remove-item-room]').forEach(el=>el.onclick=()=>{
-        const [itemId,roomId]=el.dataset.removeItemRoom.split('|');
-        removeCatalogItemRoom(itemId, roomId);
+      v.querySelectorAll('.item-room').forEach(el=>el.onchange=()=>{
+        if(el.checked) addCatalogItemRoom(el.dataset.item, el.dataset.room);
+        else removeCatalogItemRoom(el.dataset.item, el.dataset.room);
       });
     } else {
       v.innerHTML=viewPicker();
@@ -1109,22 +1105,17 @@ function viewKatalog(){
   <section class="card">
     <header><h2>Katalogvarer</h2><span class="note">${(state.orgCatalog||[]).length}</span></header>
     ${(state.orgCatalog||[]).length?(state.orgCatalog||[]).map(c=>{
-      const chosen=(state.orgRooms||[]).filter(r=>(c.roomIds||[]).includes(r.id));
-      const available=(state.orgRooms||[]).filter(r=>!(c.roomIds||[]).includes(r.id));
       return `<div class="stat" style="flex-wrap:wrap;gap:8px;align-items:flex-start">
       <span>${esc(c.name)} <span class="note">${c.category}${c.event_type?' · '+c.event_type:''}</span></span>
       <span class="row" style="gap:8px">
         <span class="note">${c.price_kr} kr ${c.basis==='fast'?'(fast)':'/person'+(c.child_half?' · børn halv pris':'')}</span>
         <button class="btn" data-delete-catalog-item="${c.id}">Slet</button>
       </span>
-      <span class="row" style="width:100%;gap:6px;flex-wrap:wrap;margin-top:4px">
-        <span class="note">Lokaler:</span>
-        ${chosen.length?chosen.map(r=>`<span class="chip">${esc(r.name)}<button class="del" data-remove-item-room="${c.id}|${r.id}" title="Fjern" style="margin-left:4px">×</button></span>`).join(''):'<span class="note">alle lokaler</span>'}
-        ${available.length?`<select class="search" data-item-room-sel="${c.id}" style="font-size:12px;padding:4px 8px">
-          <option value="">Begræns til lokale…</option>
-          ${available.map(r=>`<option value="${r.id}">${esc(r.name)}${r.venueName?' · '+esc(r.venueName):''}</option>`).join('')}
-        </select>
-        <button class="btn" data-add-item-room="${c.id}">Tilføj</button>`:''}
+      <span class="row" style="width:100%;gap:12px;flex-wrap:wrap;margin-top:4px">
+        <span class="note">Lokaler (intet valgt = alle):</span>
+        ${(state.orgRooms||[]).map(r=>`<label class="row" style="gap:4px;font-size:13px">
+          <input type="checkbox" class="item-room" data-item="${c.id}" data-room="${r.id}" ${(c.roomIds||[]).includes(r.id)?'checked':''}>${esc(r.name)}${r.venueName?' · '+esc(r.venueName):''}
+        </label>`).join('')}
       </span>
     </div>`;}).join(''):'<div class="empty">Ingen katalogvarer endnu.</div>'}
   </section>
