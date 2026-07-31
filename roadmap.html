@@ -43,6 +43,17 @@ footer{margin-top:40px;font-size:12px;color:var(--ink-40)}
   <p class="lead">Idéer og planer for Verta, samlet ét sted. Ingen menupunkt fører hertil — siden findes kun på /roadmap. Holdes løbende opdateret, når nyt bliver drøftet.</p>
 
   <section class="col">
+    <div class="eyebrow"><span class="dot idea"></span>Idéer</div>
+    <div class="empty">Ingen åbne idéer lige nu — alt drøftet indtil videre er enten udført eller planlagt nedenfor.</div>
+  </section>
+
+  <section class="col">
+    <div class="eyebrow"><span class="dot planned"></span>Planlagt</div>
+    <div class="card"><div class="t">Notifikationsmail ved nye beskeder</div><div class="d">Edge Function + maildienst, så modparten får en mail når der lægges en ny besked. Bevidst nedprioriteret — kan vente.</div></div>
+    <div class="card"><div class="t">Importér rigtige lokationer/lokaler fra madkastellet.dk</div><div class="d">Fylde alle Madkastellets rigtige lokationer og lokaler ind i venues/rooms. Blokeret lige nu: sessionens netværkspolitik tillader ikke udgående opslag mod madkastellet.dk — afventer enten adgang eller at data leveres manuelt.</div></div>
+  </section>
+
+  <section class="col">
     <div class="eyebrow"><span class="dot done"></span>Udført</div>
     <div class="card"><div class="t">Repo, deploy og Supabase-forbindelse</div><div class="d">GitHub → Netlify auto-deploy (vertacph.netlify.app). Supabase URL + publishable key i index.html.</div></div>
     <div class="card"><div class="t">Login-skærm virker</div><div class="d">Rettet en visibility:hidden-arvefejl der gjorde gate-skærmen usynlig.</div></div>
@@ -53,19 +64,9 @@ footer{margin-top:40px;font-size:12px;color:var(--ink-40)}
     <div class="card"><div class="t">Brugerstyring</div><div class="d">"Brugere"-fane (admin-only): invitér medarbejdere, skift rolle, fjern medarbejdere.</div></div>
     <div class="card"><div class="t">Lokationsstyring + Realtime</div><div class="d">"Lokationer"-fane til at oprette/omdøbe/slette venues og rooms. Realtime på activity_log — Log og Beskeder opdateres live for begge parter.</div></div>
     <div class="card"><div class="t">Katalogstyring</div><div class="d">events.event_type, catalog_items/event_catalog_items, "Katalog"-fane, per-arrangement katalogvalg i Admin. Madkastellets prisark sået ind og koblet til Emily &amp; Lars. Prisberegning bruger nu databasen i stedet for hardkodet array.</div></div>
-    <div class="card"><div class="t">Lokalebegrænsning pr. katalogvare</div><div class="d">catalog_item_rooms kobler en katalogvare til specifikke lokaler (ingen kobling = gælder alle lokaler). Styres fra Katalog-fanen.</div></div>
+    <div class="card"><div class="t">Lokalebegrænsning pr. katalogvare</div><div class="d">catalog_item_rooms kobler en katalogvare til specifikke lokaler (ingen kobling = gælder alle lokaler). Styres fra Katalog-fanen, grupperet pr. lokation med "vælg alle"-genvej.</div></div>
     <div class="card"><div class="t">Klikbart logo → rolle-baseret forside</div><div class="d">Logoet i toppen fører admin til overblik over alle arrangementer, koordinator til overblik over egne (tildelte) arrangementer, og brudepar direkte til deres eget arrangement.</div></div>
-    <div class="card"><div class="t">Roadmap-side</div><div class="d">Denne side. Ikke linket fra forsiden, ligger på /roadmap.</div></div>
-  </section>
-
-  <section class="col">
-    <div class="eyebrow"><span class="dot planned"></span>Planlagt</div>
-    <div class="card"><div class="t">Notifikationsmail ved nye beskeder</div><div class="d">Edge Function + maildienst, så modparten får en mail når der lægges en ny besked. Bevidst nedprioriteret — kan vente.</div></div>
-  </section>
-
-  <section class="col">
-    <div class="eyebrow"><span class="dot idea"></span>Idéer</div>
-    <div class="empty">Ingen åbne idéer lige nu — alt drøftet indtil videre er enten udført eller planlagt ovenfor.</div>
+    <div class="card"><div class="t">Roadmap-side</div><div class="d">Denne side. Ikke linket fra forsiden, ligger på /roadmap. Idéer og Planlagt vises øverst.</div></div>
   </section>
 
   <footer>Verta · internt roadmap-dokument, ikke offentligt indekseret.</footer>
