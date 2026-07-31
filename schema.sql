@@ -73,6 +73,7 @@ create table events (
   offer_total_kr integer not null default 0,
   status text not null default 'bekræftet',   -- kladde | bekræftet | afviklet | aflyst
   baseline_locked boolean not null default false,
+  owner_staff_id uuid references staff(id),   -- den, der oprettede arrangementet
   created_at timestamptz not null default now()
 );
 
@@ -206,7 +207,21 @@ create trigger on_auth_user_created
   after insert on auth.users
   for each row execute function handle_new_user();
 
--- Den, der opretter et arrangement, kobles automatisk på det.
+-- Den, der opretter et arrangement, bliver automatisk ejer (før insert, så feltet er sat).
+create or replace function set_event_owner()
+returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  if new.owner_staff_id is null then
+    new.owner_staff_id := auth.uid();
+  end if;
+  return new;
+end;
+$$;
+create trigger on_event_owner_set
+  before insert on events
+  for each row execute function set_event_owner();
+
+-- Den, der opretter et arrangement, kobles automatisk på det som medarbejder.
 create or replace function assign_event_creator()
 returns trigger language plpgsql security definer set search_path = public as $$
 begin
