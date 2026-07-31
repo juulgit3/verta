@@ -391,13 +391,13 @@ function guestMutation(apply, staffLabel){
 const esc = s => String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 
 const TABS = {
-  kilden:[['oversigt','Oversigt'],['gaester','Gæster'],['punkter','Aftalepunkter'],['koekken','Køkkenseddel'],['log','Log'],['beskeder','Beskeder']],
+  kilden:[['oversigt','Oversigt'],['gaester','Gæster'],['punkter','Aftalepunkter'],['koekken','Køkkenseddel'],['log','Log'],['admin','Admin'],['beskeder','Beskeder']],
   kunde: [['oversigt','Oversigt'],['gaester','Gæster'],['punkter','Aftalepunkter'],['tidslinje','Tidslinje'],['beskeder','Beskeder']]
 };
 
 function renderTabs(){
   const el=document.getElementById('tabs'), n=unread(state.rolle);
-  el.innerHTML = TABS[state.rolle].map(([id,label])=>
+  el.innerHTML = TABS[state.rolle].filter(([id])=>id!=='admin'||MODE==='cloud').map(([id,label])=>
     `<button role="tab" data-tab="${id}" aria-selected="${state.tab===id}">${label}${id==='beskeder'&&n?`<span class="tabbadge">${n}</span>`:''}</button>`).join('');
   el.querySelectorAll('button').forEach(b=>b.onclick=()=>{state.tab=b.dataset.tab;state.soeg='';render();});
 }
@@ -425,12 +425,10 @@ function heroChips(){
     ${kilden&&state.rolle==='kilden'?`<span class="chip warn"><span class="dot"></span>${kilden} afventer Kilden</span>`:''}`;
 }
 
-function viewOversigt(){
-  const a=antal(), linjer=prisLinjer(), t=total(), diff=t-EVENT.tilbud;
-  const aabne=aabnePunkter().sort((x,y)=>x.frist.localeCompare(y.frist));
+function viewAdmin(){
   const owner = (state.eventStaff||[]).find(s=>s.id===state.ownerStaffId);
   const sekundaere = (state.eventStaff||[]).filter(s=>s.id!==state.ownerStaffId);
-  const koordKort = (MODE==='cloud' && state.rolle==='kilden') ? `
+  return `
   <section class="card">
     <header><h2>Medarbejdere på arrangementet</h2><span class="note">${(state.eventStaff||[]).length} tilkoblet</span></header>
     <div class="stat"><span>Ejer</span><b>${owner?esc(owner.name):'—'}</b></div>
@@ -442,7 +440,11 @@ function viewOversigt(){
       </select>
       <button class="btn" id="coordAdd">Tilføj</button>
     </div>
-  </section>` : '';
+  </section>`;
+}
+function viewOversigt(){
+  const a=antal(), linjer=prisLinjer(), t=total(), diff=t-EVENT.tilbud;
+  const aabne=aabnePunkter().sort((x,y)=>x.frist.localeCompare(y.frist));
   const lokaleKort = (MODE==='cloud' && state.rolle==='kilden') ? `
   <section class="card">
     <header><h2>Lokaler pr. fase</h2><span class="note">${esc(state.venueName||'')}</span></header>
@@ -453,7 +455,6 @@ function viewOversigt(){
       </select></div>`).join('')}
   </section>` : '';
   return `
-  ${koordKort}
   ${lokaleKort}
   <div class="grid2">
     <section class="card">
@@ -643,7 +644,7 @@ function render(){
   if(state.tab==='beskeder'){ state.lastRead[state.rolle]=Date.now(); if(MODE==='local') save(); }
   document.getElementById('whoami').textContent='Logget ind som '+currentActor().navn;
   heroChips(); renderTabs();
-  const map={oversigt:viewOversigt,gaester:viewGaester,punkter:viewPunkter,koekken:viewKoekken,log:viewLog,tidslinje:viewTidslinje,beskeder:viewBeskeder};
+  const map={oversigt:viewOversigt,gaester:viewGaester,punkter:viewPunkter,koekken:viewKoekken,log:viewLog,admin:viewAdmin,tidslinje:viewTidslinje,beskeder:viewBeskeder};
   if(!map[state.tab]) state.tab='oversigt';
   document.getElementById('view').innerHTML=map[state.tab]();
   document.getElementById('legal').textContent = state.rolle==='kilden'
