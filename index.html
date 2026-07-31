@@ -939,7 +939,7 @@ async function removeStaff(id){
 async function loadVenuesFull(){
   const {data:vens}=await sb.from('venues').select('id,name,address').eq('org_id',state.orgId).order('name');
   state.venues=vens||[];
-  const {data:rms}=await sb.from('rooms').select('id,name,venue_id,sort_order,capacity_note').order('sort_order');
+  const {data:rms}=await sb.from('rooms').select('id,name,venue_id,sort_order,capacity_max').order('sort_order');
   state.venuesFull=(vens||[]).map(v=>({...v, rooms:(rms||[]).filter(r=>r.venue_id===v.id)}));
 }
 async function createVenue(){
@@ -981,8 +981,9 @@ async function renameRoom(id, name){
   if(error) alert('Kunne ikke omdøbe lokale: '+error.message);
   await loadVenuesFull(); render();
 }
-async function updateRoomCapacity(id, note){
-  const {error}=await sb.from('rooms').update({capacity_note:note.trim()||null}).eq('id',id);
+async function updateRoomCapacity(id, value){
+  const n=parseInt(value,10);
+  const {error}=await sb.from('rooms').update({capacity_max:isNaN(n)?null:n}).eq('id',id);
   if(error) alert('Kunne ikke gemme kapacitet: '+error.message);
   await loadVenuesFull(); render();
 }
@@ -1236,7 +1237,7 @@ function viewLokationer(){
     <input class="search" data-venue-address="${v.id}" value="${esc(v.address||'')}" placeholder="Adresse…" style="width:100%;margin-bottom:10px;font-size:13px">
     ${v.rooms.length?v.rooms.map(r=>`<div class="stat" style="flex-wrap:wrap;gap:6px;align-items:center">
       <input class="search" data-room-name="${r.id}" value="${esc(r.name)}" style="flex:1;min-width:140px">
-      <input class="search" data-room-capacity="${r.id}" value="${esc(r.capacity_note||'')}" placeholder="Kapacitet…" style="flex:1;min-width:160px;font-size:13px">
+      <input type="number" min="0" class="search" data-room-capacity="${r.id}" value="${r.capacity_max??''}" placeholder="Max antal gæster" style="flex:1;min-width:160px;font-size:13px">
       <button class="btn" data-delete-room="${r.id}">Slet</button>
     </div>`).join(''):'<div class="empty">Ingen lokaler endnu.</div>'}
     <div class="row" style="margin-top:12px;gap:8px">

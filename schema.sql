@@ -41,7 +41,7 @@ create table rooms (
   id uuid primary key default gen_random_uuid(),
   venue_id uuid not null references venues(id) on delete cascade,
   name text not null,
-  capacity_note text,             -- fri tekst, fx "8-12 personer" eller "op til 96 personer"
+  capacity_max integer,            -- max antal gæster i lokalet
   sort_order integer not null default 0,
   created_at timestamptz not null default now()
 );
