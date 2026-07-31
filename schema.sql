@@ -125,6 +125,13 @@ create table event_catalog_items (
   primary key (event_id, catalog_item_id)
 );
 
+-- Hvilke lokaler en katalogvare kan høre til. Ingen rækker for en vare = gælder alle lokaler.
+create table catalog_item_rooms (
+  catalog_item_id uuid not null references catalog_items(id) on delete cascade,
+  room_id uuid not null references rooms(id) on delete cascade,
+  primary key (catalog_item_id, room_id)
+);
+
 create table guests (
   id uuid primary key default gen_random_uuid(),
   event_id uuid not null references events(id) on delete cascade,
@@ -323,6 +330,7 @@ alter table rooms         enable row level security;
 alter table event_rooms   enable row level security;
 alter table catalog_items       enable row level security;
 alter table event_catalog_items enable row level security;
+alter table catalog_item_rooms  enable row level security;
 
 -- Organisation / lokationer
 create policy org_read on organisations for select using (
@@ -374,6 +382,17 @@ create policy catalog_del on catalog_items for delete using ( is_org_admin(org_i
 create policy eci_read on event_catalog_items for select using ( is_org_staff(event_id) or is_event_guest(event_id) );
 create policy eci_ins  on event_catalog_items for insert with check ( is_org_staff(event_id) );
 create policy eci_del  on event_catalog_items for delete using ( is_org_staff(event_id) );
+
+-- Hvilke lokaler en katalogvare kan bruges i: org'ens folk læser; kun admin sætter
+create policy cir_read on catalog_item_rooms for select using (
+  exists (select 1 from catalog_items ci where ci.id = catalog_item_rooms.catalog_item_id and ci.org_id = my_org())
+);
+create policy cir_ins on catalog_item_rooms for insert with check (
+  exists (select 1 from catalog_items ci where ci.id = catalog_item_rooms.catalog_item_id and is_org_admin(ci.org_id))
+);
+create policy cir_del on catalog_item_rooms for delete using (
+  exists (select 1 from catalog_items ci where ci.id = catalog_item_rooms.catalog_item_id and is_org_admin(ci.org_id))
+);
 
 -- Medarbejdere kan se kolleger (til tildeling); kun admin må ændre brugere
 create policy staff_read   on staff for select using ( org_id = my_org() );

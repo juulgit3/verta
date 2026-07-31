@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Roadmap · Verta</title>
+<meta name="robots" content="noindex">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Familjen+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#12151B; --ink-60:rgba(18,21,27,.60); --ink-40:rgba(18,21,27,.40);
+  --line:rgba(18,21,27,.14); --paper:#EAEDE6; --card:#FBFBF9;
+  --blue:#1435D6; --amber:#A8681C; --moss:#3E6B4C; --radius:3px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{background:var(--paper);color:var(--ink);font-family:'Familjen Grotesk',system-ui,sans-serif;font-size:16px;line-height:1.45;-webkit-font-smoothing:antialiased}
+.wrap{max-width:820px;margin:0 auto;padding:24px 18px 96px}
+.mark{font-family:'Instrument Serif',serif;font-style:italic;font-size:26px;color:var(--blue);letter-spacing:-.01em}
+.brand{display:flex;flex-direction:column;line-height:1.02}
+.brand .org{font-size:12px;font-weight:600;color:var(--ink-60);letter-spacing:.02em;margin-top:1px}
+h1{font-family:'Instrument Serif',serif;font-style:italic;font-size:clamp(36px,8vw,56px);line-height:.98;letter-spacing:-.02em;font-weight:400;margin:24px 0 6px}
+p.lead{color:var(--ink-60);font-size:15px;margin:0 0 32px;max-width:60ch}
+.eyebrow{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-40);font-weight:600;display:flex;align-items:center;gap:8px}
+.dot{width:8px;height:8px;border-radius:99px;display:inline-block}
+.dot.idea{background:var(--ink-40)}
+.dot.planned{background:var(--amber)}
+.dot.done{background:var(--moss)}
+section.col{margin:34px 0}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:12px 16px;margin:12px 0}
+.card .t{font-weight:600;font-size:14.5px}
+.card .d{font-size:13px;color:var(--ink-60);margin-top:3px}
+.empty{color:var(--ink-40);font-size:14px;font-style:italic}
+footer{margin-top:40px;font-size:12px;color:var(--ink-40)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="brand"><span class="mark">Verta</span><span class="org">Madkastellet</span></div>
+  <h1>Roadmap</h1>
+  <p class="lead">Idéer og planer for Verta, samlet ét sted. Ingen menupunkt fører hertil — siden findes kun på /roadmap. Holdes løbende opdateret, når nyt bliver drøftet.</p>
+
+  <section class="col">
+    <div class="eyebrow"><span class="dot done"></span>Udført</div>
+    <div class="card"><div class="t">Repo, deploy og Supabase-forbindelse</div><div class="d">GitHub → Netlify auto-deploy (vertacph.netlify.app). Supabase URL + publishable key i index.html.</div></div>
+    <div class="card"><div class="t">Login-skærm virker</div><div class="d">Rettet en visibility:hidden-arvefejl der gjorde gate-skærmen usynlig.</div></div>
+    <div class="card"><div class="t">Knap-feedback</div><div class="d">Tryk-animation, disabled-tilstand og "Sender…"-tekst på login og andre knapper.</div></div>
+    <div class="card"><div class="t">Arrangement-oprettelse + ejer/koordinator-model</div><div class="d">events.owner_staff_id sættes automatisk ved oprettelse; event_staff til sekundære koordinatorer. Admin-fane pr. arrangement.</div></div>
+    <div class="card"><div class="t">RLS + RETURNING-fix på events</div><div class="d">Undgår Postgres-finurlighed ved at bruge separat SELECT efter insert i stedet for .select() direkte.</div></div>
+    <div class="card"><div class="t">Lokale-bookingregler</div><div class="d">event_rooms med start/slut pr. fase (reception/middag/fest); trigger forhindrer overlappende bookinger af samme lokale. Fest kan gå over midnat.</div></div>
+    <div class="card"><div class="t">Brugerstyring</div><div class="d">"Brugere"-fane (admin-only): invitér medarbejdere, skift rolle, fjern medarbejdere.</div></div>
+    <div class="card"><div class="t">Lokationsstyring + Realtime</div><div class="d">"Lokationer"-fane til at oprette/omdøbe/slette venues og rooms. Realtime på activity_log — Log og Beskeder opdateres live for begge parter.</div></div>
+    <div class="card"><div class="t">Katalogstyring</div><div class="d">events.event_type, catalog_items/event_catalog_items, "Katalog"-fane, per-arrangement katalogvalg i Admin. Madkastellets prisark sået ind og koblet til Emily &amp; Lars. Prisberegning bruger nu databasen i stedet for hardkodet array.</div></div>
+    <div class="card"><div class="t">Lokalebegrænsning pr. katalogvare</div><div class="d">catalog_item_rooms kobler en katalogvare til specifikke lokaler (ingen kobling = gælder alle lokaler). Styres fra Katalog-fanen.</div></div>
+    <div class="card"><div class="t">Klikbart logo → rolle-baseret forside</div><div class="d">Logoet i toppen fører admin til overblik over alle arrangementer, koordinator til overblik over egne (tildelte) arrangementer, og brudepar direkte til deres eget arrangement.</div></div>
+    <div class="card"><div class="t">Roadmap-side</div><div class="d">Denne side. Ikke linket fra forsiden, ligger på /roadmap.</div></div>
+  </section>
+
+  <section class="col">
+    <div class="eyebrow"><span class="dot planned"></span>Planlagt</div>
+    <div class="card"><div class="t">Notifikationsmail ved nye beskeder</div><div class="d">Edge Function + maildienst, så modparten får en mail når der lægges en ny besked. Bevidst nedprioriteret — kan vente.</div></div>
+  </section>
+
+  <section class="col">
+    <div class="eyebrow"><span class="dot idea"></span>Idéer</div>
+    <div class="empty">Ingen åbne idéer lige nu — alt drøftet indtil videre er enten udført eller planlagt ovenfor.</div>
+  </section>
+
+  <footer>Verta · internt roadmap-dokument, ikke offentligt indekseret.</footer>
+</div>
+</body>
+</html>

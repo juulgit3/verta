@@ -22,7 +22,7 @@ button{font:inherit;color:inherit}
 input,select,textarea{font:inherit;color:inherit}
 
 .mark{font-family:'Instrument Serif',serif;font-style:italic;font-size:26px;color:var(--blue);letter-spacing:-.01em}
-.brand{display:flex;flex-direction:column;line-height:1.02}
+.brand{display:flex;flex-direction:column;line-height:1.02;border:0;background:none;padding:0;text-align:left;cursor:pointer}
 .brand .org{font-size:12px;font-weight:600;color:var(--ink-60);letter-spacing:.02em;margin-top:1px}
 .eventloc{margin-top:8px;font-size:14px;color:var(--ink-60)}
 .eventloc .loc{font-weight:600;color:var(--ink)}
@@ -157,10 +157,10 @@ footer.legal{margin-top:28px;font-size:12px;color:var(--ink-40);line-height:1.6}
 <div class="wrap">
 
   <div class="topline">
-    <div class="brand">
+    <button class="brand" id="brandHome" type="button" title="Til din forside">
       <span class="mark">Verta</span>
       <span class="org" id="orgName">Madkastellet</span>
-    </div>
+    </button>
     <div class="rolebar">
       <span class="whoami" id="whoami"></span>
       <button class="btn" id="backToList" style="display:none">‹ Arrangementer</button>
@@ -682,6 +682,14 @@ function render(){
       v.innerHTML=viewKatalog();
       const cc=document.getElementById('ciCreate'); if(cc) cc.onclick=createCatalogItem;
       v.querySelectorAll('[data-delete-catalog-item]').forEach(el=>el.onclick=()=>deleteCatalogItem(el.dataset.deleteCatalogItem));
+      v.querySelectorAll('[data-add-item-room]').forEach(el=>el.onclick=()=>{
+        const sel=document.querySelector(`[data-item-room-sel="${el.dataset.addItemRoom}"]`);
+        if(sel&&sel.value) addCatalogItemRoom(el.dataset.addItemRoom, sel.value);
+      });
+      v.querySelectorAll('[data-remove-item-room]').forEach(el=>el.onclick=()=>{
+        const [itemId,roomId]=el.dataset.removeItemRoom.split('|');
+        removeCatalogItemRoom(itemId, roomId);
+      });
     } else {
       v.innerHTML=viewPicker();
       v.querySelectorAll('[data-open]').forEach(el=>el.onclick=()=>openEvent(el.dataset.open));
@@ -780,6 +788,8 @@ function bind(){
     };
   });
 }
+
+document.getElementById('brandHome').onclick=goHome;
 
 document.querySelectorAll('.seg button').forEach(b=>{
   b.onclick=()=>{
@@ -954,8 +964,22 @@ async function deleteRoom(id){
 const CAT_CATEGORIES = ['menu','bar','reception','tilvalg','andet'];
 const CAT_EVENT_TYPES = ['bryllup','firmafest','konference','teambuilding','andet'];
 async function loadOrgCatalog(){
-  const {data}=await sb.from('catalog_items').select('*').eq('org_id',state.orgId).order('category').order('sort_order');
-  state.orgCatalog=data||[];
+  const {data}=await sb.from('catalog_items').select('*, catalog_item_rooms(room_id)').eq('org_id',state.orgId).order('category').order('sort_order');
+  state.orgCatalog=(data||[]).map(c=>({...c, roomIds:(c.catalog_item_rooms||[]).map(r=>r.room_id)}));
+  const {data:vens}=await sb.from('venues').select('id,name').eq('org_id',state.orgId).order('name');
+  const {data:rms}=await sb.from('rooms').select('id,name,venue_id').order('sort_order');
+  state.orgRooms=(rms||[]).map(r=>({...r, venueName:(vens||[]).find(v=>v.id===r.venue_id)?.name||''}));
+}
+async function addCatalogItemRoom(itemId, roomId){
+  if(!roomId) return;
+  const {error}=await sb.from('catalog_item_rooms').insert({catalog_item_id:itemId, room_id:roomId});
+  if(error){ alert('Kunne ikke tilføje lokale: '+error.message); return; }
+  await loadOrgCatalog(); render();
+}
+async function removeCatalogItemRoom(itemId, roomId){
+  const {error}=await sb.from('catalog_item_rooms').delete().eq('catalog_item_id',itemId).eq('room_id',roomId);
+  if(error){ alert('Kunne ikke fjerne lokale: '+error.message); return; }
+  await loadOrgCatalog(); render();
 }
 async function loadCatalog(id){
   const {data:sel}=await sb.from('event_catalog_items').select('catalog_item_id, catalog_items(id,name,price_kr,basis,child_half)').eq('event_id',id);
@@ -1057,6 +1081,12 @@ function showGate(msg){ const g=document.getElementById('gate'); g.style.display
 function showApp(){ document.getElementById('gate').style.display='none'; document.querySelector('.wrap').style.visibility='visible'; }
 function showNoAccess(){ showGate('Du er logget ind som '+state.userEmail+', men har endnu ikke adgang til et arrangement. Bed admin om at koble dig på.'); }
 function showPicker(){ unsubscribeRealtime(); state.view='picker'; showApp(); render(); }
+function goHome(){
+  if(MODE!=='cloud'){ state.tab='oversigt'; render(); return; }
+  if(!state.actor) return;
+  if(state.rolle==='kilden') showPicker();
+  else { state.view='workspace'; state.tab='oversigt'; render(); }
+}
 
 function consoleNav(active){
   if(!state.isAdmin) return '';
@@ -1072,13 +1102,25 @@ function viewKatalog(){
   <div style="margin:20px 0 10px"><span class="eyebrow">Priskatalog for ${esc(state.orgName||'organisationen')}</span></div>
   <section class="card">
     <header><h2>Katalogvarer</h2><span class="note">${(state.orgCatalog||[]).length}</span></header>
-    ${(state.orgCatalog||[]).length?(state.orgCatalog||[]).map(c=>`<div class="stat">
+    ${(state.orgCatalog||[]).length?(state.orgCatalog||[]).map(c=>{
+      const chosen=(state.orgRooms||[]).filter(r=>(c.roomIds||[]).includes(r.id));
+      const available=(state.orgRooms||[]).filter(r=>!(c.roomIds||[]).includes(r.id));
+      return `<div class="stat" style="flex-wrap:wrap;gap:8px;align-items:flex-start">
       <span>${esc(c.name)} <span class="note">${c.category}${c.event_type?' · '+c.event_type:''}</span></span>
       <span class="row" style="gap:8px">
         <span class="note">${c.price_kr} kr ${c.basis==='fast'?'(fast)':'/person'+(c.child_half?' · børn halv pris':'')}</span>
         <button class="btn" data-delete-catalog-item="${c.id}">Slet</button>
       </span>
-    </div>`).join(''):'<div class="empty">Ingen katalogvarer endnu.</div>'}
+      <span class="row" style="width:100%;gap:6px;flex-wrap:wrap;margin-top:4px">
+        <span class="note">Lokaler:</span>
+        ${chosen.length?chosen.map(r=>`<span class="chip">${esc(r.name)}<button class="del" data-remove-item-room="${c.id}|${r.id}" title="Fjern" style="margin-left:4px">×</button></span>`).join(''):'<span class="note">alle lokaler</span>'}
+        ${available.length?`<select class="search" data-item-room-sel="${c.id}" style="font-size:12px;padding:4px 8px">
+          <option value="">Begræns til lokale…</option>
+          ${available.map(r=>`<option value="${r.id}">${esc(r.name)}${r.venueName?' · '+esc(r.venueName):''}</option>`).join('')}
+        </select>
+        <button class="btn" data-add-item-room="${c.id}">Tilføj</button>`:''}
+      </span>
+    </div>`;}).join(''):'<div class="empty">Ingen katalogvarer endnu.</div>'}
   </section>
   <section class="card">
     <header><h2>Ny katalogvare</h2></header>
