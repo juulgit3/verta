@@ -992,12 +992,18 @@ async function createCatalogItem(){
   const basis=document.getElementById('ciBasis').value;
   const childHalf=document.getElementById('ciChildHalf').checked;
   const eventType=document.getElementById('ciEventType').value||null;
+  const roomIds=[...document.querySelectorAll('.ci-room:checked')].map(el=>el.value);
   if(!name){ alert('Skriv et navn.'); return; }
   const btn=document.getElementById('ciCreate'), orig=btn.textContent;
   btn.disabled=true; btn.textContent='Opretter…';
   const {error}=await sb.from('catalog_items').insert({org_id:state.orgId, name, category, price_kr:price, basis, child_half:childHalf, event_type:eventType});
+  if(error){ btn.disabled=false; btn.textContent=orig; alert('Kunne ikke oprette katalogvare: '+error.message); return; }
+  if(roomIds.length){
+    const {data:created}=await sb.from('catalog_items').select('id').eq('org_id',state.orgId).eq('name',name)
+      .order('created_at',{ascending:false}).limit(1).maybeSingle();
+    if(created) await sb.from('catalog_item_rooms').insert(roomIds.map(rid=>({catalog_item_id:created.id, room_id:rid})));
+  }
   btn.disabled=false; btn.textContent=orig;
-  if(error){ alert('Kunne ikke oprette katalogvare: '+error.message); return; }
   await loadOrgCatalog(); render();
 }
 async function deleteCatalogItem(id){
@@ -1140,6 +1146,12 @@ function viewKatalog(){
         ${CAT_EVENT_TYPES.map(t=>`<option value="${t}">${t}</option>`).join('')}
       </select>
       <label class="row" style="gap:4px;font-size:13px"><input type="checkbox" id="ciChildHalf">Børn halv pris</label>
+    </div>
+    <div class="row" style="gap:10px;flex-wrap:wrap;margin-top:10px">
+      <span class="note">Lokaler (ingen valgt = alle lokaler):</span>
+      ${(state.orgRooms||[]).map(r=>`<label class="row" style="gap:4px;font-size:13px"><input type="checkbox" class="ci-room" value="${r.id}">${esc(r.name)}${r.venueName?' · '+esc(r.venueName):''}</label>`).join('')}
+    </div>
+    <div class="row" style="margin-top:10px">
       <button class="btn primary" id="ciCreate">Opret katalogvare</button>
     </div>
   </section>`;
