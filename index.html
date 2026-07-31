@@ -460,6 +460,7 @@ function viewOversigt(){
         <input type="time" class="search" style="width:88px" data-phase-field="start" data-phase="${ph}" value="${pr.start||def[0]}">
         <span class="note">–</span>
         <input type="time" class="search" style="width:88px" data-phase-field="end" data-phase="${ph}" value="${pr.end||def[1]}">
+        <button class="btn" data-phase-save="${ph}">Gem</button>
       </span></div>`;
     }).join('')}
   </section>` : '';
@@ -712,12 +713,15 @@ function bind(){
   document.querySelectorAll('[data-remove-coord]').forEach(b=>{ b.onclick=()=>removeCoordinator(b.dataset.removeCoord); });
 
   PHASES.forEach(([ph])=>{
+    const btn=document.querySelector(`[data-phase-save="${ph}"]`);
+    if(!btn) return;
     const roomEl=document.querySelector(`[data-phase-field="room"][data-phase="${ph}"]`);
     const startEl=document.querySelector(`[data-phase-field="start"][data-phase="${ph}"]`);
     const endEl=document.querySelector(`[data-phase-field="end"][data-phase="${ph}"]`);
-    if(!roomEl) return;
-    const fire=()=>setPhaseRoom(ph, roomEl.value, startEl.value, endEl.value);
-    roomEl.onchange=fire; startEl.onchange=fire; endEl.onchange=fire;
+    btn.onclick=async()=>{
+      btn.disabled=true; btn.textContent='Gemmer…';
+      await setPhaseRoom(ph, roomEl.value, startEl.value, endEl.value);
+    };
   });
 }
 
