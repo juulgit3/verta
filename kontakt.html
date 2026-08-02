@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kontakt — Verta</title>
+<meta name="description" content="Klar til at se Verta med jeres egne arrangementer? Book en uforpligtende demo.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Familjen+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#12151B; --ink-70:rgba(18,21,27,.70); --ink-45:rgba(18,21,27,.45);
+  --line:rgba(18,21,27,.14); --line-strong:rgba(18,21,27,.22);
+  --paper:#EAEDE6; --card:#FBFBF9;
+  --blue:#1435D6; --blue-soft:rgba(20,53,214,.07);
+  --moss:#3E6B4C; --amber:#A8681C; --radius:3px;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+html,body{margin:0;padding:0}
+body{background:var(--paper);color:var(--ink);font-family:'Familjen Grotesk',system-ui,sans-serif;font-size:16px;line-height:1.55;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1080px;margin:0 auto;padding:0 22px}
+h1,h2,h3{margin:0;text-wrap:balance}
+p{margin:0}
+a{color:inherit;text-decoration:none}
+.serif-i{font-family:'Instrument Serif',Georgia,serif;font-style:italic}
+.eyebrow{font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-45);font-weight:700}
+
+header.site{position:sticky;top:0;z-index:20;background:rgba(234,237,230,.88);backdrop-filter:blur(6px);border-bottom:1px solid var(--line)}
+.nav{display:flex;align-items:center;justify-content:space-between;padding:16px 0;gap:20px}
+.nav .mark{font-size:23px;color:var(--blue)}
+.nav-links{display:flex;gap:26px;font-size:14.5px;font-weight:600;color:var(--ink-70)}
+.nav-links a:hover{color:var(--ink)}
+.nav-links a.active{color:var(--blue)}
+@media(max-width:760px){.nav-links{display:none}}
+
+.btn{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--line-strong);background:var(--card);
+  border-radius:var(--radius);padding:10px 18px;font-size:14px;font-weight:700;cursor:pointer;
+  font-family:inherit;color:var(--ink);transition:transform .1s ease,filter .15s ease}
+.btn:hover{border-color:var(--ink)}
+.btn:active{transform:scale(.96)}
+.btn.primary{background:var(--blue);border-color:var(--blue);color:#fff}
+.btn.primary:hover{filter:brightness(1.08)}
+.btn.ghost{background:transparent;border-color:transparent;padding:10px 4px}
+
+.pagehero{padding:64px 0 0}
+.pagehero h1{font-family:'Instrument Serif',Georgia,serif;font-style:italic;font-weight:400;
+  font-size:clamp(34px,5.4vw,52px);line-height:1.08;letter-spacing:-.01em;margin-top:14px}
+.pagehero .sub{margin-top:18px;font-size:17px;line-height:1.6;color:var(--ink-70);max-width:54ch}
+
+section{padding:64px 0;border-top:1px solid var(--line)}
+.section-head{max-width:640px;margin-bottom:44px}
+.section-head h2{font-family:'Instrument Serif',Georgia,serif;font-style:italic;font-weight:400;
+  font-size:clamp(28px,4vw,38px);margin-top:12px}
+
+.faq{max-width:720px}
+.faqitem{border-top:1px solid var(--line);padding:20px 0}
+.faqitem:last-child{border-bottom:1px solid var(--line)}
+.faqitem h3{font-size:15px;font-weight:700}
+.faqitem p{margin-top:8px;font-size:14.5px;color:var(--ink-70);line-height:1.6}
+
+.finalcta{background:var(--ink);color:var(--paper);border-radius:var(--radius);padding:64px 44px;text-align:center}
+.finalcta h2{font-family:'Instrument Serif',Georgia,serif;font-style:italic;font-weight:400;
+  font-size:clamp(28px,5vw,42px);color:#fff}
+.finalcta p{margin-top:14px;font-size:15.5px;color:rgba(234,237,230,.68);max-width:46ch;margin-left:auto;margin-right:auto}
+.finalcta .ctas{margin-top:26px;display:flex;gap:14px;justify-content:center;flex-wrap:wrap}
+.finalcta .btn.ghost{color:rgba(234,237,230,.75);border:1px solid rgba(234,237,230,.22)}
+
+footer.site{padding:44px 0 60px}
+footer.site .fmark{font-size:19px;color:var(--blue)}
+footer.site .fnote{margin-top:10px;font-size:12.5px;color:var(--ink-45);line-height:1.7;max-width:56ch}
+</style>
+</head>
+<body>
+
+<header class="site">
+  <div class="wrap nav">
+    <a href="/" class="serif-i mark">Verta</a>
+    <nav class="nav-links">
+      <a href="/funktioner">Funktioner</a>
+      <a href="/saadan-virker-det">Sådan virker det</a>
+      <a href="/sikkerhed">Sikkerhed</a>
+      <a href="/pris">Pris</a>
+      <a href="/kontakt" class="active">Kontakt</a>
+    </nav>
+    <button class="btn primary" type="button">Book en demo</button>
+  </div>
+</header>
+
+<main>
+
+  <section class="pagehero" style="border-top:0">
+    <div class="wrap">
+      <span class="eyebrow">Kontakt</span>
+      <h1>Klar til at se det med jeres egne arrangementer?</h1>
+      <p class="sub">Vi tager gerne en uforpligtende snak om, hvordan Verta ville se ud hos jer
+        — uanset om I har én lokation eller ni.</p>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <div class="section-head">
+        <span class="eyebrow">Ofte stillede spørgsmål</span>
+        <h2>Det, I sikkert spørger om alligevel.</h2>
+      </div>
+      <div class="faq">
+        <div class="faqitem">
+          <h3>Hvor lang tid tager det at komme i gang?</h3>
+          <p>For én lokation med et par medarbejdere kan I typisk være i gang samme dag. Flere
+            lokationer og et fyldt priskatalog tager naturligt lidt længere.</p>
+        </div>
+        <div class="faqitem">
+          <h3>Virker det med flere lokationer og lokaler?</h3>
+          <p>Ja — hierarkiet er bygget til det fra bunden: organisation → lokation → lokaler.
+            Lokalebooking forhindrer automatisk dobbeltbookinger på tværs af alle jeres steder.</p>
+        </div>
+        <div class="faqitem">
+          <h3>Skal vi forlade vores nuværende system med det samme?</h3>
+          <p>Nej. De fleste starter med ét kommende arrangement som test, mens det gamle system
+            kører videre for resten.</p>
+        </div>
+        <div class="faqitem">
+          <h3>Kan vores kunder se hinandens arrangementer?</h3>
+          <p>Nej. En kunde ser udelukkende sit eget arrangement — håndhævet i databasen, ikke
+            kun i brugerfladen. Læs mere på <a href="/sikkerhed" style="text-decoration:underline">sikkerhedssiden</a>.</p>
+        </div>
+        <div class="faqitem">
+          <h3>Hvad koster det?</h3>
+          <p>Vi har endnu ikke en fast prisliste — se <a href="/pris" style="text-decoration:underline">pris-siden</a>
+            for, hvad prisen sandsynligvis kommer til at afhænge af.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <div class="finalcta">
+        <h2 class="serif-i">Lad os tage en snak.</h2>
+        <p>Ingen forpligtelser — bare en ærlig snak om, hvordan Verta ville passe til jeres arbejdsgang.</p>
+        <div class="ctas">
+          <button class="btn primary" type="button">Book en demo</button>
+          <button class="btn ghost" type="button">Skriv til os</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer class="site">
+  <div class="wrap">
+    <span class="serif-i fmark">Verta</span>
+    <p class="fnote">Arrangementskoordination for værter. Denne side er et tidligt udkast —
+      indhold, pris og kontaktveje er endnu ikke endelige.</p>
+  </div>
+</footer>
+
+</body>
+</html>

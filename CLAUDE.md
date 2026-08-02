@@ -7,11 +7,12 @@ Verta er sit eget produkt/brand — adskilt fra Madkastellet. Mærket er beslutt
 UI-sproget er **dansk**. Behold det.
 
 ## Filstruktur
-- `index.html` — **marketingsiden** (Verta som produkt, offentlig, ingen login). Ligger på roden af domænet.
+- `index.html` — **marketingsiden**, forsiden (hero + problem/løsning). Offentlig, ingen login. Ligger på roden af domænet.
+- `funktioner.html`, `saadan-virker-det.html`, `sikkerhed.html`, `pris.html`, `kontakt.html` — marketingsidens undersider, tilgås via `/funktioner`, `/saadan-virker-det`, `/sikkerhed`, `/pris`, `/kontakt`. Hver fil er selvstændig (egen `<style>`, samme design-tokens kopieret ind — ingen delt CSS-fil, ingen build).
 - `app/index.html` — **selve appen** (arrangementskoordinationsværktøjet), én selvstændig fil (HTML + CSS + vanilla JS, ingen build, ingen framework). Tilgås via `/app`.
-- `roadmap.html` — idéer/planlagt/udført, ikke linket fra nogen forside, ligger på `/roadmap`.
+- `roadmap.html` — idéer/planlagt/udført, foldbare grupper, ikke linket fra nogen forside, ligger på `/roadmap`.
 - `schema.sql` — Supabase Postgres-skema: tabeller, RLS-politikker, triggere, testdata. Kør hele filen i Supabase SQL Editor.
-- `_redirects` — Netlify-stier: `/app` → `app/index.html`, `/roadmap` → `roadmap.html`.
+- `_redirects` — Netlify-stier for alle undersider ovenfor + `/app` og `/roadmap`.
 - `README.md` — trin-for-trin deploy-guide.
 - `docs/admin-preview.html` — statisk designmockup af admin-konsollen. Ikke en del af appen; kun reference.
 
@@ -22,6 +23,8 @@ UI-sproget er **dansk**. Behold det.
 - **Hierarki:** organisation → lokation (`venues`) → arrangement (`events`). Lokaler (`rooms`) hører til en lokation; `event_rooms` kobler hver fase (reception/middag/fest) til ét lokale. Medarbejdere kobles til arrangementer mange-til-mange via `event_staff`.
 - **Log:** `activity_log` er append-only med tre typer (`change`, `view`, `message`) i én strøm. RLS sikrer, at brudeparret aldrig kan læse opslags-hændelser (kigge-tider) — kun beskeder og kundevendte ændringer.
 - **Deploy:** GitHub → Netlify (auto-deploy ved push). Publish directory = roden. Ingen build-kommando.
+- **Arrangement-status:** `events.status` har fire stadier: `kladde` → `tilbud` → `bekræftet` → `afviklet`. Vises/ændres via den visuelle trin-indikator (`statusStepsHtml`) — kompakt i oversigten, klikbar i Admin-fanen.
+- **Superadmin:** e-mails i `SUPERADMIN_EMAILS`-arrayet i `app/index.html` ser en bjælke øverst med visningsskift mellem Superadmin/Demokunde/Demogæst. Demogæst genbruger den eksisterende `state.rolle='kunde'`-rendering på det åbne arrangement — det er et rent visningslag, ikke ny dataadgang eller en separat RLS-vej.
 
 ## Vigtige regler
 - **Madkastellet må aldrig optræde offentligt** — ikke i marketingsidens tekst, ikke i screenshots/mockups, ikke som "kunde" eller citat. De ved ikke, at Verta bygges. Intern testdata (rigtige venues/rooms/priser i Supabase) er fint til at teste selve appen, men må ikke lække ud i noget, der er vendt mod en ekstern besøgende.

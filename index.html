@@ -33,6 +33,7 @@ header.site{position:sticky;top:0;z-index:20;background:rgba(234,237,230,.88);ba
 .nav .mark{font-size:23px;color:var(--blue)}
 .nav-links{display:flex;gap:26px;font-size:14.5px;font-weight:600;color:var(--ink-70)}
 .nav-links a:hover{color:var(--ink)}
+.nav-links a.active{color:var(--blue)}
 @media(max-width:760px){.nav-links{display:none}}
 
 .btn{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--line-strong);background:var(--card);
@@ -52,6 +53,12 @@ header.site{position:sticky;top:0;z-index:20;background:rgba(234,237,230,.88);ba
 .hero .sub{margin-top:20px;font-size:18px;line-height:1.6;color:var(--ink-70);max-width:52ch}
 .hero .ctas{display:flex;gap:14px;margin-top:30px;flex-wrap:wrap;align-items:center}
 .hero .ctas .btn{padding:12px 22px;font-size:14.5px}
+
+/* ---- page hero (subpages) ---- */
+.pagehero{padding:64px 0 0}
+.pagehero h1{font-family:'Instrument Serif',Georgia,serif;font-style:italic;font-weight:400;
+  font-size:clamp(34px,5.4vw,52px);line-height:1.08;letter-spacing:-.01em;margin-top:14px}
+.pagehero .sub{margin-top:18px;font-size:17px;line-height:1.6;color:var(--ink-70);max-width:54ch}
 
 /* ---- product preview panel ---- */
 .preview{margin-top:56px;background:var(--ink);border-radius:var(--radius) var(--radius) 0 0;padding:1px 1px 0}
@@ -106,7 +113,7 @@ section{padding:88px 0;border-top:1px solid var(--line)}
 .feat p{margin-top:9px;font-size:14px;color:var(--ink-70);line-height:1.55}
 
 /* ---- how it works ---- */
-.steps{display:grid;grid-template-columns:repeat(4,1fr);gap:20px;counter-reset:step}
+.steps{display:grid;grid-template-columns:repeat(4,1fr);gap:20px}
 @media(max-width:860px){.steps{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:520px){.steps{grid-template-columns:1fr}}
 .step{position:relative;padding-top:8px}
@@ -127,6 +134,11 @@ section{padding:88px 0;border-top:1px solid var(--line)}
 .pricebox .ptext{max-width:52ch}
 .pricebox h3{font-size:18px;font-weight:700}
 .pricebox p{margin-top:10px;font-size:14.5px;color:var(--ink-70);line-height:1.6}
+.pricefactors{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
+@media(max-width:760px){.pricefactors{grid-template-columns:1fr}}
+.pfactor{border-top:1px solid var(--line-strong);padding:20px 0}
+.pfactor h3{font-size:14.5px;font-weight:700}
+.pfactor p{margin-top:8px;font-size:13.5px;color:var(--ink-70);line-height:1.55}
 
 /* ---- faq ---- */
 .faq{max-width:720px}
@@ -153,12 +165,13 @@ footer.site .fnote{margin-top:10px;font-size:12.5px;color:var(--ink-45);line-hei
 
 <header class="site">
   <div class="wrap nav">
-    <span class="serif-i mark">Verta</span>
+    <a href="/" class="serif-i mark">Verta</a>
     <nav class="nav-links">
-      <a href="#funktioner">Funktioner</a>
-      <a href="#saadan-virker-det">Sådan virker det</a>
-      <a href="#sikkerhed">Sikkerhed</a>
-      <a href="#kontakt">Kontakt</a>
+      <a href="/funktioner">Funktioner</a>
+      <a href="/saadan-virker-det">Sådan virker det</a>
+      <a href="/sikkerhed">Sikkerhed</a>
+      <a href="/pris">Pris</a>
+      <a href="/kontakt">Kontakt</a>
     </nav>
     <button class="btn primary" type="button">Book en demo</button>
   </div>
@@ -176,7 +189,7 @@ footer.site .fnote{margin-top:10px;font-size:12.5px;color:var(--ink-45);line-hei
           Ingen forældede PDF'er. Ingen "hvilken version er den nyeste".</p>
         <div class="ctas">
           <button class="btn primary" type="button">Book en demo</button>
-          <a class="btn ghost" href="#saadan-virker-det">Se hvordan det virker ↓</a>
+          <a class="btn ghost" href="/saadan-virker-det">Se hvordan det virker →</a>
         </div>
       </div>
 
@@ -243,173 +256,6 @@ footer.site .fnote{margin-top:10px;font-size:12.5px;color:var(--ink-45);line-hei
             <li>Prisen genberegnes automatisk ud fra gæsteliste og katalog</li>
             <li>Lokaler bookes med automatisk konfliktkontrol på tværs af jeres lokationer</li>
           </ul>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <section id="funktioner">
-    <div class="wrap">
-      <div class="section-head">
-        <span class="eyebrow">Funktioner</span>
-        <h2>Alt det, en koordinator faktisk bruger tiden på.</h2>
-      </div>
-      <div class="featgrid">
-        <div class="feat">
-          <div class="fi"><span></span></div>
-          <h3>Fælles arrangementsside</h3>
-          <p>Gæsteliste, aftalepunkter, program og beskeder samlet ét sted — opdateret i realtid
-            for både jeres team og kunden.</p>
-        </div>
-        <div class="feat">
-          <div class="fi"><span></span></div>
-          <h3>Automatisk prisberegning</h3>
-          <p>Prisen genberegnes med det samme, gæstelisten ændrer sig — ud fra jeres eget
-            priskatalog, ikke et hardkodet regneark.</p>
-        </div>
-        <div class="feat">
-          <div class="fi"><span></span></div>
-          <h3>Lokalebooking uden kollisioner</h3>
-          <p>Hver fase af arrangementet bookes med tidsrum — systemet forhindrer, at samme
-            lokale bookes dobbelt.</p>
-        </div>
-        <div class="feat">
-          <div class="fi"><span></span></div>
-          <h3>Rollestyret adgang</h3>
-          <p>Admin, koordinator og kunde ser hver især kun det, der vedrører dem. Kunden ser
-            aldrig jeres interne kigge-tider eller noter.</p>
-        </div>
-        <div class="feat">
-          <div class="fi"><span></span></div>
-          <h3>Fleksibelt priskatalog</h3>
-          <p>Menuer, pakker og tilvalg pr. arrangementstype — genbruges på tværs af alle jeres
-            lokationer.</p>
-        </div>
-        <div class="feat">
-          <div class="fi"><span></span></div>
-          <h3>Køkkenseddel og gæsteoverblik</h3>
-          <p>Antal kuverter, særlig kost og lokaleplan trukket direkte af gæstelisten — klar til
-            print, samme dag.</p>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <section id="saadan-virker-det">
-    <div class="wrap">
-      <div class="section-head">
-        <span class="eyebrow">Sådan virker det</span>
-        <h2>Fra tilbud til afviklet arrangement.</h2>
-      </div>
-      <div class="steps">
-        <div class="step">
-          <span class="num serif-i">01</span>
-          <h3>Opret arrangement</h3>
-          <p>Titel, dato, lokation og tilbud — arrangementet er klar på under et minut.</p>
-        </div>
-        <div class="step">
-          <span class="num serif-i">02</span>
-          <h3>Vælg katalog og lokale</h3>
-          <p>Tilføj menuer og tilvalg fra jeres katalog, book lokalet pr. fase.</p>
-        </div>
-        <div class="step">
-          <span class="num serif-i">03</span>
-          <h3>Del med kunden</h3>
-          <p>Kunden logger ind via mail-link og ser sit eget arrangement — intet password.</p>
-        </div>
-        <div class="step">
-          <span class="num serif-i">04</span>
-          <h3>Følg log og beskeder</h3>
-          <p>Alle ændringer og beskeder samles i én tidslinje, synlig for begge parter.</p>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <section id="sikkerhed">
-    <div class="wrap">
-      <div class="section-head">
-        <span class="eyebrow">Sikkerhed</span>
-        <h2>Data adskilt pr. virksomhed, pr. rolle.</h2>
-        <p>Verta er bygget på Postgres med rækkeniveau-sikkerhed (RLS) — ikke applikationskode,
-          der forsøger at huske, hvem der må se hvad.</p>
-      </div>
-      <div class="secgrid">
-        <div class="seccard">
-          <h3>Rollebaseret adgang i databasen</h3>
-          <p>Hver forespørgsel filtreres af databasens egne sikkerhedsregler. En kunde kan aldrig
-            forespørge sig til et andet arrangement.</p>
-        </div>
-        <div class="seccard">
-          <h3>Adskilt pr. organisation</h3>
-          <p>Jeres data er aldrig synlige for en anden virksomhed på Verta — heller ikke ved en
-            fejl i applikationskoden.</p>
-        </div>
-        <div class="seccard">
-          <h3>Data hostet i EU</h3>
-          <p>Databasen kører i et EU-datacenter. Login sker uden adgangskode via magic link —
-            intet password at lække.</p>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <section id="pris">
-    <div class="wrap">
-      <div class="section-head">
-        <span class="eyebrow">Pris</span>
-        <h2>Vi former prismodellen sammen med de første kunder.</h2>
-      </div>
-      <div class="pricebox">
-        <div class="ptext">
-          <h3>Kontakt os for et tilbud</h3>
-          <p>Verta er tidligt i udviklingen. Prisen afhænger af antal lokationer og brugere —
-            book en snak, så finder vi en model, der giver mening for jer.</p>
-        </div>
-        <button class="btn primary" type="button">Book en demo</button>
-      </div>
-    </div>
-  </section>
-
-  <section>
-    <div class="wrap">
-      <div class="section-head">
-        <span class="eyebrow">Ofte stillede spørgsmål</span>
-        <h2>Det, I sikkert spørger om alligevel.</h2>
-      </div>
-      <div class="faq">
-        <div class="faqitem">
-          <h3>Hvor lang tid tager det at komme i gang?</h3>
-          <p>For én lokation med et par medarbejdere kan I typisk være i gang samme dag. Flere
-            lokationer og et fyldt priskatalog tager naturligt lidt længere.</p>
-        </div>
-        <div class="faqitem">
-          <h3>Virker det med flere lokationer og lokaler?</h3>
-          <p>Ja — hierarkiet er bygget til det fra bunden: organisation → lokation → lokaler.
-            Lokalebooking forhindrer automatisk dobbeltbookinger på tværs af alle jeres steder.</p>
-        </div>
-        <div class="faqitem">
-          <h3>Skal vi forlade vores nuværende system med det samme?</h3>
-          <p>Nej. De fleste starter med ét kommende arrangement som test, mens det gamle system
-            kører videre for resten.</p>
-        </div>
-        <div class="faqitem">
-          <h3>Kan vores kunder se hinandens arrangementer?</h3>
-          <p>Nej. En kunde ser udelukkende sit eget arrangement — håndhævet i databasen, ikke
-            kun i brugerfladen.</p>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <section id="kontakt">
-    <div class="wrap">
-      <div class="finalcta">
-        <h2 class="serif-i">Klar til at se det med jeres egne arrangementer?</h2>
-        <p>Vi tager gerne en uforpligtende snak om, hvordan Verta ville se ud hos jer.</p>
-        <div class="ctas">
-          <button class="btn primary" type="button">Book en demo</button>
-          <button class="btn ghost" type="button">Skriv til os</button>
         </div>
       </div>
     </div>

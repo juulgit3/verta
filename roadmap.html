@@ -24,6 +24,8 @@ body{background:var(--paper);color:var(--ink);font-family:'Familjen Grotesk',sys
 h1{font-family:'Instrument Serif',serif;font-style:italic;font-size:clamp(36px,8vw,56px);line-height:.98;letter-spacing:-.02em;font-weight:400;margin:24px 0 6px}
 p.lead{color:var(--ink-60);font-size:15px;margin:0 0 32px;max-width:60ch}
 .eyebrow{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-40);font-weight:600;display:flex;align-items:center;gap:8px}
+summary.eyebrow{cursor:pointer;user-select:none}
+summary.eyebrow::marker{color:var(--ink-40)}
 .dot{width:8px;height:8px;border-radius:99px;display:inline-block}
 .dot.idea{background:var(--ink-40)}
 .dot.planned{background:var(--amber)}
@@ -42,19 +44,19 @@ footer{margin-top:40px;font-size:12px;color:var(--ink-40)}
   <h1>Roadmap</h1>
   <p class="lead">Idéer og planer for Verta, samlet ét sted. Ingen menupunkt fører hertil — siden findes kun på /roadmap. Holdes løbende opdateret, når nyt bliver drøftet.</p>
 
-  <section class="col">
-    <div class="eyebrow"><span class="dot idea"></span>Idéer</div>
+  <details class="col" open>
+    <summary class="eyebrow"><span class="dot idea"></span>Idéer</summary>
     <div class="empty">Ingen åbne idéer lige nu — alt drøftet indtil videre er enten udført eller planlagt nedenfor.</div>
-  </section>
+  </details>
 
-  <section class="col">
-    <div class="eyebrow"><span class="dot planned"></span>Planlagt</div>
+  <details class="col" open>
+    <summary class="eyebrow"><span class="dot planned"></span>Planlagt</summary>
     <div class="card"><div class="t">Notifikationsmail ved nye beskeder</div><div class="d">Edge Function + maildienst, så modparten får en mail når der lægges en ny besked. Bevidst nedprioriteret — kan vente.</div></div>
     <div class="card"><div class="t">Marketing-forside: rigtigt indhold</div><div class="d">Første udkast er bygget (se Udført) — mangler stadig: rigtig prismodel (i stedet for "kontakt for tilbud"), rigtigt domænenavn (nuværende vertacph giver ikke mening bredt), og at "Book en demo"-knapperne kobles til noget rigtigt (mailto, kalenderlink eller formular).</div></div>
-  </section>
+  </details>
 
-  <section class="col">
-    <div class="eyebrow"><span class="dot done"></span>Udført</div>
+  <details class="col" open>
+    <summary class="eyebrow"><span class="dot done"></span>Udført</summary>
     <div class="card"><div class="t">Repo, deploy og Supabase-forbindelse</div><div class="d">GitHub → Netlify auto-deploy (vertacph.netlify.app). Supabase URL + publishable key i index.html.</div></div>
     <div class="card"><div class="t">Login-skærm virker</div><div class="d">Rettet en visibility:hidden-arvefejl der gjorde gate-skærmen usynlig.</div></div>
     <div class="card"><div class="t">Knap-feedback</div><div class="d">Tryk-animation, disabled-tilstand og "Sender…"-tekst på login og andre knapper.</div></div>
@@ -70,7 +72,13 @@ footer{margin-top:40px;font-size:12px;color:var(--ink-40)}
     <div class="card"><div class="t">Rigtige lokationer og lokaler fra Madkastellet</div><div class="d">Alle 9 rigtige lokationer (MARK Bistro &amp; Bar, Peter Liep's Hus, Foodspace, Brede Spisehus, Brede Høker &amp; Forsamlingshus, Experimentarium, KAYs, Langelinie Pavillonen, samt Kilden opdateret med rigtig adresse og lokalenavne) sat ind med rigtige adresser og lokalekapaciteter, udtrukket fra Madkastellets egne erhvervsbrochurer (PDF). Venues har nu adressefelt, rooms har kapacitetsnote — begge redigerbare fra Lokationer-fanen.</div></div>
     <div class="card"><div class="t">Brandidentitet for Verta besluttet</div><div class="d">Verta står alene som ordmærke — ingen logo-ikon ved siden af. Navnet kommer af "vært" (bøjet, da det ikke fungerer på engelsk). Palet og typografi (kursiv Instrument Serif + Familjen Grotesk) formaliseret fra det, produktet allerede brugte. Syv runder med ikonforslag (tag, dør, lys, V-monogrammer, segl m.fl.) blev til sidst fravalgt til fordel for ordet alene.</div></div>
     <div class="card"><div class="t">Marketing-forside, første udkast</div><div class="d">Ny offentlig forside på roden (index.html) — hero, problem/løsning, funktioner, "sådan virker det", sikkerhed, pris-placeholder, FAQ og kontakt-CTA. Fiktivt eksempel-UI (Sofie &amp; Anton), ingen Madkastellet-reference. Selve appen flyttet til /app for at give plads på roden; app/index.html er uændret i funktion.</div></div>
-  </section>
+    <div class="card"><div class="t">Marketing-menupunkter splittet til undersider</div><div class="d">Funktioner, Sådan virker det, Sikkerhed, Pris og Kontakt er nu egne sider (/funktioner, /saadan-virker-det, /sikkerhed, /pris, /kontakt) i stedet for én lang forside. Forsiden er nu kun hero + problem/løsning.</div></div>
+    <div class="card"><div class="t">Pris-underside</div><div class="d">Ny /pris-side: ærlig "vi former modellen med de første kunder"-besked, tre faktorer prisen sandsynligvis afhænger af (lokationer, brugere, opsætning), og pris-specifik FAQ.</div></div>
+    <div class="card"><div class="t">Statusindikator for arrangementer</div><div class="d">events.status udvidet til fire stadier: Kladde → Tilbud → Bekræftet → Afviklet (var kun kladde/bekræftet/afviklet). Ny visuel trin-indikator (statusStepsHtml) bruges både som kompakt visning i arrangementsoversigten og som klikbar kontrol i Admin-fanen til at ændre status.</div></div>
+    <div class="card"><div class="t">Foldbare status-grupper på /app</div><div class="d">Arrangementsoversigten grupperer nu direkte efter de fire statusser (i stedet for en dato-baseret kommende/kladde/afviklet-heuristik), og hver gruppe kan foldes sammen/ud og huskes på tværs af re-render.</div></div>
+    <div class="card"><div class="t">Foldbare grupper på /roadmap</div><div class="d">Idéer/Planlagt/Udført er nu &lt;details&gt;-elementer, der kan foldes sammen — ren HTML, ingen JS nødvendig.</div></div>
+    <div class="card"><div class="t">Superadmin-bar i app'en</div><div class="d">Verta-medarbejdere (e-mail-allowlist i SUPERADMIN_EMAILS) ser en tydelig bjælke øverst med mulighed for at skifte visning mellem Superadmin, Demokunde og Demogæst. Demogæst genbruger den eksisterende kunde-rolle-rendering på det åbne arrangement — ingen ny dataadgang, kun et andet visningslag. Demokunde er pt. funktionelt identisk med Superadmin, da der kun findes én organisation (Madkastellet) i databasen.</div></div>
+  </details>
 
   <footer>Verta · internt roadmap-dokument, ikke offentligt indekseret.</footer>
 </div>

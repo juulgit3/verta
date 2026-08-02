@@ -73,7 +73,7 @@ create table events (
   title text not null,
   event_date date not null,
   offer_total_kr integer not null default 0,
-  status text not null default 'bekræftet',   -- kladde | bekræftet | afviklet | aflyst
+  status text not null default 'bekræftet',   -- kladde | tilbud | bekræftet | afviklet
   event_type text not null default 'bryllup', -- bryllup | firmafest | konference | teambuilding | andet
   baseline_locked boolean not null default false,
   owner_staff_id uuid references staff(id),   -- den, der oprettede arrangementet

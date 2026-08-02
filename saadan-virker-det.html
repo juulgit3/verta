@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sådan virker det — Verta</title>
+<meta name="description" content="Fra tilbud til afviklet arrangement — sådan bevæger et arrangement sig gennem Verta.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Familjen+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#12151B; --ink-70:rgba(18,21,27,.70); --ink-45:rgba(18,21,27,.45);
+  --line:rgba(18,21,27,.14); --line-strong:rgba(18,21,27,.22);
+  --paper:#EAEDE6; --card:#FBFBF9;
+  --blue:#1435D6; --blue-soft:rgba(20,53,214,.07);
+  --moss:#3E6B4C; --amber:#A8681C; --radius:3px;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+html,body{margin:0;padding:0}
+body{background:var(--paper);color:var(--ink);font-family:'Familjen Grotesk',system-ui,sans-serif;font-size:16px;line-height:1.55;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1080px;margin:0 auto;padding:0 22px}
+h1,h2,h3{margin:0;text-wrap:balance}
+p{margin:0}
+a{color:inherit;text-decoration:none}
+.serif-i{font-family:'Instrument Serif',Georgia,serif;font-style:italic}
+.eyebrow{font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-45);font-weight:700}
+
+header.site{position:sticky;top:0;z-index:20;background:rgba(234,237,230,.88);backdrop-filter:blur(6px);border-bottom:1px solid var(--line)}
+.nav{display:flex;align-items:center;justify-content:space-between;padding:16px 0;gap:20px}
+.nav .mark{font-size:23px;color:var(--blue)}
+.nav-links{display:flex;gap:26px;font-size:14.5px;font-weight:600;color:var(--ink-70)}
+.nav-links a:hover{color:var(--ink)}
+.nav-links a.active{color:var(--blue)}
+@media(max-width:760px){.nav-links{display:none}}
+
+.btn{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--line-strong);background:var(--card);
+  border-radius:var(--radius);padding:10px 18px;font-size:14px;font-weight:700;cursor:pointer;
+  font-family:inherit;color:var(--ink);transition:transform .1s ease,filter .15s ease}
+.btn:hover{border-color:var(--ink)}
+.btn:active{transform:scale(.96)}
+.btn.primary{background:var(--blue);border-color:var(--blue);color:#fff}
+.btn.primary:hover{filter:brightness(1.08)}
+.btn.ghost{background:transparent;border-color:transparent;padding:10px 4px}
+
+.pagehero{padding:64px 0 0}
+.pagehero h1{font-family:'Instrument Serif',Georgia,serif;font-style:italic;font-weight:400;
+  font-size:clamp(34px,5.4vw,52px);line-height:1.08;letter-spacing:-.01em;margin-top:14px}
+.pagehero .sub{margin-top:18px;font-size:17px;line-height:1.6;color:var(--ink-70);max-width:54ch}
+
+section{padding:64px 0;border-top:1px solid var(--line)}
+.section-head{max-width:640px;margin-bottom:44px}
+.section-head h2{font-family:'Instrument Serif',Georgia,serif;font-style:italic;font-weight:400;
+  font-size:clamp(28px,4vw,38px);margin-top:12px}
+
+.stagegrid{display:flex;gap:10px;flex-wrap:wrap;margin:36px 0 8px}
+.stage{font-size:12px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;
+  padding:8px 16px;border-radius:99px;border:1px solid var(--line-strong);color:var(--ink-45)}
+.stage.current{border-color:var(--blue);color:#fff;background:var(--blue)}
+.stagearrow{color:var(--ink-45);align-self:center}
+
+.steps{display:grid;grid-template-columns:repeat(4,1fr);gap:24px;margin-top:20px}
+@media(max-width:860px){.steps{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:520px){.steps{grid-template-columns:1fr}}
+.step{position:relative;padding-top:8px;border-top:1px solid var(--line-strong)}
+.step .num{font-family:'Instrument Serif',Georgia,serif;font-style:italic;font-size:34px;color:var(--blue);display:block;margin-top:16px}
+.step h3{margin-top:10px;font-size:16px;font-weight:700}
+.step p{margin-top:8px;font-size:14px;color:var(--ink-70);line-height:1.55}
+
+.finalcta{background:var(--ink);color:var(--paper);border-radius:var(--radius);padding:64px 44px;text-align:center}
+.finalcta h2{font-family:'Instrument Serif',Georgia,serif;font-style:italic;font-weight:400;
+  font-size:clamp(28px,5vw,42px);color:#fff}
+.finalcta p{margin-top:14px;font-size:15.5px;color:rgba(234,237,230,.68);max-width:46ch;margin-left:auto;margin-right:auto}
+.finalcta .ctas{margin-top:26px;display:flex;gap:14px;justify-content:center;flex-wrap:wrap}
+.finalcta .btn.ghost{color:rgba(234,237,230,.75);border:1px solid rgba(234,237,230,.22)}
+
+footer.site{padding:44px 0 60px}
+footer.site .fmark{font-size:19px;color:var(--blue)}
+footer.site .fnote{margin-top:10px;font-size:12.5px;color:var(--ink-45);line-height:1.7;max-width:56ch}
+</style>
+</head>
+<body>
+
+<header class="site">
+  <div class="wrap nav">
+    <a href="/" class="serif-i mark">Verta</a>
+    <nav class="nav-links">
+      <a href="/funktioner">Funktioner</a>
+      <a href="/saadan-virker-det" class="active">Sådan virker det</a>
+      <a href="/sikkerhed">Sikkerhed</a>
+      <a href="/pris">Pris</a>
+      <a href="/kontakt">Kontakt</a>
+    </nav>
+    <button class="btn primary" type="button">Book en demo</button>
+  </div>
+</header>
+
+<main>
+
+  <section class="pagehero" style="border-top:0">
+    <div class="wrap">
+      <span class="eyebrow">Sådan virker det</span>
+      <h1>Fra tilbud til afviklet arrangement.</h1>
+      <p class="sub">Ethvert arrangement i Verta bevæger sig gennem fire tydelige stadier —
+        synlige for hele jeres team med det samme.</p>
+      <div class="stagegrid">
+        <span class="stage">Kladde</span><span class="stagearrow">→</span>
+        <span class="stage">Tilbud</span><span class="stagearrow">→</span>
+        <span class="stage current">Bekræftet</span><span class="stagearrow">→</span>
+        <span class="stage">Afviklet</span>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <div class="section-head">
+        <h2>Fire trin, ét overblik.</h2>
+      </div>
+      <div class="steps">
+        <div class="step">
+          <span class="num serif-i">01</span>
+          <h3>Opret arrangement</h3>
+          <p>Titel, dato, lokation og tilbud — arrangementet er klar på under et minut, som
+            kladde eller direkte som tilbud.</p>
+        </div>
+        <div class="step">
+          <span class="num serif-i">02</span>
+          <h3>Vælg katalog og lokale</h3>
+          <p>Tilføj menuer og tilvalg fra jeres priskatalog, book lokalet pr. fase. Prisen
+            genberegnes automatisk.</p>
+        </div>
+        <div class="step">
+          <span class="num serif-i">03</span>
+          <h3>Del med kunden</h3>
+          <p>Kunden logger ind via mail-link og ser sit eget arrangement — intet password, intet
+            separat login at huske.</p>
+        </div>
+        <div class="step">
+          <span class="num serif-i">04</span>
+          <h3>Følg log og beskeder</h3>
+          <p>Alle ændringer og beskeder samles i én tidslinje, synlig for begge parter, indtil
+            arrangementet er afviklet.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <div class="finalcta">
+        <h2 class="serif-i">Se det med jeres egne arrangementer.</h2>
+        <p>Vi viser gerne, hvordan et rigtigt arrangement bevæger sig gennem alle fire stadier.</p>
+        <div class="ctas">
+          <button class="btn primary" type="button">Book en demo</button>
+          <a class="btn ghost" href="/funktioner">Se funktionerne →</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer class="site">
+  <div class="wrap">
+    <span class="serif-i fmark">Verta</span>
+    <p class="fnote">Arrangementskoordination for værter. Denne side er et tidligt udkast —
+      indhold, pris og kontaktveje er endnu ikke endelige.</p>
+  </div>
+</footer>
+
+</body>
+</html>

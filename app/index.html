@@ -50,6 +50,17 @@ input,select,textarea{font:inherit;color:inherit}
 .chip.ok{border-color:rgba(62,107,76,.35);color:var(--moss)} .chip.ok .dot{background:var(--moss)}
 .chip.blue{border-color:rgba(20,53,214,.3);color:var(--blue)} .chip.blue .dot{background:var(--blue)}
 
+.statussteps{display:flex;gap:5px;flex-wrap:wrap;margin-top:6px}
+.sstep{font-size:10.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;
+  padding:4px 9px;border-radius:99px;border:1px solid var(--line);color:var(--ink-40);background:var(--card)}
+.sstep.done{border-color:rgba(62,107,76,.4);color:var(--moss);background:rgba(62,107,76,.08)}
+.sstep.current{border-color:var(--blue);color:#fff;background:var(--blue)}
+.sstep.interactive{cursor:pointer}
+.sstep.interactive:hover{border-color:var(--ink)}
+.sstep.current.interactive:hover{filter:brightness(1.1)}
+
+.card > summary{display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin-bottom:14px;cursor:pointer}
+
 nav.tabs{display:flex;gap:2px;margin:26px 0 20px;border-bottom:1px solid var(--line);overflow-x:auto}
 nav.tabs button{background:none;border:0;padding:10px 14px;cursor:pointer;font-weight:600;font-size:14px;color:var(--ink-60);border-bottom:2px solid transparent;white-space:nowrap;margin-bottom:-1px}
 nav.tabs button:hover{color:var(--ink)}
@@ -148,12 +159,29 @@ select.status:focus-visible,input:focus-visible,button:focus-visible{outline:2px
 
 footer.legal{margin-top:28px;font-size:12px;color:var(--ink-40);line-height:1.6}
 
-@media print{body{background:#fff} nav.tabs,.btn,.row.noprint,.rolebar{display:none!important} .card{border:0;padding:0;margin-bottom:22px}}
+#superadminBar{background:var(--ink);border-bottom:3px solid var(--amber)}
+.sabar-inner{max-width:960px;margin:0 auto;padding:9px 18px;display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap}
+.sabar-label{font-size:12.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--amber)}
+.sabar-seg{border-color:rgba(234,237,230,.25);background:rgba(234,237,230,.06)}
+.sabar-seg button{color:rgba(234,237,230,.65)}
+.sabar-seg button[aria-pressed="true"]{background:var(--amber);color:var(--ink)}
+
+@media print{body{background:#fff} nav.tabs,.btn,.row.noprint,.rolebar,#superadminBar{display:none!important} .card{border:0;padding:0;margin-bottom:22px}}
 @media (prefers-reduced-motion:no-preference){.card{animation:rise .32s ease both}@keyframes rise{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
+<div id="superadminBar" style="display:none">
+  <div class="sabar-inner">
+    <span class="sabar-label">⚡ Superadmin</span>
+    <span class="seg sabar-seg" role="group" aria-label="Skift visning">
+      <button data-viewas="superadmin" aria-pressed="true">Superadmin</button>
+      <button data-viewas="demokunde" aria-pressed="false">Demokunde</button>
+      <button data-viewas="demogaest" aria-pressed="false">Demogæst</button>
+    </span>
+  </div>
+</div>
 <div class="wrap">
 
   <div class="topline">
@@ -165,7 +193,7 @@ footer.legal{margin-top:28px;font-size:12px;color:var(--ink-40);line-height:1.6}
       <span class="whoami" id="whoami"></span>
       <button class="btn" id="backToList" style="display:none">‹ Arrangementer</button>
       <button class="btn" id="logout" style="display:none">Log ud</button>
-      <span class="seg" role="group" aria-label="Skift rolle">
+      <span class="seg" id="localRoleSeg" role="group" aria-label="Skift rolle">
         <button data-role="kilden" aria-pressed="true">Kilden</button>
         <button data-role="kunde" aria-pressed="false">Brudepar</button>
       </span>
@@ -203,6 +231,9 @@ const EVENT = { dato:'2026-09-04', sted:'Kilden', org:'Madkastellet',
   rooms:{reception:'Terrassen ved vejen', middag:'Lokalet indendørs', fest:'Lokalet indendørs'},
   tilbud:108245, toastmaster:'Christian' };
 const PHASES = [['reception','Reception'],['middag','Middag'],['fest','Fest']];
+
+/* Verta-medarbejdere med adgang til at skifte visning mellem superadmin/demokunde/demogæst */
+const SUPERADMIN_EMAILS = ['larsjuul3@gmail.com'];
 
 const AKTORER = {
   kilden:{ id:'kilden', navn:'Christina (Kilden)', side:'kilden' },
@@ -312,7 +343,9 @@ const store = {
 let state = { gaester:seedGaester(), punkter:PUNKTER_SEED.map(p=>({...p})), log:seedLog(),
               tab:'oversigt', soeg:'', rolle:'kilden', logType:'alle', logWho:'alle', logArea:'alle',
               lastRead:{kilden:0, kunde:0}, phaseRooms:{}, venueRooms:[], staffList:[], invitesList:[], venuesFull:[],
-              eventCatalog:PRISER, orgCatalog:[], openRoomPickers:new Set() };
+              eventCatalog:PRISER, orgCatalog:[], openRoomPickers:new Set(),
+              openPickerGroups:new Set(['kladde','tilbud','bekræftet']),
+              isSuperadmin:false, viewAs:'superadmin' };
 function save(){
   if(MODE==='cloud') cloudSaveGuestsAgenda();
   else store.save({gaester:state.gaester, punkter:state.punkter, log:state.log, lastRead:state.lastRead});
@@ -433,6 +466,10 @@ function viewAdmin(){
   const owner = (state.eventStaff||[]).find(s=>s.id===state.ownerStaffId);
   const sekundaere = (state.eventStaff||[]).filter(s=>s.id!==state.ownerStaffId);
   return `
+  <section class="card">
+    <header><h2>Status</h2><span class="note">klik for at ændre</span></header>
+    ${statusStepsHtml(state.status, state.eventId, true)}
+  </section>
   <section class="card">
     <header><h2>Medarbejdere på arrangementet</h2><span class="note">${(state.eventStaff||[]).length} tilkoblet</span></header>
     <div class="stat"><span>Ejer</span><b>${owner?esc(owner.name):'—'}</b></div>
@@ -643,7 +680,8 @@ function viewBeskeder(){
    ========================================================= */
 function render(){
   const cloud = MODE==='cloud';
-  document.querySelector('.seg').style.display = cloud ? 'none' : '';
+  document.getElementById('localRoleSeg').style.display = cloud ? 'none' : '';
+  renderSuperadminBar();
   document.getElementById('logout').style.display = cloud ? '' : 'none';
   document.getElementById('backToList').style.display = (cloud && state.rolle==='kilden' && (state.events||[]).length>1 && state.view==='workspace') ? '' : 'none';
 
@@ -715,6 +753,10 @@ function render(){
       v.innerHTML=viewPicker();
       v.querySelectorAll('[data-open]').forEach(el=>el.onclick=()=>openEvent(el.dataset.open));
       const nc=document.getElementById('neCreate'); if(nc) nc.onclick=createEvent;
+      v.querySelectorAll('[data-picker-group]').forEach(el=>el.ontoggle=()=>{
+        if(el.open) state.openPickerGroups.add(el.dataset.pickerGroup);
+        else state.openPickerGroups.delete(el.dataset.pickerGroup);
+      });
     }
     v.querySelectorAll('[data-nav]').forEach(el=>el.onclick=async()=>{
       state.view=el.dataset.nav;
@@ -745,6 +787,10 @@ function render(){
 }
 
 function bind(){
+  document.querySelectorAll('[data-set-status]').forEach(el=>el.onclick=()=>{
+    const [id,status]=el.dataset.setStatus.split('|');
+    setEventStatus(id, status);
+  });
   const soeg=document.getElementById('soeg');
   if(soeg) soeg.oninput=e=>{state.soeg=e.target.value;const p=e.target.selectionStart;render();const n=document.getElementById('soeg');n.focus();n.setSelectionRange(p,p);};
 
@@ -812,13 +858,30 @@ function bind(){
 
 document.getElementById('brandHome').onclick=goHome;
 
-document.querySelectorAll('.seg button').forEach(b=>{
+document.querySelectorAll('#localRoleSeg button').forEach(b=>{
   b.onclick=()=>{
     state.rolle=b.dataset.role; state.tab='oversigt'; state.soeg='';
-    document.querySelectorAll('.seg button').forEach(x=>x.setAttribute('aria-pressed',x.dataset.role===state.rolle));
+    document.querySelectorAll('#localRoleSeg button').forEach(x=>x.setAttribute('aria-pressed',x.dataset.role===state.rolle));
     logView(); render();
   };
 });
+
+document.querySelectorAll('#superadminBar [data-viewas]').forEach(b=>{
+  b.onclick=()=>{
+    const mode=b.dataset.viewas;
+    if(mode==='demogaest' && !state.eventId){ alert('Åbn et arrangement først, for at se det som demogæst.'); return; }
+    state.viewAs=mode;
+    state.rolle = mode==='demogaest' ? 'kunde' : 'kilden';
+    render();
+  };
+});
+function renderSuperadminBar(){
+  const bar=document.getElementById('superadminBar');
+  if(!bar) return;
+  if(!state.isSuperadmin){ bar.style.display='none'; return; }
+  bar.style.display='block';
+  bar.querySelectorAll('[data-viewas]').forEach(b=>b.setAttribute('aria-pressed', String(b.dataset.viewas===state.viewAs)));
+}
 
 /* =========================================================
    7. CLOUD-LAG (aktivt når SUPA er udfyldt)
@@ -843,6 +906,7 @@ async function cloudSaveGuestsAgenda(){
 
 async function cloudBoot(user){
   state.userEmail=user.email; state.userId=user.id;
+  state.isSuperadmin=SUPERADMIN_EMAILS.includes((user.email||'').toLowerCase());
   const {data:st}=await sb.from('staff').select('*').eq('id',user.id).maybeSingle();
   if(st){
     state.rolle='kilden'; state.actor={navn:st.name, side:'kilden'}; state.isAdmin=(st.role==='admin'); state.orgId=st.org_id;
@@ -868,7 +932,7 @@ async function openEvent(id){
     sb.from('agenda_items').select('*').eq('event_id',id).order('sort_order'),
     sb.from('activity_log').select('*').eq('event_id',id).order('ts',{ascending:false})
   ]);
-  if(ev){ EVENT.tilbud=ev.offer_total_kr; EVENT.dato=ev.event_date; state.eventTitle=ev.title; state.venueName=ev.venues?ev.venues.name:''; state.venueId=ev.venue_id; state.orgName=ev.organisations?ev.organisations.name:(state.orgName||''); state.ownerStaffId=ev.owner_staff_id; state.eventType=ev.event_type; }
+  if(ev){ EVENT.tilbud=ev.offer_total_kr; EVENT.dato=ev.event_date; state.eventTitle=ev.title; state.venueName=ev.venues?ev.venues.name:''; state.venueId=ev.venue_id; state.orgName=ev.organisations?ev.organisations.name:(state.orgName||''); state.ownerStaffId=ev.owner_staff_id; state.eventType=ev.event_type; state.status=ev.status; }
   state.gaester=(gs||[]).map(gFromDb);
   state.punkter=(ps||[]).map(pFromDb);
   state.log=(lg||[]).map(logFromDb);
@@ -995,6 +1059,13 @@ async function deleteRoom(id){
 }
 const CAT_CATEGORIES = ['menu','bar','reception','tilvalg','andet'];
 const CAT_EVENT_TYPES = ['bryllup','firmafest','konference','teambuilding','andet'];
+const EVENT_STATUSES = [['kladde','Kladde'],['tilbud','Tilbud'],['bekræftet','Bekræftet'],['afviklet','Afviklet']];
+function statusStepsHtml(status, eventId, interactive){
+  const idx = EVENT_STATUSES.findIndex(([v])=>v===status);
+  return `<div class="statussteps">${EVENT_STATUSES.map(([v,label],i)=>
+    `<span class="sstep ${interactive?'interactive':''} ${i<idx?'done':i===idx?'current':''}"
+      ${interactive?`data-set-status="${eventId}|${v}"`:''}>${label}</span>`).join('')}</div>`;
+}
 async function loadOrgCatalog(){
   const {data}=await sb.from('catalog_items').select('*, catalog_item_rooms(room_id)').eq('org_id',state.orgId).order('category').order('sort_order');
   state.orgCatalog=(data||[]).map(c=>({...c, roomIds:(c.catalog_item_rooms||[]).map(r=>r.room_id)}));
@@ -1108,6 +1179,16 @@ async function removeCoordinator(sid){
   if(error){ alert('Kunne ikke fjerne: '+error.message); return; }
   pushLog({area:'system', label:'Medarbejder fjernet', from:nm, to:'', cust:false});
   await loadEventStaff(); render();
+}
+async function setEventStatus(id, status){
+  const from=state.status;
+  const {error}=await sb.from('events').update({status}).eq('id',id);
+  if(error){ alert('Kunne ikke ændre status: '+error.message); return; }
+  state.status=status;
+  pushLog({area:'system', label:'Status', from, to:status, cust:true, friendly:'Status ændret til '+status});
+  const {data:evs}=await sb.from('events').select('id,title,event_date,status,offer_total_kr,event_type,venues(name)').order('event_date',{ascending:false});
+  state.events=evs||[];
+  render();
 }
 async function createEvent(){
   const title=document.getElementById('neTitle').value.trim();
@@ -1256,14 +1337,14 @@ function viewLokationer(){
   </section>`;
 }
 function viewPicker(){
-  const grp={kommende:[],kladde:[],afviklet:[]};
-  const today=new Date().toISOString().slice(0,10);
-  state.events.forEach(e=>{ const k = e.status==='kladde'?'kladde' : (e.event_date>=today?'kommende':'afviklet'); grp[k].push(e); });
-  const sec=(titel,liste)=>liste.length?`<section class="card"><header><h2>${titel}</h2><span class="note">${liste.length}</span></header>
+  const grp={}; EVENT_STATUSES.forEach(([v])=>grp[v]=[]);
+  state.events.forEach(e=>{ (grp[e.status]||(grp[e.status]=[])).push(e); });
+  const sec=(key,titel,liste)=>liste.length?`<details class="card" data-picker-group="${key}" ${state.openPickerGroups.has(key)?'open':''}>
+    <summary><h2>${titel}</h2><span class="note">${liste.length}</span></summary>
     ${liste.map(e=>`<div class="item" data-open="${e.id}" style="cursor:pointer">
-      <span class="stripe ${e.event_date>=today||e.status==='kladde'?'jer':''}"></span>
-      <div><div class="name">${esc(e.title)}</div><div class="meta">${e.event_type?e.event_type+' · ':''}${e.venues?esc(e.venues.name):''} · ${datoKort(e.event_date)} · ${e.status}</div></div>
-      <span class="chip"><span class="dot"></span>${e.offer_total_kr?kr(e.offer_total_kr):'—'}</span></div>`).join('')}</section>`:'';
+      <span class="stripe ${e.status!=='afviklet'?'jer':''}"></span>
+      <div><div class="name">${esc(e.title)}</div><div class="meta">${e.event_type?e.event_type+' · ':''}${e.venues?esc(e.venues.name):''} · ${datoKort(e.event_date)}</div>${statusStepsHtml(e.status,e.id,false)}</div>
+      <span class="chip"><span class="dot"></span>${e.offer_total_kr?kr(e.offer_total_kr):'—'}</span></div>`).join('')}</details>`:'';
   const nyKort = `
   <section class="card">
     <header><h2>Nyt arrangement</h2></header>
@@ -1279,8 +1360,7 @@ function viewPicker(){
         ${CAT_EVENT_TYPES.map(t=>`<option value="${t}">${t}</option>`).join('')}
       </select>
       <select id="neStatus" class="search" style="flex:1;min-width:120px">
-        <option value="kladde">Kladde</option>
-        <option value="bekræftet">Bekræftet</option>
+        ${EVENT_STATUSES.map(([v,l])=>`<option value="${v}" ${v==='kladde'?'selected':''}>${l}</option>`).join('')}
       </select>
       <button class="btn primary" id="neCreate">Opret arrangement</button>
     </div>
@@ -1288,7 +1368,7 @@ function viewPicker(){
   return `${consoleNav('picker')}
     <div style="margin:20px 0 10px"><span class="eyebrow">${state.isAdmin?'Admin · alle arrangementer':'Dine arrangementer'}</span></div>
     ${nyKort}
-    ${sec('Kommende',grp.kommende)}${sec('Kladder',grp.kladde)}${sec('Afviklede',grp.afviklet)}
+    ${EVENT_STATUSES.map(([v,l])=>sec(v,l,grp[v])).join('')}
     ${state.events.length?'':'<div class="empty">Ingen arrangementer endnu.</div>'}`;
 }
 function viewBrugere(){
