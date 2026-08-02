@@ -24,8 +24,11 @@ body{background:var(--paper);color:var(--ink);font-family:'Familjen Grotesk',sys
 h1{font-family:'Instrument Serif',serif;font-style:italic;font-size:clamp(36px,8vw,56px);line-height:.98;letter-spacing:-.02em;font-weight:400;margin:24px 0 6px}
 p.lead{color:var(--ink-60);font-size:15px;margin:0 0 32px;max-width:60ch}
 .eyebrow{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-40);font-weight:600;display:flex;align-items:center;gap:8px}
-summary.eyebrow{cursor:pointer;user-select:none}
-summary.eyebrow::marker{color:var(--ink-40)}
+summary.eyebrow{cursor:pointer;user-select:none;list-style:none}
+summary.eyebrow::-webkit-details-marker{display:none}
+.fold-chev{display:inline-block;font-size:10px;transition:transform .15s ease}
+details[open] .fold-chev{transform:rotate(90deg)}
+.foldcount{font-weight:400;color:var(--ink-40);margin-left:2px}
 .dot{width:8px;height:8px;border-radius:99px;display:inline-block}
 .dot.idea{background:var(--ink-40)}
 .dot.planned{background:var(--amber)}
@@ -45,18 +48,18 @@ footer{margin-top:40px;font-size:12px;color:var(--ink-40)}
   <p class="lead">Idéer og planer for Verta, samlet ét sted. Ingen menupunkt fører hertil — siden findes kun på /roadmap. Holdes løbende opdateret, når nyt bliver drøftet.</p>
 
   <details class="col" open>
-    <summary class="eyebrow"><span class="dot idea"></span>Idéer</summary>
+    <summary class="eyebrow"><span class="fold-chev">▸</span><span class="dot idea"></span>Idéer<span class="foldcount"></span></summary>
     <div class="empty">Ingen åbne idéer lige nu — alt drøftet indtil videre er enten udført eller planlagt nedenfor.</div>
   </details>
 
   <details class="col" open>
-    <summary class="eyebrow"><span class="dot planned"></span>Planlagt</summary>
+    <summary class="eyebrow"><span class="fold-chev">▸</span><span class="dot planned"></span>Planlagt<span class="foldcount"></span></summary>
     <div class="card"><div class="t">Notifikationsmail ved nye beskeder</div><div class="d">Edge Function + maildienst, så modparten får en mail når der lægges en ny besked. Bevidst nedprioriteret — kan vente.</div></div>
     <div class="card"><div class="t">Marketing-forside: rigtigt indhold</div><div class="d">Første udkast er bygget (se Udført) — mangler stadig: rigtig prismodel (i stedet for "kontakt for tilbud"), rigtigt domænenavn (nuværende vertacph giver ikke mening bredt), og at "Book en demo"-knapperne kobles til noget rigtigt (mailto, kalenderlink eller formular).</div></div>
   </details>
 
   <details class="col" open>
-    <summary class="eyebrow"><span class="dot done"></span>Udført</summary>
+    <summary class="eyebrow"><span class="fold-chev">▸</span><span class="dot done"></span>Udført<span class="foldcount"></span></summary>
     <div class="card"><div class="t">Repo, deploy og Supabase-forbindelse</div><div class="d">GitHub → Netlify auto-deploy (vertacph.netlify.app). Supabase URL + publishable key i index.html.</div></div>
     <div class="card"><div class="t">Login-skærm virker</div><div class="d">Rettet en visibility:hidden-arvefejl der gjorde gate-skærmen usynlig.</div></div>
     <div class="card"><div class="t">Knap-feedback</div><div class="d">Tryk-animation, disabled-tilstand og "Sender…"-tekst på login og andre knapper.</div></div>
@@ -78,9 +81,19 @@ footer{margin-top:40px;font-size:12px;color:var(--ink-40)}
     <div class="card"><div class="t">Foldbare status-grupper på /app</div><div class="d">Arrangementsoversigten grupperer nu direkte efter de fire statusser (i stedet for en dato-baseret kommende/kladde/afviklet-heuristik), og hver gruppe kan foldes sammen/ud og huskes på tværs af re-render.</div></div>
     <div class="card"><div class="t">Foldbare grupper på /roadmap</div><div class="d">Idéer/Planlagt/Udført er nu &lt;details&gt;-elementer, der kan foldes sammen — ren HTML, ingen JS nødvendig.</div></div>
     <div class="card"><div class="t">Superadmin som egen, organisationsuafhængig identitet</div><div class="d">Ny <code>superadmins</code>-tabel (ingen org_id — adskilt fra Madkastellet og alle andre organisationer) + <code>is_superadmin()</code> håndhævet i RLS, ikke kun i UI'et. Superadmin lander nu i et separat kontrolrum (ikke Madkastellets oversigt) med liste over alle organisationer og en "Ny demo-organisation"-knap — vælgbart om den skal være tom eller forudfyldt med ét fiktivt eksempel-arrangement. At åbne en organisation fører ind i dens almindelige oversigt som fuld admin. En "Vis som gæst"-knap i bjælken (kun synlig inde i et arrangement) genbruger den eksisterende kunde-rolle-rendering til forhåndsvisning — rent visningslag.</div></div>
+    <div class="card"><div class="t">Fast proces for statusændring</div><div class="d">Statuskortet flyttet fra Admin-fanen til toppen af Oversigt, så det er det første, koordinatoren ser. Klik direkte på et trin for at skifte status; et skridt tilbage i processen kræver bekræftelse (undgår fejlklik). Ændringen logges kundevendt i aktivitetsloggen.</div></div>
+    <div class="card"><div class="t">Delbart magisk gæstelink</div><div class="d">Ny knap i Oversigt: "Del med gæsten" genererer et rigtigt, klikbart login-link til brudeparret og giver dem adgang til arrangementet i samme handling — med en "Kopiér"-knap til at sende det videre. Første server-kode i projektet (Supabase Edge Function <code>invite-guest</code>), fordi det kræver service_role-nøglen, som aldrig må i klientkoden. Funktionen genbruger den eksisterende <code>is_org_staff()</code>-adgangskontrol i stedet for at duplikere logik.</div></div>
+    <div class="card"><div class="t">Tydelige foldeindikatorer</div><div class="d">Alle foldbare grupper (katalogets lokalevælgere, statusgrupperne i arrangementsoversigten, og Idéer/Planlagt/Udført på /roadmap) har nu en drejende pil samt et antal i parentes, så det er synligt både at noget kan foldes ud, og hvor meget der er skjult.</div></div>
   </details>
 
   <footer>Verta · internt roadmap-dokument, ikke offentligt indekseret.</footer>
 </div>
+<script>
+document.querySelectorAll('details.col').forEach(d=>{
+  const n=d.querySelectorAll(':scope > .card').length;
+  const span=d.querySelector('summary .foldcount');
+  if(span) span.textContent=' ('+n+')';
+});
+</script>
 </body>
 </html>

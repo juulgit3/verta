@@ -60,6 +60,10 @@ input,select,textarea{font:inherit;color:inherit}
 .sstep.current.interactive:hover{filter:brightness(1.1)}
 
 .card > summary{display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin-bottom:14px;cursor:pointer}
+summary{list-style:none}
+summary::-webkit-details-marker{display:none}
+.fold-chev{display:inline-block;font-size:10px;color:var(--ink-40);transition:transform .15s ease;margin-right:6px}
+details[open] > summary .fold-chev,details[open] .fold-chev{transform:rotate(90deg)}
 
 nav.tabs{display:flex;gap:2px;margin:26px 0 20px;border-bottom:1px solid var(--line);overflow-x:auto}
 nav.tabs button{background:none;border:0;padding:10px 14px;cursor:pointer;font-weight:600;font-size:14px;color:var(--ink-60);border-bottom:2px solid transparent;white-space:nowrap;margin-bottom:-1px}
@@ -341,7 +345,7 @@ let state = { gaester:seedGaester(), punkter:PUNKTER_SEED.map(p=>({...p})), log:
               lastRead:{kilden:0, kunde:0}, phaseRooms:{}, venueRooms:[], staffList:[], invitesList:[], venuesFull:[],
               eventCatalog:PRISER, orgCatalog:[], openRoomPickers:new Set(),
               openPickerGroups:new Set(['kladde','tilbud','bekræftet']),
-              isSuperadmin:false, allOrgs:[] };
+              isSuperadmin:false, allOrgs:[], guestLink:'', guestLinkBusy:false };
 function save(){
   if(MODE==='cloud') cloudSaveGuestsAgenda();
   else store.save({gaester:state.gaester, punkter:state.punkter, log:state.log, lastRead:state.lastRead});
@@ -463,10 +467,6 @@ function viewAdmin(){
   const sekundaere = (state.eventStaff||[]).filter(s=>s.id!==state.ownerStaffId);
   return `
   <section class="card">
-    <header><h2>Status</h2><span class="note">klik for at ændre</span></header>
-    ${statusStepsHtml(state.status, state.eventId, true)}
-  </section>
-  <section class="card">
     <header><h2>Medarbejdere på arrangementet</h2><span class="note">${(state.eventStaff||[]).length} tilkoblet</span></header>
     <div class="stat"><span>Ejer</span><b>${owner?esc(owner.name):'—'}</b></div>
     ${sekundaere.length?sekundaere.map(s=>`<div class="stat"><span>${esc(s.name)}${s.role==='admin'?' · admin':''}</span><button class="btn" data-remove-coord="${s.id}">Fjern</button></div>`).join(''):'<div class="empty">Ingen sekundære koordinatorer endnu.</div>'}
@@ -493,6 +493,29 @@ function viewAdmin(){
 function viewOversigt(){
   const a=antal(), linjer=prisLinjer(), t=total(), diff=t-EVENT.tilbud;
   const aabne=aabnePunkter().sort((x,y)=>x.frist.localeCompare(y.frist));
+  const statusKort = (MODE==='cloud' && state.rolle==='kilden') ? `
+  <section class="card">
+    <header><h2>Status</h2><span class="note">klik for at ændre</span></header>
+    ${statusStepsHtml(state.status, state.eventId, true)}
+  </section>` : '';
+  const deleKort = (MODE==='cloud' && state.rolle==='kilden') ? `
+  <section class="card">
+    <header><h2>Del med gæsten</h2><span class="note">magisk login-link</span></header>
+    ${state.guestLink ? `
+    <div class="stat" style="flex-wrap:wrap;gap:8px">
+      <span class="note" style="word-break:break-all;flex:1 1 260px">${esc(state.guestLink)}</span>
+      <button class="btn" id="guestLinkCopy">Kopiér</button>
+      <button class="btn" id="guestLinkNew">Nyt link</button>
+    </div>
+    <div class="note" style="display:block;margin-top:6px;font-size:12px">Linket logger gæsten direkte ind på dette arrangement. Del det kun med brudeparret.</div>
+    ` : `
+    <div class="row" style="gap:8px;flex-wrap:wrap">
+      <input class="search" id="guestLinkName" placeholder="Navn (fx Emily &amp; Lars)" style="flex:1 1 160px">
+      <input class="search" id="guestLinkEmail" placeholder="Mail" type="email" style="flex:1 1 160px">
+      <button class="btn primary" id="guestLinkGen" ${state.guestLinkBusy?'disabled':''}>${state.guestLinkBusy?'Genererer…':'Generér link'}</button>
+    </div>
+    `}
+  </section>` : '';
   const lokaleKort = (MODE==='cloud' && state.rolle==='kilden') ? `
   <section class="card">
     <header><h2>Lokaler pr. fase</h2><span class="note">${esc(state.venueName||'')}</span></header>
@@ -513,6 +536,8 @@ function viewOversigt(){
     }).join('')}
   </section>` : '';
   return `
+  ${statusKort}
+  ${deleKort}
   ${lokaleKort}
   <div class="grid2">
     <section class="card">
@@ -842,6 +867,15 @@ function bind(){
   const cta=document.getElementById('catalogAdd');
   if(cta) cta.onclick=()=>{const sel=document.getElementById('catalogSel');if(sel.value)addCatalogToEvent(sel.value);};
   document.querySelectorAll('[data-remove-catalog]').forEach(b=>{ b.onclick=()=>removeCatalogFromEvent(b.dataset.removeCatalog); });
+
+  const glGen=document.getElementById('guestLinkGen');
+  if(glGen) glGen.onclick=()=>{
+    const name=document.getElementById('guestLinkName').value.trim();
+    const email=document.getElementById('guestLinkEmail').value.trim();
+    generateGuestLink(name, email);
+  };
+  const glCopy=document.getElementById('guestLinkCopy'); if(glCopy) glCopy.onclick=copyGuestLink;
+  const glNew=document.getElementById('guestLinkNew'); if(glNew) glNew.onclick=()=>{ state.guestLink=''; render(); };
 
   PHASES.forEach(([ph])=>{
     const btn=document.querySelector(`[data-phase-save="${ph}"]`);
@@ -1264,13 +1298,44 @@ async function removeCoordinator(sid){
 }
 async function setEventStatus(id, status){
   const from=state.status;
+  if(status===from) return;
+  const fromIdx=EVENT_STATUSES.findIndex(([v])=>v===from);
+  const toIdx=EVENT_STATUSES.findIndex(([v])=>v===status);
+  if(toIdx<fromIdx){
+    const label=(EVENT_STATUSES.find(([v])=>v===status)||[])[1]||status;
+    if(!confirm('Sæt status tilbage til "'+label+'"? Det er et skridt tilbage i processen.')) return;
+  }
   const {error}=await sb.from('events').update({status}).eq('id',id);
   if(error){ alert('Kunne ikke ændre status: '+error.message); return; }
   state.status=status;
   pushLog({area:'system', label:'Status', from, to:status, cust:true, friendly:'Status ændret til '+status});
-  const {data:evs}=await sb.from('events').select('id,title,event_date,status,offer_total_kr,event_type,venues(name)').order('event_date',{ascending:false});
+  const {data:evs}=await sb.from('events').select('id,title,event_date,status,offer_total_kr,event_type,venues(name)').eq('org_id',state.orgId).order('event_date',{ascending:false});
   state.events=evs||[];
   render();
+}
+async function generateGuestLink(name, email){
+  if(!name || !email){ alert('Udfyld både navn og mail.'); return; }
+  state.guestLinkBusy=true; render();
+  try{
+    const {data, error}=await sb.functions.invoke('invite-guest', {body:{eventId:state.eventId, email, displayName:name}});
+    if(error || !data || !data.link){
+      alert('Kunne ikke oprette link: '+(error?.message || data?.error || 'ukendt fejl'));
+      return;
+    }
+    state.guestLink=data.link;
+    pushLog({area:'system', label:'Gæstelink', cust:false, friendly:'Magisk link genereret til '+name+' ('+email+')'});
+  }catch(e){
+    alert('Kunne ikke oprette link: '+e.message);
+  }finally{
+    state.guestLinkBusy=false; render();
+  }
+}
+function copyGuestLink(){
+  if(!state.guestLink) return;
+  navigator.clipboard.writeText(state.guestLink).then(()=>{
+    const btn=document.getElementById('guestLinkCopy');
+    if(btn){ const old=btn.textContent; btn.textContent='Kopieret!'; setTimeout(()=>btn.textContent=old,1500); }
+  });
 }
 async function createEvent(){
   const title=document.getElementById('neTitle').value.trim();
@@ -1286,7 +1351,7 @@ async function createEvent(){
     .insert({title, venue_id:venueId, org_id:state.orgId, event_date:date, offer_total_kr:price, status, event_type:eventType});
   btn.disabled=false; btn.textContent=orig;
   if(error){ alert('Kunne ikke oprette: '+error.message); return; }
-  const {data:evs}=await sb.from('events').select('id,title,event_date,status,offer_total_kr,event_type,venues(name)').order('event_date',{ascending:false});
+  const {data:evs}=await sb.from('events').select('id,title,event_date,status,offer_total_kr,event_type,venues(name)').eq('org_id',state.orgId).order('event_date',{ascending:false});
   state.events=evs||[];
   const created=(state.events||[]).find(e=>e.title===title && e.event_date===date);
   if(created) openEvent(created.id); else render();
@@ -1335,7 +1400,7 @@ function viewKatalog(){
         <button class="btn" data-delete-catalog-item="${c.id}">Slet</button>
       </span>
       <details style="width:100%;margin-top:4px" data-picker="${c.id}" ${state.openRoomPickers.has(c.id)?'open':''}>
-        <summary class="note" style="cursor:pointer">${(c.roomIds||[]).length?(c.roomIds||[]).length+' af '+(state.orgRooms||[]).length+' lokaler':'Alle lokaler'} · vælg</summary>
+        <summary class="note"><span class="fold-chev">▸</span>Lokaler ${(c.roomIds||[]).length?`(${(c.roomIds||[]).length}/${(state.orgRooms||[]).length})`:`(${(state.orgRooms||[]).length}, alle)`}</summary>
         <div style="margin-top:8px">
           ${groupRoomsByVenue(state.orgRooms).map(g=>{
             const allIn=g.rooms.every(r=>(c.roomIds||[]).includes(r.id));
@@ -1374,7 +1439,7 @@ function viewKatalog(){
       <label class="row" style="gap:4px;font-size:13px"><input type="checkbox" id="ciChildHalf">Børn halv pris</label>
     </div>
     <details style="margin-top:10px">
-      <summary class="note" style="cursor:pointer">Lokaler (ingen valgt = alle lokaler) · vælg</summary>
+      <summary class="note"><span class="fold-chev">▸</span>Lokaler (${(state.orgRooms||[]).length}) — intet valgt = alle</summary>
       <div style="margin-top:8px">
         ${groupRoomsByVenue(state.orgRooms).map(g=>`<div style="margin-bottom:10px">
           <div class="row" style="justify-content:space-between;align-items:center;max-width:380px">
@@ -1426,7 +1491,7 @@ function viewPicker(){
   const grp={}; EVENT_STATUSES.forEach(([v])=>grp[v]=[]);
   state.events.forEach(e=>{ (grp[e.status]||(grp[e.status]=[])).push(e); });
   const sec=(key,titel,liste)=>liste.length?`<details class="card" data-picker-group="${key}" ${state.openPickerGroups.has(key)?'open':''}>
-    <summary><h2>${titel}</h2><span class="note">${liste.length}</span></summary>
+    <summary><h2><span class="fold-chev">▸</span>${titel}</h2><span class="note">(${liste.length})</span></summary>
     ${liste.map(e=>`<div class="item" data-open="${e.id}" style="cursor:pointer">
       <span class="stripe ${e.status!=='afviklet'?'jer':''}"></span>
       <div><div class="name">${esc(e.title)}</div><div class="meta">${e.event_type?e.event_type+' · ':''}${e.venues?esc(e.venues.name):''} · ${datoKort(e.event_date)}</div>${statusStepsHtml(e.status,e.id,false)}</div>
