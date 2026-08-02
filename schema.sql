@@ -29,6 +29,7 @@ drop table if exists organisations      cascade;
 create table organisations (
   id uuid primary key default gen_random_uuid(),
   name text not null,
+  onboarding_dismissed boolean not null default false,  -- admin har skjult "Kom godt i gang"-guiden
   created_at timestamptz not null default now()
 );
 
@@ -103,6 +104,7 @@ create table event_access (
   event_id uuid not null references events(id) on delete cascade,
   user_id uuid not null references auth.users(id) on delete cascade,
   display_name text not null,
+  first_visited_at timestamptz,     -- sat ved gæstens allerførste besøg, styrer velkomstkortet
   created_at timestamptz not null default now(),
   unique (event_id, user_id)
 );
@@ -235,6 +237,15 @@ create or replace function is_event_guest(target_event uuid)
 returns boolean language sql security definer stable set search_path = public as $$
   select exists (select 1 from event_access a
                  where a.event_id = target_event and a.user_id = auth.uid())
+$$;
+
+-- Kontaktpersonens navn til gæstens velkomstkort. Gæsten har ingen RLS-adgang
+-- til staff-tabellen, så dette security-definer-kald er den eneste vej ind —
+-- og kun for nogen, der faktisk er gæst eller medarbejder på arrangementet.
+create or replace function get_event_contact(target_event uuid)
+returns text language sql security definer stable set search_path = public as $$
+  select s.name from events e join staff s on s.id = e.owner_staff_id
+  where e.id = target_event and (is_event_guest(target_event) or is_org_staff(target_event))
 $$;
 
 -- =====================================================================
