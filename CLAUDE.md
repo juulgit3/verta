@@ -1,16 +1,21 @@
 # Verta
 
-Arrangementskoordinationsværktøj for **Madkastellet** (dansk catering/venue-virksomhed med flere lokationer). Erstatter den PDF-arrangementsseddel, der før blev sendt frem og tilbage over mail. Første testcase: brudeparret Emily & Lars' bryllup på lokationen Kilden, 4. september 2026.
+Arrangementskoordinationsværktøj til catering/venue-virksomheder med flere lokationer. Erstatter den PDF-arrangementsseddel, der ellers sendes frem og tilbage over mail. Bygget med udgangspunkt i **Madkastellets** rigtige arbejdsgang og rigtige lokationer (testcase: brudeparret Emily & Lars' bryllup på lokationen Kilden, 4. september 2026) — **men Madkastellet er IKKE kunde og ved ikke, at projektet findes.** De må derfor aldrig optræde som reference, case, logo eller citat noget offentligt sted (marketingsiden, screenshots, demo-data). Alt offentligt vendt materiale bruger fiktive eksempeldata.
+
+Verta er sit eget produkt/brand — adskilt fra Madkastellet. Mærket er besluttet: ordmærket "Verta" alene (kursiv Instrument Serif, blå #1435D6), intet logo-ikon ved siden af. Navnet kommer af "vært", bøjet fordi ordet ikke fungerer på engelsk.
 
 UI-sproget er **dansk**. Behold det.
 
 ## Filstruktur
-- `index.html` — hele appen i én selvstændig fil (HTML + CSS + vanilla JS, ingen build, ingen framework).
+- `index.html` — **marketingsiden** (Verta som produkt, offentlig, ingen login). Ligger på roden af domænet.
+- `app/index.html` — **selve appen** (arrangementskoordinationsværktøjet), én selvstændig fil (HTML + CSS + vanilla JS, ingen build, ingen framework). Tilgås via `/app`.
+- `roadmap.html` — idéer/planlagt/udført, ikke linket fra nogen forside, ligger på `/roadmap`.
 - `schema.sql` — Supabase Postgres-skema: tabeller, RLS-politikker, triggere, testdata. Kør hele filen i Supabase SQL Editor.
+- `_redirects` — Netlify-stier: `/app` → `app/index.html`, `/roadmap` → `roadmap.html`.
 - `README.md` — trin-for-trin deploy-guide.
 - `docs/admin-preview.html` — statisk designmockup af admin-konsollen. Ikke en del af appen; kun reference.
 
-## Arkitektur
+## Arkitektur (app/index.html)
 - **Dobbelt tilstand.** Øverst i `<script>` står `const SUPA = { url:'', anon:'' }`. Tomt → appen kører lokalt (localStorage, rolleskifter til demo). Udfyldt → cloud-tilstand med rigtigt login mod Supabase.
 - **Backend:** Supabase (Postgres + Auth + RLS). Ingen server-kode endnu.
 - **Auth:** magic link (passwordless). Medarbejdere ligger i `staff` (roller: `admin` | `coordinator`); brudepar bindes til ét arrangement via `event_access`.
@@ -19,10 +24,11 @@ UI-sproget er **dansk**. Behold det.
 - **Deploy:** GitHub → Netlify (auto-deploy ved push). Publish directory = roden. Ingen build-kommando.
 
 ## Vigtige regler
-- **anon (public)-nøglen er ikke hemmelig** og må gerne ligge i `index.html` og committes. Sikkerheden ligger i RLS.
-- **service_role-nøglen er hemmelig.** Må ALDRIG i `index.html`, i repoet eller i en commit. Den bruges ikke i denne version.
-- Ændringer laves direkte i `index.html` — vanilla JS, ingen transpilering. Hold den ene-fil-struktur, medmindre andet aftales.
+- **Madkastellet må aldrig optræde offentligt** — ikke i marketingsidens tekst, ikke i screenshots/mockups, ikke som "kunde" eller citat. De ved ikke, at Verta bygges. Intern testdata (rigtige venues/rooms/priser i Supabase) er fint til at teste selve appen, men må ikke lække ud i noget, der er vendt mod en ekstern besøgende.
+- **anon (public)-nøglen er ikke hemmelig** og må gerne ligge i `app/index.html` og committes. Sikkerheden ligger i RLS.
+- **service_role-nøglen er hemmelig.** Må ALDRIG i nogen fil, i repoet eller i en commit. Den bruges ikke i denne version.
+- Ændringer i selve appen laves direkte i `app/index.html` — vanilla JS, ingen transpilering. Hold ene-fil-strukturen for både marketingside og app, medmindre andet aftales.
 - Skemaet er "drop-and-recreate": at køre `schema.sql` igen nulstiller alt (også testdata). Det er med vilje under test.
 
-## Kendt køreplan (pass 2)
-Admin-konsollens lokations- og brugerstyring som rigtige skærme, Supabase Realtime, og notifikationsmail ved nye beskeder (Edge Function + maildienst). Ikke bygget endnu.
+## Kendt køreplan
+Marketing-forsidens indhold (funktioner, sikkerhed, pris, kontakt/demo-CTA) — under opbygning. Herefter: rigtigt domænenavn (nuværende `vertacph.netlify.app` giver ikke mening for et produkt, der skal sælges bredt), rigtig pris-model, og notifikationsmail ved nye beskeder i selve appen (Edge Function + maildienst, nedprioriteret).

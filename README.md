@@ -3,7 +3,8 @@
 Følg trinene i rækkefølge. Regn med ca. 30 minutter første gang. Du behøver ingen terminal — alt kan gøres i browseren.
 
 ## Filerne
-- `index.html` — hele appen (én fil, kører lokalt uden config, mod Supabase når den er sat op)
+- `index.html` — marketingsiden (offentlig, ingen login), ligger på roden
+- `app/index.html` — selve appen (én fil, kører lokalt uden config, mod Supabase når den er sat op), tilgås via `/app`
 - `schema.sql` — databasen (tabeller, sikkerhedsregler, testdata)
 - `README.md` — denne guide
 
@@ -18,7 +19,7 @@ Sikkerheden ligger i databasens RLS-regler, ikke i at skjule anon-nøglen.
 
 ## Trin 1 · GitHub-repo
 1. Opret et nyt repo: `github.com/juulgit3/verta` (offentligt).
-2. Læg `index.html`, `schema.sql` og `README.md` i roden (træk dem ind i GitHubs webflade → **Commit changes**).
+2. Læg `index.html`, `app/index.html`, `schema.sql`, `_redirects` og `README.md` ind (træk dem ind i GitHubs webflade → **Commit changes**).
 
 ## Trin 2 · Supabase-projekt + database
 1. `supabase.com` → **New project**. Gratis-planen er nok. Vælg region **EU (Frankfurt)**. Sæt en db-adgangskode og gem den.
@@ -30,7 +31,7 @@ Sikkerheden ligger i databasens RLS-regler, ikke i at skjule anon-nøglen.
 
 ## Trin 3 · Sæt dine nøgler ind i appen
 1. **Settings → API**: kopiér **Project URL** og **anon public**-nøglen.
-2. Åbn `index.html`, find denne linje øverst i `<script>`:
+2. Åbn `app/index.html`, find denne linje øverst i `<script>`:
    ```js
    const SUPA = { url:'', anon:'' };
    ```
@@ -56,7 +57,7 @@ Hvert fremtidigt push til GitHub deployer automatisk igen.
    Uden dette ved login-mailen ikke, hvor den skal sende dig hen bagefter.
 
 ## Trin 6 · Log ind og gør dig selv til admin
-1. Åbn din Netlify-URL. Du møder Verta-login-skærmen. Skriv din mail → **Send login-link**.
+1. Åbn din Netlify-URL + `/app`. Du møder Verta-login-skærmen. Skriv din mail → **Send login-link**.
 2. Tjek din indbakke, klik linket — du sendes tilbage til appen.
 3. Første gang har du ingen rolle endnu, så du ser "du har ikke adgang til et arrangement". Det er forventet.
 4. **Authentication → Users**: kopiér dit **User UID**.
