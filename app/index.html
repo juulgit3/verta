@@ -162,9 +162,9 @@ footer.legal{margin-top:28px;font-size:12px;color:var(--ink-40);line-height:1.6}
 #superadminBar{background:var(--ink);border-bottom:3px solid var(--amber)}
 .sabar-inner{max-width:960px;margin:0 auto;padding:9px 18px;display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap}
 .sabar-label{font-size:12.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--amber)}
-.sabar-seg{border-color:rgba(234,237,230,.25);background:rgba(234,237,230,.06)}
-.sabar-seg button{color:rgba(234,237,230,.65)}
-.sabar-seg button[aria-pressed="true"]{background:var(--amber);color:var(--ink)}
+.sabar-label #sabarOrg{color:rgba(234,237,230,.65);font-weight:600;text-transform:none;letter-spacing:0}
+.sabar-btn{background:rgba(234,237,230,.08);border-color:rgba(234,237,230,.25);color:rgba(234,237,230,.85)}
+.sabar-btn:hover{border-color:var(--amber);color:#fff}
 
 @media print{body{background:#fff} nav.tabs,.btn,.row.noprint,.rolebar,#superadminBar{display:none!important} .card{border:0;padding:0;margin-bottom:22px}}
 @media (prefers-reduced-motion:no-preference){.card{animation:rise .32s ease both}@keyframes rise{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}}
@@ -174,11 +174,10 @@ footer.legal{margin-top:28px;font-size:12px;color:var(--ink-40);line-height:1.6}
 <body>
 <div id="superadminBar" style="display:none">
   <div class="sabar-inner">
-    <span class="sabar-label">⚡ Superadmin</span>
-    <span class="seg sabar-seg" role="group" aria-label="Skift visning">
-      <button data-viewas="superadmin" aria-pressed="true">Superadmin</button>
-      <button data-viewas="demokunde" aria-pressed="false">Demokunde</button>
-      <button data-viewas="demogaest" aria-pressed="false">Demogæst</button>
+    <span class="sabar-label">⚡ Superadmin<span id="sabarOrg"></span></span>
+    <span class="row" style="gap:8px">
+      <button class="btn sabar-btn" id="sabarGuestToggle" style="display:none">Vis som gæst</button>
+      <button class="btn sabar-btn" id="sabarHome">Kontrolrum</button>
     </span>
   </div>
 </div>
@@ -231,9 +230,6 @@ const EVENT = { dato:'2026-09-04', sted:'Kilden', org:'Madkastellet',
   rooms:{reception:'Terrassen ved vejen', middag:'Lokalet indendørs', fest:'Lokalet indendørs'},
   tilbud:108245, toastmaster:'Christian' };
 const PHASES = [['reception','Reception'],['middag','Middag'],['fest','Fest']];
-
-/* Verta-medarbejdere med adgang til at skifte visning mellem superadmin/demokunde/demogæst */
-const SUPERADMIN_EMAILS = ['larsjuul3@gmail.com'];
 
 const AKTORER = {
   kilden:{ id:'kilden', navn:'Christina (Kilden)', side:'kilden' },
@@ -345,7 +341,7 @@ let state = { gaester:seedGaester(), punkter:PUNKTER_SEED.map(p=>({...p})), log:
               lastRead:{kilden:0, kunde:0}, phaseRooms:{}, venueRooms:[], staffList:[], invitesList:[], venuesFull:[],
               eventCatalog:PRISER, orgCatalog:[], openRoomPickers:new Set(),
               openPickerGroups:new Set(['kladde','tilbud','bekræftet']),
-              isSuperadmin:false, viewAs:'superadmin' };
+              isSuperadmin:false, allOrgs:[] };
 function save(){
   if(MODE==='cloud') cloudSaveGuestsAgenda();
   else store.save({gaester:state.gaester, punkter:state.punkter, log:state.log, lastRead:state.lastRead});
@@ -685,15 +681,19 @@ function render(){
   document.getElementById('logout').style.display = cloud ? '' : 'none';
   document.getElementById('backToList').style.display = (cloud && state.rolle==='kilden' && (state.events||[]).length>1 && state.view==='workspace') ? '' : 'none';
 
-  if(cloud && (state.view==='picker' || state.view==='users' || state.view==='venues' || state.view==='katalog')){
+  if(cloud && (state.view==='picker' || state.view==='users' || state.view==='venues' || state.view==='katalog' || state.view==='superadmin')){
     document.getElementById('whoami').textContent = state.actor?('Logget ind som '+state.actor.navn):'';
-    document.getElementById('orgName').textContent = state.orgName||'';
+    document.getElementById('orgName').textContent = state.view==='superadmin' ? '' : (state.orgName||'');
     document.getElementById('eventLoc').innerHTML='';
-    document.getElementById('heroTitle').textContent = state.view==='users' ? 'Brugere' : (state.view==='venues' ? 'Lokationer' : (state.view==='katalog' ? 'Katalog' : 'Arrangementer'));
+    document.getElementById('heroTitle').textContent = state.view==='superadmin' ? 'Kontrolrum' : (state.view==='users' ? 'Brugere' : (state.view==='venues' ? 'Lokationer' : (state.view==='katalog' ? 'Katalog' : 'Arrangementer')));
     document.getElementById('heroChips').innerHTML='';
     document.getElementById('tabs').innerHTML='';
     const v=document.getElementById('view');
-    if(state.view==='users'){
+    if(state.view==='superadmin'){
+      v.innerHTML=viewSuperadminHome();
+      v.querySelectorAll('[data-enter-org]').forEach(el=>el.onclick=()=>enterOrgAsSuperadmin(el.dataset.enterOrg));
+      const dc=document.getElementById('doCreate'); if(dc) dc.onclick=createDemoOrg;
+    } else if(state.view==='users'){
       v.innerHTML=viewBrugere();
       const is=document.getElementById('invSend'); if(is) is.onclick=inviteStaff;
       v.querySelectorAll('[data-cancel-invite]').forEach(el=>el.onclick=()=>cancelInvite(el.dataset.cancelInvite));
@@ -866,21 +866,24 @@ document.querySelectorAll('#localRoleSeg button').forEach(b=>{
   };
 });
 
-document.querySelectorAll('#superadminBar [data-viewas]').forEach(b=>{
-  b.onclick=()=>{
-    const mode=b.dataset.viewas;
-    if(mode==='demogaest' && !state.eventId){ alert('Åbn et arrangement først, for at se det som demogæst.'); return; }
-    state.viewAs=mode;
-    state.rolle = mode==='demogaest' ? 'kunde' : 'kilden';
-    render();
-  };
-});
+document.getElementById('sabarGuestToggle').onclick=()=>{
+  state.rolle = state.rolle==='kunde' ? 'kilden' : 'kunde';
+  render();
+};
+document.getElementById('sabarHome').onclick=()=>{
+  unsubscribeRealtime();
+  state.eventId=null; state.orgId=null; state.orgName=''; state.view='superadmin';
+  showApp(); loadSuperadminHome().then(render);
+};
 function renderSuperadminBar(){
   const bar=document.getElementById('superadminBar');
   if(!bar) return;
   if(!state.isSuperadmin){ bar.style.display='none'; return; }
   bar.style.display='block';
-  bar.querySelectorAll('[data-viewas]').forEach(b=>b.setAttribute('aria-pressed', String(b.dataset.viewas===state.viewAs)));
+  document.getElementById('sabarOrg').textContent = state.orgName ? (' · i '+state.orgName) : '';
+  const gt=document.getElementById('sabarGuestToggle');
+  gt.style.display = state.eventId ? '' : 'none';
+  gt.textContent = state.rolle==='kunde' ? 'Vis som medarbejder' : 'Vis som gæst';
 }
 
 /* =========================================================
@@ -906,7 +909,15 @@ async function cloudSaveGuestsAgenda(){
 
 async function cloudBoot(user){
   state.userEmail=user.email; state.userId=user.id;
-  state.isSuperadmin=SUPERADMIN_EMAILS.includes((user.email||'').toLowerCase());
+  const {data:sa}=await sb.from('superadmins').select('name').eq('id',user.id).maybeSingle();
+  if(sa){
+    state.isSuperadmin=true; state.isAdmin=true; state.rolle='kilden';
+    state.actor={navn:(sa.name||'Superadmin')+' (Verta)', side:'kilden'};
+    state.view='superadmin';
+    showApp();
+    await loadSuperadminHome(); render();
+    return;
+  }
   const {data:st}=await sb.from('staff').select('*').eq('id',user.id).maybeSingle();
   if(st){
     state.rolle='kilden'; state.actor={navn:st.name, side:'kilden'}; state.isAdmin=(st.role==='admin'); state.orgId=st.org_id;
@@ -922,6 +933,77 @@ async function cloudBoot(user){
   const {data:acc}=await sb.from('event_access').select('event_id,display_name').eq('user_id',user.id);
   if(acc&&acc.length){ state.rolle='kunde'; state.actor={navn:acc[0].display_name, side:'kunde'}; openEvent(acc[0].event_id); return; }
   showNoAccess();
+}
+
+/* =========================================================
+   Superadmin-kontrolrum: liste over organisationer, opret demo
+   ========================================================= */
+async function loadSuperadminHome(){
+  const {data:orgs}=await sb.from('organisations').select('id,name').order('created_at');
+  const {data:evs}=await sb.from('events').select('id,org_id');
+  const {data:vens}=await sb.from('venues').select('id,org_id');
+  state.allOrgs=(orgs||[]).map(o=>({...o,
+    eventCount:(evs||[]).filter(e=>e.org_id===o.id).length,
+    venueCount:(vens||[]).filter(v=>v.org_id===o.id).length}));
+}
+async function enterOrgAsSuperadmin(orgId){
+  const org=(state.allOrgs||[]).find(o=>o.id===orgId);
+  state.orgId=orgId; state.orgName=org?org.name:'';
+  const {data:vens}=await sb.from('venues').select('id,name').eq('org_id',orgId).order('name');
+  state.venues=vens||[];
+  const {data:evs}=await sb.from('events').select('id,title,event_date,status,offer_total_kr,event_type,venues(name)').eq('org_id',orgId).order('event_date',{ascending:false});
+  state.events=evs||[];
+  if(state.events.length===1) openEvent(state.events[0].id); else showPicker();
+}
+async function createDemoOrg(){
+  const nameEl=document.getElementById('doName');
+  const name=nameEl.value.trim();
+  const seed=document.getElementById('doSeed').checked;
+  if(!name){ alert('Skriv et navn.'); return; }
+  const btn=document.getElementById('doCreate'), orig=btn.textContent;
+  btn.disabled=true; btn.textContent='Opretter…';
+  const {error}=await sb.from('organisations').insert({name});
+  if(error){ btn.disabled=false; btn.textContent=orig; alert('Kunne ikke oprette: '+error.message); return; }
+  const {data:org}=await sb.from('organisations').select('id').eq('name',name).order('created_at',{ascending:false}).limit(1).maybeSingle();
+  if(seed && org) await seedDemoOrg(org.id);
+  btn.disabled=false; btn.textContent=orig;
+  await loadSuperadminHome(); render();
+}
+async function seedDemoOrg(orgId){
+  await sb.from('venues').insert({org_id:orgId, name:'Havnelageret', address:'Eksempelvej 1, 0000 Eksempelby'});
+  const {data:venue}=await sb.from('venues').select('id').eq('org_id',orgId).eq('name','Havnelageret')
+    .order('created_at',{ascending:false}).limit(1).maybeSingle();
+  if(!venue) return;
+  await sb.from('rooms').insert([
+    {venue_id:venue.id, name:'Hovedsalen', capacity_max:120, sort_order:1},
+    {venue_id:venue.id, name:'Terrassen', capacity_max:60, sort_order:2}
+  ]);
+  await sb.from('catalog_items').insert([
+    {org_id:orgId, name:'Standardmenu, 3 retter', category:'menu', price_kr:695, basis:'middag', child_half:true, sort_order:1},
+    {org_id:orgId, name:'Ankomstdrinks', category:'reception', price_kr:95, basis:'reception', child_half:true, sort_order:2}
+  ]);
+  await sb.from('events').insert({title:'Sofie & Anton', venue_id:venue.id, org_id:orgId,
+    event_date:'2027-06-12', offer_total_kr:0, status:'tilbud', event_type:'bryllup'});
+}
+function viewSuperadminHome(){
+  return `
+  <div style="margin:20px 0 10px"><span class="eyebrow">Verta kontrolrum</span></div>
+  <section class="card">
+    <header><h2>Organisationer</h2><span class="note">${(state.allOrgs||[]).length}</span></header>
+    ${(state.allOrgs||[]).length?(state.allOrgs||[]).map(o=>`<div class="item" data-enter-org="${o.id}" style="cursor:pointer">
+      <span class="stripe jer"></span>
+      <div><div class="name">${esc(o.name)}</div><div class="meta">${o.venueCount} lokation${o.venueCount===1?'':'er'} · ${o.eventCount} arrangement${o.eventCount===1?'':'er'}</div></div>
+      <span class="chip"><span class="dot"></span>Åbn →</span></div>`).join(''):'<div class="empty">Ingen organisationer endnu.</div>'}
+  </section>
+  <section class="card">
+    <header><h2>Ny demo-organisation</h2></header>
+    <div class="row" style="gap:8px;flex-wrap:wrap;margin-top:4px">
+      <input id="doName" class="search" placeholder="Navn, fx Demo — Prospect A" style="flex:2;min-width:220px">
+      <label class="row" style="gap:6px;font-size:13px"><input type="checkbox" id="doSeed" checked>Fyld med fiktive eksempeldata</label>
+      <button class="btn primary" id="doCreate">Opret demo</button>
+    </div>
+    <div class="note" style="margin-top:10px">Eksempeldata er ét opdigtet arrangement ("Sofie &amp; Anton"), én lokation med to lokaler og et lille priskatalog — aldrig rigtige kundedata. Lad boksen være tom, hvis I hellere vil bygge den live på et møde.</div>
+  </section>`;
 }
 
 async function openEvent(id){
@@ -1219,10 +1301,14 @@ function logCloudView(){
 function showGate(msg){ const g=document.getElementById('gate'); g.style.display='flex'; document.querySelector('.wrap').style.visibility='hidden'; if(msg) document.getElementById('gateMsg').textContent=msg; }
 function showApp(){ document.getElementById('gate').style.display='none'; document.querySelector('.wrap').style.visibility='visible'; }
 function showNoAccess(){ showGate('Du er logget ind som '+state.userEmail+', men har endnu ikke adgang til et arrangement. Bed admin om at koble dig på.'); }
-function showPicker(){ unsubscribeRealtime(); state.view='picker'; showApp(); render(); }
+function showPicker(){ unsubscribeRealtime(); state.eventId=null; state.view='picker'; showApp(); render(); }
 function goHome(){
   if(MODE!=='cloud'){ state.tab='oversigt'; render(); return; }
   if(!state.actor) return;
+  if(state.isSuperadmin && !state.orgId){
+    unsubscribeRealtime(); state.view='superadmin'; showApp();
+    loadSuperadminHome().then(render); return;
+  }
   if(state.rolle==='kilden') showPicker();
   else { state.view='workspace'; state.tab='oversigt'; render(); }
 }
@@ -1426,7 +1512,7 @@ function viewBrugere(){
   document.getElementById('backToList').onclick=()=>{ showPicker(); };
   const {data:{session}}=await sb.auth.getSession();
   if(session) cloudBoot(session.user); else showGate();
-  sb.auth.onAuthStateChange((_e,s)=>{ if(s&&!state.eventId&&state.view!=='picker') cloudBoot(s.user); });
+  sb.auth.onAuthStateChange((_e,s)=>{ if(s&&!state.eventId&&state.view!=='picker'&&state.view!=='superadmin') cloudBoot(s.user); });
 })();
 </script>
 </body>

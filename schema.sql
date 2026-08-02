@@ -6,24 +6,36 @@
 
 drop trigger if exists on_auth_user_created on auth.users;
 drop trigger if exists on_event_created on events;
-drop table if exists activity_log  cascade;
-drop table if exists agenda_items  cascade;
-drop table if exists guests        cascade;
-drop table if exists invites       cascade;
-drop table if exists event_access  cascade;
-drop table if exists event_staff   cascade;
-drop table if exists event_rooms   cascade;
-drop table if exists events        cascade;
-drop table if exists staff         cascade;
-drop table if exists rooms         cascade;
-drop table if exists venues        cascade;
-drop table if exists organisations cascade;
+drop table if exists activity_log       cascade;
+drop table if exists agenda_items       cascade;
+drop table if exists guests             cascade;
+drop table if exists invites            cascade;
+drop table if exists event_access       cascade;
+drop table if exists event_staff        cascade;
+drop table if exists event_rooms        cascade;
+drop table if exists catalog_item_rooms cascade;
+drop table if exists event_catalog_items cascade;
+drop table if exists catalog_items      cascade;
+drop table if exists events             cascade;
+drop table if exists staff              cascade;
+drop table if exists rooms              cascade;
+drop table if exists venues             cascade;
+drop table if exists superadmins        cascade;
+drop table if exists organisations      cascade;
 
 -- =====================================================================
 --  1. TABELLER
 -- =====================================================================
 create table organisations (
   id uuid primary key default gen_random_uuid(),
+  name text not null,
+  created_at timestamptz not null default now()
+);
+
+-- Verta-medarbejdere: organisationsuafhængig adgang på tværs af alle kunde-/demo-organisationer.
+-- Ingen org_id — det er hele pointen. Tilføjes manuelt via SQL, ikke selvbetjening.
+create table superadmins (
+  id uuid primary key references auth.users(id) on delete cascade,
   name text not null,
   created_at timestamptz not null default now()
 );
@@ -192,18 +204,24 @@ returns text language sql security definer stable set search_path = public as $$
   select role from staff where id = auth.uid()
 $$;
 
--- Admin i en bestemt organisation?
+-- Er denne bruger superadmin (Verta-medarbejder, organisationsuafhængig)?
+create or replace function is_superadmin()
+returns boolean language sql security definer stable set search_path = public as $$
+  select exists (select 1 from superadmins where id = auth.uid())
+$$;
+
+-- Admin i en bestemt organisation? (superadmin tæller altid med)
 create or replace function is_org_admin(target_org uuid)
 returns boolean language sql security definer stable set search_path = public as $$
-  select exists (select 1 from staff
+  select is_superadmin() or exists (select 1 from staff
                  where id = auth.uid() and org_id = target_org and role = 'admin')
 $$;
 
 -- Må denne bruger arbejde på arrangementet?
--- Sandt hvis: tildelt koordinator PÅ arrangementet, ELLER admin i arrangementets org.
+-- Sandt hvis: superadmin, ELLER tildelt koordinator PÅ arrangementet, ELLER admin i arrangementets org.
 create or replace function is_org_staff(target_event uuid)
 returns boolean language sql security definer stable set search_path = public as $$
-  select exists (
+  select is_superadmin() or exists (
     select 1 from events e
     where e.id = target_event
       and ( exists (select 1 from event_staff es
@@ -242,10 +260,12 @@ create trigger on_auth_user_created
   for each row execute function handle_new_user();
 
 -- Den, der opretter et arrangement, bliver automatisk ejer (før insert, så feltet er sat).
+-- Kun hvis skaberen faktisk har en staff-række (fx superadmin har ikke, og owner_staff_id
+-- er en FK til staff — ellers ville insert fejle for superadmin-oprettede arrangementer).
 create or replace function set_event_owner()
 returns trigger language plpgsql security definer set search_path = public as $$
 begin
-  if new.owner_staff_id is null then
+  if new.owner_staff_id is null and exists (select 1 from staff where id = auth.uid()) then
     new.owner_staff_id := auth.uid();
   end if;
   return new;
@@ -319,6 +339,7 @@ create trigger on_event_rooms_conflict
 --  4. RLS
 -- =====================================================================
 alter table organisations enable row level security;
+alter table superadmins   enable row level security;
 alter table venues        enable row level security;
 alter table staff         enable row level security;
 alter table invites       enable row level security;
@@ -334,15 +355,21 @@ alter table catalog_items       enable row level security;
 alter table event_catalog_items enable row level security;
 alter table catalog_item_rooms  enable row level security;
 
+-- Superadmin: kun læsbar for sig selv. Tilføjes/fjernes manuelt via SQL.
+create policy superadmins_read_self on superadmins for select using (id = auth.uid());
+
 -- Organisation / lokationer
 create policy org_read on organisations for select using (
-  id = my_org()
+  id = my_org() or is_superadmin()
   or exists (select 1 from events e join event_access a on a.event_id = e.id
              where e.org_id = organisations.id and a.user_id = auth.uid())
 );
+-- Kun superadmin opretter/omdøber organisationer (fx nye demo-organisationer). Ingen sletning fra UI.
+create policy org_insert on organisations for insert with check ( is_superadmin() );
+create policy org_update on organisations for update using ( is_superadmin() ) with check ( is_superadmin() );
 
 create policy venue_read on venues for select using (
-  org_id = my_org()
+  org_id = my_org() or is_superadmin()
   or exists (select 1 from events e join event_access a on a.event_id = e.id
              where e.venue_id = venues.id and a.user_id = auth.uid())
 );
@@ -354,6 +381,7 @@ create policy venue_delete on venues for delete using ( is_org_admin(org_id) );
 -- Lokaler: læsbare for org'ens folk + brudepar ved lokationen; kun admin redigerer
 create policy rooms_read on rooms for select using (
   exists (select 1 from venues v where v.id = rooms.venue_id and v.org_id = my_org())
+  or is_superadmin()
   or exists (select 1 from events e join event_access a on a.event_id = e.id
              where e.venue_id = rooms.venue_id and a.user_id = auth.uid())
 );
@@ -371,7 +399,7 @@ create policy erooms_del  on event_rooms for delete using ( is_org_staff(event_i
 -- brudepar må kun se de konkrete varer, der er valgt til deres eget arrangement.
 -- Kun admin opretter/ændrer/sletter katalogvarer.
 create policy catalog_read on catalog_items for select using (
-  org_id = my_org()
+  org_id = my_org() or is_superadmin()
   or exists (select 1 from event_catalog_items eci
              join event_access a on a.event_id = eci.event_id
              where eci.catalog_item_id = catalog_items.id and a.user_id = auth.uid())
@@ -397,7 +425,7 @@ create policy cir_del on catalog_item_rooms for delete using (
 );
 
 -- Medarbejdere kan se kolleger (til tildeling); kun admin må ændre brugere
-create policy staff_read   on staff for select using ( org_id = my_org() );
+create policy staff_read   on staff for select using ( org_id = my_org() or is_superadmin() );
 create policy staff_insert on staff for insert with check ( is_org_admin(org_id) );
 create policy staff_update on staff for update using ( is_org_admin(org_id) ) with check ( is_org_admin(org_id) );
 create policy staff_delete on staff for delete using ( is_org_admin(org_id) );
@@ -410,7 +438,7 @@ create policy invites_admin on invites for all
 create policy event_read on events for select
   using ( is_org_staff(id) or is_event_guest(id) );
 create policy event_insert on events for insert
-  with check ( org_id = my_org() );                 -- enhver medarbejder må oprette
+  with check ( org_id = my_org() or is_superadmin() );   -- enhver medarbejder må oprette, superadmin i enhver org
 create policy event_update on events for update
   using ( is_org_staff(id) ) with check ( is_org_staff(id) );
 create policy event_delete on events for delete
@@ -552,13 +580,17 @@ insert into activity_log (event_id, ts, actor_name, actor_side, entry_type, area
 --  7. BOOTSTRAP — kør, når du har logget ind via magic link mindst én gang.
 --     Find dit UUID under Authentication → Users.
 -- =====================================================================
--- -- Gør dig selv til ADMIN i Madkastellet:
+-- -- Gør dig selv til SUPERADMIN (Verta-medarbejder, organisationsuafhængig):
+-- insert into superadmins (id, name) values ('DIT-AUTH-UUID','Dit navn');
+--
+-- -- Eller: gør dig selv til ADMIN i Madkastellet (almindelig org-scoped admin):
 -- insert into staff (id, org_id, name, role) values
 --   ('DIT-AUTH-UUID','11111111-1111-1111-1111-111111111111','Dit navn','admin');
 --
 -- Herefter styrer du resten fra konsollen: opret lokationer, inviter
 -- koordinatorer (de forfremmes automatisk ved første login), og tildel
--- brudepar til arrangementer.
+-- brudepar til arrangementer. Superadmin lander i stedet i kontrolrummet,
+-- hvor nye (demo-)organisationer kan oprettes og åbnes.
 --
 -- -- Brudepar (indtil adgang gives fra UI'et):
 -- insert into event_access (event_id, user_id, display_name) values
