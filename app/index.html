@@ -183,8 +183,14 @@ footer.legal{margin-top:28px;font-size:12px;color:var(--ink-40);line-height:1.6}
 #confirmModal p{font-size:14.5px;line-height:1.5;margin:0 0 18px}
 
 /* felt-labels */
-.field{display:flex;flex-direction:column;gap:4px}
+.field{display:flex;flex-direction:column;gap:4px;min-width:0}
 .field label{font-size:11px;font-weight:600;color:var(--ink-40);letter-spacing:.03em;text-transform:uppercase}
+.field select,.field input{width:100%}
+
+/* formular med flere felter, pænt justeret i grid i stedet for flex (undgår hulter-til-bulter ombrydning) */
+.formgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px 14px;align-items:end}
+.formgrid .btn{grid-column:1/-1;justify-self:end}
+input[type=file].search{padding:6px 8px;font-size:12.5px;min-width:0}
 
 /* gemt-feedback på inline-redigering */
 .flash-saved{background:rgba(62,107,76,.16)!important;transition:background .7s ease}
@@ -215,6 +221,8 @@ footer.legal{margin-top:28px;font-size:12px;color:var(--ink-40);line-height:1.6}
   .search{min-width:0;flex:1 1 140px}
   .hero .sub{gap:8px}
   .consnav{flex-wrap:wrap;border-radius:var(--radius)}
+  .formgrid{grid-template-columns:1fr}
+  .formgrid .field{grid-column:1/-1!important}
 }
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -694,15 +702,15 @@ function viewPunkter(){
   const createKort = kilden ? `
   <section class="card">
     <header><h2>Opret opgave</h2></header>
-    <div class="row" style="gap:8px;flex-wrap:wrap;align-items:flex-end">
-      <div class="field" style="flex:2;min-width:180px"><label for="pkTitel">Titel</label><input id="pkTitel" class="search" placeholder="Fx Bordplan" style="width:100%"></div>
-      <div class="field" style="flex:1;min-width:120px"><label for="pkEjer">Ansvarlig</label><select id="pkEjer" class="search" style="width:100%">
+    <div class="formgrid">
+      <div class="field" style="grid-column:span 2"><label for="pkTitel">Titel</label><input id="pkTitel" class="search" placeholder="Fx Bordplan"></div>
+      <div class="field"><label for="pkEjer">Ansvarlig</label><select id="pkEjer" class="search">
         <option value="jer">Kunden</option>
         <option value="kilden">Mig (${esc(currentActor().navn)})</option>
       </select></div>
-      <div class="field" style="flex:1;min-width:140px"><label for="pkFrist">Frist</label><input id="pkFrist" type="date" class="search" style="width:100%"></div>
-      <div class="field" style="flex:2;min-width:160px"><label for="pkNote">Note</label><input id="pkNote" class="search" placeholder="Valgfri" style="width:100%"></div>
-      <div class="field" style="flex:1;min-width:140px"><label for="pkFile">Vedhæft fil</label><input type="file" id="pkFile" class="search" style="width:100%"></div>
+      <div class="field"><label for="pkFrist">Frist</label><input id="pkFrist" type="date" class="search"></div>
+      <div class="field" style="grid-column:span 2"><label for="pkNote">Note</label><input id="pkNote" class="search" placeholder="Valgfri"></div>
+      <div class="field"><label for="pkFile">Vedhæft fil</label><input type="file" id="pkFile" class="search"></div>
       <button class="btn primary" id="pkOpret">Opret</button>
     </div>
   </section>` : '';
