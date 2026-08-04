@@ -170,7 +170,13 @@ footer.legal{margin-top:28px;font-size:12px;color:var(--ink-40);line-height:1.6}
 .sabar-btn{background:rgba(234,237,230,.08);border-color:rgba(234,237,230,.25);color:rgba(234,237,230,.85)}
 .sabar-btn:hover{border-color:var(--amber);color:#fff}
 
-@media print{body{background:#fff} nav.tabs,.btn,.row.noprint,.rolebar,#superadminBar{display:none!important} .card{border:0;padding:0;margin-bottom:22px}}
+.fab{position:fixed;right:20px;bottom:20px;z-index:40;border:0;border-radius:99px;background:var(--blue);color:#fff;
+  font-weight:700;font-size:14px;padding:13px 20px;box-shadow:0 4px 14px rgba(18,21,27,.25);cursor:pointer;
+  transition:transform .1s ease,filter .15s ease}
+.fab:hover{filter:brightness(1.1)}
+.fab:active{transform:scale(.96)}
+
+@media print{body{background:#fff} nav.tabs,.btn,.row.noprint,.rolebar,#superadminBar,.fab{display:none!important} .card{border:0;padding:0;margin-bottom:22px}}
 @media (prefers-reduced-motion:no-preference){.card{animation:rise .32s ease both}@keyframes rise{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -224,6 +230,26 @@ footer.legal{margin-top:28px;font-size:12px;color:var(--ink-40);line-height:1.6}
   </div>
 
   <footer class="legal" id="legal"></footer>
+</div>
+
+<button id="fabAddTask" class="fab" style="display:none">+ Opgave</button>
+<div id="taskModal" style="display:none;position:fixed;inset:0;background:rgba(18,21,27,.45);z-index:60;align-items:center;justify-content:center;padding:20px">
+  <div style="max-width:420px;width:100%;background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:22px">
+    <h2 style="font-family:'Instrument Serif',serif;font-style:italic;font-size:24px;font-weight:400;margin:0 0 14px">Opret opgave</h2>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <input id="tmTitel" class="search" placeholder="Titel" style="width:100%">
+      <select id="tmEjer" class="search" style="width:100%">
+        <option value="jer">Jer (kunden)</option>
+        <option value="kilden">Kilden</option>
+      </select>
+      <input id="tmFrist" type="date" class="search" style="width:100%">
+      <input id="tmNote" class="search" placeholder="Note (valgfri)" style="width:100%">
+    </div>
+    <div class="row" style="margin-top:14px;justify-content:flex-end">
+      <button class="btn" id="tmCancel">Annullér</button>
+      <button class="btn primary" id="tmSave">Opret</button>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -346,7 +372,8 @@ let state = { gaester:seedGaester(), punkter:PUNKTER_SEED.map(p=>({...p})), log:
               eventCatalog:PRISER, orgCatalog:[], openRoomPickers:new Set(),
               openPickerGroups:new Set(['kladde','tilbud','bekræftet']),
               isSuperadmin:false, allOrgs:[], guestLink:'', guestLinkBusy:false,
-              guestWelcome:false, contactName:'', orgOnboardingDismissed:false, orgCatalogCount:0, orgStaffCount:0 };
+              guestWelcome:false, contactName:'', orgOnboardingDismissed:false, orgCatalogCount:0, orgStaffCount:0,
+              taskTemplates:[] };
 function save(){
   if(MODE==='cloud') cloudSaveGuestsAgenda();
   else store.save({gaester:state.gaester, punkter:state.punkter, log:state.log, lastRead:state.lastRead});
@@ -634,14 +661,36 @@ function viewGaester(){
 }
 
 function viewPunkter(){
-  return [['jer','Jeres ansvar'],['kilden','Kildens ansvar']].map(([ejer,titel])=>`
+  const createKort = (MODE==='cloud' && state.rolle==='kilden') ? `
+  <section class="card">
+    <header><h2>Opret opgave</h2></header>
+    <div class="row" style="gap:8px;flex-wrap:wrap">
+      <input id="pkTitel" class="search" placeholder="Titel, fx Bordplan" style="flex:2;min-width:180px">
+      <select id="pkEjer" class="search" style="flex:1;min-width:120px">
+        <option value="jer">Jer (kunden)</option>
+        <option value="kilden">Kilden</option>
+      </select>
+      <input id="pkFrist" type="date" class="search" style="flex:1;min-width:140px">
+      <input id="pkNote" class="search" placeholder="Note (valgfri)" style="flex:2;min-width:160px">
+      <button class="btn primary" id="pkOpret">Opret</button>
+    </div>
+  </section>` : '';
+  const groups = [['jer','Jeres ansvar'],['kilden','Kildens ansvar']].map(([ejer,titel])=>`
   <section class="card">
     <header><h2>${titel}</h2><span class="note">${state.punkter.filter(p=>p.ejer===ejer&&p.status!=='aftalt').length} udestående</span></header>
-    ${state.punkter.filter(p=>p.ejer===ejer).sort((a,b)=>a.frist.localeCompare(b.frist)).map(p=>{const d=dageTil(p.frist);return `<div class="item" data-pid="${p.id}">
+    ${state.punkter.filter(p=>p.ejer===ejer).length?state.punkter.filter(p=>p.ejer===ejer).sort((a,b)=>a.frist.localeCompare(b.frist)).map(p=>{
+      const d=dageTil(p.frist);
+      const kanRedigere = state.rolle==='kilden' || p.ejer==='jer';
+      return `<div class="item" data-pid="${p.id}">
       <span class="stripe ${p.ejer}"></span>
       <div><div class="name">${esc(p.titel)}</div><div class="meta">Frist ${datoKort(p.frist)} · <span class="due ${d<0?'past':''}">${d<0?Math.abs(d)+' dage over':'om '+d+' dage'}</span>${p.note?' · '+esc(p.note):''}</div></div>
-      <select class="status" data-status>${['mangler','udkast','aftalt'].map(s=>`<option value="${s}" ${p.status===s?'selected':''}>${s}</option>`).join('')}</select></div>`;}).join('')}
+      <span class="row" style="gap:6px">
+      ${kanRedigere?`<select class="status" data-status>${['mangler','udkast','aftalt'].map(s=>`<option value="${s}" ${p.status===s?'selected':''}>${s}</option>`).join('')}</select>`
+        :`<span class="chip"><span class="dot"></span>${p.status}</span>`}
+      ${MODE==='cloud'&&state.rolle==='kilden'?`<button class="btn" data-punkt-delete="${p.id}">Slet</button>`:''}
+      </span></div>`;}).join(''):'<div class="empty">Ingen opgaver endnu.</div>'}
   </section>`).join('');
+  return createKort + groups;
 }
 
 function viewKoekken(){
@@ -721,12 +770,12 @@ function viewBeskeder(){
     <div class="compose">
       <textarea id="msgtext" placeholder="Skriv en besked til ${modpart}…"></textarea>
       <div class="crow">
-        <span class="hint">Sendes som mail til ${modpart}. Ikke en live-chat — svar kommer i åbningstiden.</span>
+        <span class="hint">Ikke en live-chat — svar kommer i åbningstiden.</span>
         <button class="btn primary" id="sendmsg">Send besked</button>
       </div>
     </div>
     ${msgs.length?msgs.map(m=>`<div class="msg ${m.side}">
-      <div class="mhead"><span class="mwho">${esc(m.who)}</span><span class="mtime">${tid(m.ts)}</span></div>
+      <div class="mhead"><span class="mwho">${esc(m.who)}</span><span class="row" style="gap:8px"><span class="mtime">${tid(m.ts)}</span>${MODE==='cloud'&&state.rolle==='kilden'?`<button class="btn" data-msg-to-task="${esc((m.text||'').slice(0,80))}" style="font-size:11px;padding:2px 7px">+ Opgave</button>`:''}</span></div>
       <div class="mtext">${esc(m.text||'')}</div>
     </div>`).join(''):'<div class="empty">Ingen beskeder endnu. Skriv den første ovenfor.</div>'}
   </section>`;
@@ -741,12 +790,13 @@ function render(){
   renderSuperadminBar();
   document.getElementById('logout').style.display = cloud ? '' : 'none';
   document.getElementById('backToList').style.display = (cloud && state.rolle==='kilden' && (state.events||[]).length>1 && state.view==='workspace') ? '' : 'none';
+  document.getElementById('fabAddTask').style.display = (cloud && state.rolle==='kilden' && state.view==='workspace') ? 'block' : 'none';
 
-  if(cloud && (state.view==='picker' || state.view==='users' || state.view==='venues' || state.view==='katalog' || state.view==='superadmin')){
+  if(cloud && (state.view==='picker' || state.view==='users' || state.view==='venues' || state.view==='katalog' || state.view==='opgaver' || state.view==='superadmin')){
     document.getElementById('whoami').textContent = state.actor?('Logget ind som '+state.actor.navn):'';
     document.getElementById('orgName').textContent = state.view==='superadmin' ? '' : (state.orgName||'');
     document.getElementById('eventLoc').innerHTML='';
-    document.getElementById('heroTitle').textContent = state.view==='superadmin' ? 'Kontrolrum' : (state.view==='users' ? 'Brugere' : (state.view==='venues' ? 'Lokationer' : (state.view==='katalog' ? 'Katalog' : 'Arrangementer')));
+    document.getElementById('heroTitle').textContent = state.view==='superadmin' ? 'Kontrolrum' : (state.view==='users' ? 'Brugere' : (state.view==='venues' ? 'Lokationer' : (state.view==='katalog' ? 'Katalog' : (state.view==='opgaver' ? 'Opgaver' : 'Arrangementer'))));
     document.getElementById('heroChips').innerHTML='';
     document.getElementById('tabs').innerHTML='';
     const v=document.getElementById('view');
@@ -811,6 +861,10 @@ function render(){
         if(el.open) state.openRoomPickers.add(el.dataset.picker);
         else state.openRoomPickers.delete(el.dataset.picker);
       });
+    } else if(state.view==='opgaver'){
+      v.innerHTML=viewOpgaver();
+      const tc=document.getElementById('ttCreate'); if(tc) tc.onclick=createTaskTemplate;
+      v.querySelectorAll('[data-delete-task-template]').forEach(el=>el.onclick=()=>deleteTaskTemplate(el.dataset.deleteTaskTemplate));
     } else {
       v.innerHTML=viewPicker();
       v.querySelectorAll('[data-open]').forEach(el=>el.onclick=()=>openEvent(el.dataset.open));
@@ -829,6 +883,7 @@ function render(){
       if(state.view==='users') await loadUsers();
       if(state.view==='venues') await loadVenuesFull();
       if(state.view==='katalog') await loadOrgCatalog();
+      if(state.view==='opgaver') await loadTaskTemplates();
       render();
     });
     return;
@@ -889,10 +944,25 @@ function bind(){
   document.querySelectorAll('[data-pid]').forEach(el=>{
     const p=state.punkter.find(x=>x.id===el.dataset.pid);
     const sel=el.querySelector('[data-status]');
-    if(sel) sel.onchange=()=>{const from=p.status;p.status=sel.value;
-      pushLog({area:'punkter',label:p.titel,from,to:p.status,cust:true,friendly:p.titel+' er nu '+p.status});
-      save();render();};
+    if(sel) sel.onchange=()=>{
+      if(MODE==='cloud') updatePunktStatus(p.id, sel.value);
+      else { const from=p.status;p.status=sel.value;
+        pushLog({area:'punkter',label:p.titel,from,to:p.status,cust:true,friendly:p.titel+' er nu '+p.status});
+        save();render(); }
+    };
   });
+  document.querySelectorAll('[data-punkt-delete]').forEach(el=>el.onclick=()=>deletePunkt(el.dataset.punktDelete));
+  const pkOpret=document.getElementById('pkOpret');
+  if(pkOpret) pkOpret.onclick=()=>{
+    const titel=document.getElementById('pkTitel').value;
+    const ejer=document.getElementById('pkEjer').value;
+    const frist=document.getElementById('pkFrist').value;
+    const note=document.getElementById('pkNote').value;
+    createPunkt(titel, ejer, frist, note).then(()=>{
+      const t=document.getElementById('pkTitel'); if(t) t.value='';
+      const n=document.getElementById('pkNote'); if(n) n.value='';
+    });
+  };
 
   const fT=document.getElementById('fType'); if(fT) fT.onchange=()=>{state.logType=fT.value;render();};
   const fW=document.getElementById('fWho');  if(fW) fW.onchange=()=>{state.logWho=fW.value;render();};
@@ -900,6 +970,7 @@ function bind(){
 
   const sm=document.getElementById('sendmsg');
   if(sm) sm.onclick=()=>{const ta=document.getElementById('msgtext');const t=ta.value.trim();if(!t)return;pushMessage(t);render();};
+  document.querySelectorAll('[data-msg-to-task]').forEach(el=>el.onclick=()=>openTaskModal(el.dataset.msgToTask));
 
   const ca=document.getElementById('coordAdd');
   if(ca) ca.onclick=()=>{const sel=document.getElementById('coordSel');if(sel.value)addCoordinator(sel.value);};
@@ -938,6 +1009,26 @@ function bind(){
 
 document.getElementById('brandHome').onclick=goHome;
 
+function openTaskModal(prefillTitle){
+  document.getElementById('tmTitel').value = prefillTitle || '';
+  document.getElementById('tmEjer').value = 'jer';
+  document.getElementById('tmFrist').value = '';
+  document.getElementById('tmNote').value = '';
+  document.getElementById('taskModal').style.display = 'flex';
+}
+function closeTaskModal(){ document.getElementById('taskModal').style.display='none'; }
+document.getElementById('fabAddTask').onclick=()=>openTaskModal('');
+document.getElementById('tmCancel').onclick=closeTaskModal;
+document.getElementById('tmSave').onclick=async()=>{
+  const titel=document.getElementById('tmTitel').value;
+  const ejer=document.getElementById('tmEjer').value;
+  const frist=document.getElementById('tmFrist').value;
+  const note=document.getElementById('tmNote').value;
+  if(!titel.trim()){ alert('Skriv en titel.'); return; }
+  await createPunkt(titel, ejer, frist, note);
+  closeTaskModal();
+};
+
 document.querySelectorAll('#localRoleSeg button').forEach(b=>{
   b.onclick=()=>{
     state.rolle=b.dataset.role; state.tab='oversigt'; state.soeg='';
@@ -972,7 +1063,6 @@ function renderSuperadminBar(){
 const gFromDb = r => ({id:r.id, navn:r.name, kat:r.category, reception:r.reception, middag:r.dinner, kost:r.dietary||''});
 const gToDb   = (g,i) => ({id:g.id, event_id:state.eventId, name:g.navn, category:g.kat, reception:g.reception, dinner:g.middag, dietary:g.kost, sort_order:i});
 const pFromDb = r => ({id:r.id, titel:r.title, ejer:r.owner, status:r.status, frist:r.due_date||'', note:r.note||''});
-const pToDb   = (p,i) => ({id:p.id, event_id:state.eventId, title:p.titel, owner:p.ejer, status:p.status, due_date:p.frist||null, note:p.note||'', sort_order:i});
 const logFromDb = r => ({id:r.id, ts:new Date(r.ts).getTime(), side:r.actor_side, who:r.actor_name, type:r.entry_type, area:r.area, label:r.label, from:r.from_val, to:r.to_val, cust:r.customer_visible, friendly:r.friendly, text:r.message_text, ip:r.ip_address||''});
 const logToDb   = e => ({event_id:state.eventId, ts:new Date(e.ts).toISOString(), actor_name:e.who, actor_side:e.side, entry_type:e.type, area:e.area, label:e.label||'', from_val:e.from||'', to_val:e.to||'', customer_visible:!!e.cust, friendly:e.friendly||'', message_text:e.text||''});
 
@@ -982,8 +1072,6 @@ async function cloudSaveGuestsAgenda(){
     const goneG=[...state._dbG].filter(id=>!state.gaester.find(g=>g.id===id));
     if(goneG.length) await sb.from('guests').delete().in('id',goneG);
     state._dbG=new Set(state.gaester.map(g=>g.id));
-    await sb.from('agenda_items').upsert(state.punkter.map(pToDb));
-    state._dbP=new Set(state.punkter.map(p=>p.id));
   }catch(e){ console.error('cloud save', e); }
 }
 
@@ -1143,7 +1231,6 @@ async function openEvent(id){
   state.punkter=(ps||[]).map(pFromDb);
   state.log=(lg||[]).map(logFromDb);
   state._dbG=new Set(state.gaester.map(g=>g.id));
-  state._dbP=new Set(state.punkter.map(p=>p.id));
   await loadRooms(id);
   await loadCatalog(id);
   if(state.rolle==='kilden'){ await loadEventStaff(); await loadOrgCatalog(); logCloudView(); }
@@ -1422,6 +1509,75 @@ async function updateEventDetails(){
   pushLog({area:'system', label:'Arrangementdetaljer', cust:true, friendly:'Arrangementdetaljer opdateret'});
   render();
 }
+function addDays(dateStr, delta){
+  const d=new Date(dateStr+'T00:00:00');
+  d.setDate(d.getDate()+delta);
+  return d.toISOString().slice(0,10);
+}
+async function reloadPunkter(){
+  const {data:ps}=await sb.from('agenda_items').select('*').eq('event_id',state.eventId).order('sort_order');
+  state.punkter=(ps||[]).map(pFromDb);
+}
+async function updatePunktStatus(id, status){
+  const p=state.punkter.find(x=>x.id===id); if(!p) return;
+  const from=p.status;
+  const {error}=await sb.from('agenda_items').update({status}).eq('id',id);
+  if(error){ alert('Kunne ikke ændre status: '+error.message); return; }
+  p.status=status;
+  pushLog({area:'punkter', label:p.titel, from, to:status, cust:true, friendly:p.titel+' er nu '+status});
+  render();
+}
+async function createPunkt(titel, ejer, frist, note){
+  if(!titel.trim()){ alert('Skriv en titel.'); return; }
+  const {error}=await sb.from('agenda_items').insert({event_id:state.eventId, title:titel.trim(), owner:ejer, due_date:frist||null, note:(note||'').trim()});
+  if(error){ alert('Kunne ikke oprette opgave: '+error.message); return; }
+  pushLog({area:'punkter', label:titel.trim(), cust:(ejer==='jer'), friendly:'Ny opgave: '+titel.trim()});
+  await reloadPunkter(); render();
+}
+async function deletePunkt(id){
+  if(!confirm('Slet opgaven? Kan ikke fortrydes.')) return;
+  const p=state.punkter.find(x=>x.id===id);
+  const {error}=await sb.from('agenda_items').delete().eq('id',id);
+  if(error){ alert('Kunne ikke slette: '+error.message); return; }
+  pushLog({area:'punkter', label:p?p.titel:'', cust:false, friendly:'Opgave slettet: '+(p?p.titel:'')});
+  await reloadPunkter(); render();
+}
+async function applyTaskTemplates(eventId, eventDate, eventType){
+  const {data:templates}=await sb.from('task_templates').select('*').eq('org_id',state.orgId);
+  const matching=(templates||[]).filter(t=>!t.event_type || t.event_type===eventType);
+  if(!matching.length) return;
+  const rows=matching.map(t=>({
+    event_id:eventId, title:t.title, owner:t.owner,
+    due_date: t.days_before_event!=null ? addDays(eventDate, -t.days_before_event) : null,
+    note:t.note||'', sort_order:t.sort_order||0
+  }));
+  await sb.from('agenda_items').insert(rows);
+}
+async function loadTaskTemplates(){
+  const {data}=await sb.from('task_templates').select('*').eq('org_id',state.orgId).order('sort_order');
+  state.taskTemplates=data||[];
+}
+async function createTaskTemplate(){
+  const title=document.getElementById('ttTitle').value.trim();
+  const owner=document.getElementById('ttOwner').value;
+  const daysRaw=document.getElementById('ttDays').value;
+  const days=daysRaw===''?null:(parseInt(daysRaw,10)||0);
+  const note=document.getElementById('ttNote').value.trim();
+  const eventType=document.getElementById('ttEventType').value||null;
+  if(!title){ alert('Skriv en titel.'); return; }
+  const btn=document.getElementById('ttCreate'), orig=btn.textContent;
+  btn.disabled=true; btn.textContent='Opretter…';
+  const {error}=await sb.from('task_templates').insert({org_id:state.orgId, title, owner, days_before_event:days, note, event_type:eventType});
+  btn.disabled=false; btn.textContent=orig;
+  if(error){ alert('Kunne ikke oprette: '+error.message); return; }
+  await loadTaskTemplates(); render();
+}
+async function deleteTaskTemplate(id){
+  if(!confirm('Slet skabelonen? Kan ikke fortrydes.')) return;
+  const {error}=await sb.from('task_templates').delete().eq('id',id);
+  if(error){ alert('Kunne ikke slette: '+error.message); return; }
+  await loadTaskTemplates(); render();
+}
 async function generateGuestLink(name, email){
   if(!name || !email){ alert('Udfyld både navn og mail.'); return; }
   state.guestLinkBusy=true; render();
@@ -1451,6 +1607,7 @@ async function createEvent(){
   const venueId=document.getElementById('neVenue').value;
   const date=document.getElementById('neDate').value;
   const eventType=document.getElementById('neType').value;
+  const useTasks=document.getElementById('neTasks').checked;
   if(!title||!venueId||!date){ alert('Udfyld titel, lokation og dato.'); return; }
   const btn=document.getElementById('neCreate'), orig=btn.textContent;
   btn.disabled=true; btn.textContent='Opretter…';
@@ -1461,7 +1618,10 @@ async function createEvent(){
   const {data:evs}=await sb.from('events').select('id,title,event_date,status,offer_total_kr,event_type,venues(name)').eq('org_id',state.orgId).order('event_date',{ascending:false});
   state.events=evs||[];
   const created=(state.events||[]).find(e=>e.title===title && e.event_date===date);
-  if(created) openEvent(created.id); else render();
+  if(created){
+    if(useTasks) await applyTaskTemplates(created.id, date, eventType);
+    openEvent(created.id);
+  } else render();
 }
 function logCloudView(){
   const a=currentActor();
@@ -1491,8 +1651,38 @@ function consoleNav(active){
     <button data-nav="picker" aria-pressed="${active==='picker'}">Arrangementer</button>
     <button data-nav="venues" aria-pressed="${active==='venues'}">Lokationer</button>
     <button data-nav="katalog" aria-pressed="${active==='katalog'}">Katalog</button>
+    <button data-nav="opgaver" aria-pressed="${active==='opgaver'}">Opgaver</button>
     <button data-nav="users" aria-pressed="${active==='users'}">Brugere</button>
   </nav>`;
+}
+function viewOpgaver(){
+  return `${consoleNav('opgaver')}
+  <div style="margin:20px 0 10px"><span class="eyebrow">Standardopgaver for ${esc(state.orgName||'organisationen')}</span></div>
+  <section class="card">
+    <header><h2>Skabeloner</h2><span class="note">${(state.taskTemplates||[]).length}</span></header>
+    ${(state.taskTemplates||[]).length?(state.taskTemplates||[]).map(t=>`<div class="stat" style="flex-wrap:wrap;gap:8px">
+      <span>${esc(t.title)} <span class="note">${t.owner==='jer'?'Jer':'Kilden'}${t.days_before_event!=null?' · '+t.days_before_event+' dage før':''}${t.event_type?' · '+esc(t.event_type):''}</span></span>
+      <button class="btn" data-delete-task-template="${t.id}">Slet</button>
+    </div>`).join(''):'<div class="empty">Ingen skabeloner endnu.</div>'}
+  </section>
+  <section class="card">
+    <header><h2>Ny skabelon</h2></header>
+    <div class="row" style="gap:8px;flex-wrap:wrap;margin-top:4px">
+      <input id="ttTitle" class="search" placeholder="Titel, fx Bordplan" style="flex:2;min-width:180px">
+      <select id="ttOwner" class="search" style="flex:1;min-width:120px">
+        <option value="jer">Jer (kunden)</option>
+        <option value="kilden">Kilden</option>
+      </select>
+      <input id="ttDays" type="number" min="0" class="search" placeholder="Dage før arrangement" style="flex:1;min-width:150px">
+      <select id="ttEventType" class="search" style="flex:1;min-width:130px">
+        <option value="">Alle arrangementstyper</option>
+        ${CAT_EVENT_TYPES.map(t=>`<option value="${t}">${t}</option>`).join('')}
+      </select>
+      <input id="ttNote" class="search" placeholder="Note (valgfri)" style="flex:2;min-width:160px">
+      <button class="btn primary" id="ttCreate">Opret skabelon</button>
+    </div>
+    <div class="note" style="margin-top:10px">Bruges som en valgfri "standardpakke", der kan tilføjes automatisk, når et nyt arrangement oprettes.</div>
+  </section>`;
 }
 function viewKatalog(){
   return `${consoleNav('katalog')}
@@ -1623,6 +1813,7 @@ function viewPicker(){
       </select>
       <button class="btn primary" id="neCreate">Opret arrangement</button>
     </div>
+    <label class="row" style="gap:6px;font-size:13px;margin-top:8px"><input type="checkbox" id="neTasks" checked>Tilføj standardopgaver</label>
     <div class="note" style="margin-top:8px">I sætter lokaler, tilbudsbeløb og katalogvarer op, når arrangementet er oprettet.</div>
   </section>`;
   const setup = {

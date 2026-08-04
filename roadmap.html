@@ -54,7 +54,16 @@ footer{margin-top:40px;font-size:12px;color:var(--ink-40)}
 
   <details class="col" open>
     <summary class="eyebrow"><span class="fold-chev">▸</span><span class="dot planned"></span>Planlagt<span class="foldcount"></span></summary>
-    <div class="card"><div class="t">Notifikationsmail ved nye beskeder</div><div class="d">Edge Function + maildienst, så modparten får en mail når der lægges en ny besked. Bevidst nedprioriteret — kan vente.</div></div>
+    <div class="card"><div class="t">Notifikationsmail ved vigtige hændelser</div><div class="d">
+      Bevidst nedprioriteret — kan vente. Princip: kun mail til det, der enten kræver en handling fra kunden, eller er en reel milepæl de ikke selv opdager. Ikke "alt nyt" — bredere lister bliver hurtigt til støj, folk lærer at ignorere afsenderen.<br><br>
+      <b>Sender mail:</b> ny besked fra Kilden · nyt aftalepunkt tildelt kunden ("Jer").<br>
+      <b>Sender ikke mail (v1):</b> statusskift til Tilbud (redundant — linket til kunden ER typisk selve invitationen) · statusskift til Bekræftet/Afviklet · tilbudsbeløb ændres · lokale/tidspunkt ændres · rettelser på kundens eget aftalepunkt · alt hvad kunden selv gør (reflekteres ikke tilbage til dem selv).<br><br>
+      <b>Vigtig skelnen:</b> det første gæstelink (via "Del med gæsten") er og forbliver noget koordinator sender manuelt (kopiér-knap) — det er ikke det samme som løbende notifikationer, efter kunden allerede har adgang. De to må ikke blandes sammen.<br><br>
+      <b>Anti-støj:</b> kun til modparten, aldrig til den der selv handlede. Afgrænsning ved hurtig aktivitet (fx flere beskeder i træk inden for 20-30 min → kun én mail), samme princip som den eksisterende 30-minutters-afgrænsning på opslags-logning (<code>logView()</code>).<br><br>
+      <b>Samtykke:</b> som en del af gæstens onboarding (det engangs-velkomstkort, se "Tre onboardingflows" nedenfor) skal der tilføjes et "Ja tak, send mig mail ved vigtige ændringer"-samtykke, før vi har lov til at sende notifikationsmails. Kræver nyt felt (fx <code>event_access.email_opt_in</code>), sat ved velkomstkortets accept, ikke antaget som standard.<br><br>
+      <b>Teknisk skitse (ikke bygget):</b> endnu en Edge Function + maildienst-nøgle (samme sikkerhedsmønster som service_role — kun i Edge Function-miljøet), udløst server-side af et Database Webhook ved insert på agenda_items/activity_log — ikke klienten, der selv skal huske at kalde noget.<br><br>
+      <b>Bevidst udenfor scope nu:</b> mail til koordinator ved ny besked fra kunden (de sidder allerede i værktøjet i åbningstiden, og realtime findes i forvejen) · digest-mails · fravalgs-center.
+    </div></div>
     <div class="card"><div class="t">Marketing-forside: rigtigt indhold</div><div class="d">Første udkast er bygget (se Udført) — mangler stadig: rigtig prismodel (i stedet for "kontakt for tilbud"), rigtigt domænenavn (nuværende vertacph giver ikke mening bredt), og at "Book en demo"-knapperne kobles til noget rigtigt (mailto, kalenderlink eller formular).</div></div>
   </details>
 
@@ -91,6 +100,12 @@ footer{margin-top:40px;font-size:12px;color:var(--ink-40)}
       Undervejs blev et reelt hul rettet: der var før ingen måde at redigere et arrangements titel, dato, pris, type eller lokation efter oprettelse — nyt "Arrangementdetaljer"-kort i Admin-fanen løser det.
     </div></div>
     <div class="card"><div class="t">IP-stempel i aktivitetsloggen</div><div class="d">Hvert log-opslag (login, ændring, besked — begge parters) stemples nu server-side med afsender-IP'en, via et Postgres-trigger der læser PostgRESTs request-headers. Klienten kan ikke forfalske feltet. Vises kun for medarbejdere i Log-fanen, aldrig for gæsten. Bygget samtidig: gæstens åbning af eget arrangement bliver nu overhovedet logget som et opslag — det skete ikke før, kun medarbejderes gjorde, så der var reelt intet at stemple.</div></div>
+    <div class="card"><div class="t">Opgaver i Aftalepunkter — oprettelse, standardpakker og hurtig-opret</div><div class="d">
+      Rettede et reelt hul: der var før slet ingen måde at oprette et aftalepunkt på — kun status kunne ændres. Samtidig var RLS'en for åben (gæsten kunne i teorien selv oprette/rette/slette).<br><br>
+      <b>Rettigheder:</b> kun koordinator opretter og sletter. Gæsten ser begge lister, men kan kun toggle status på egne ("Jer")-punkter — håndhævet både i RLS og et nyt trigger, der klapper alle andre felter tilbage til den gamle værdi, hvis den kaldende ikke er staff.<br>
+      <b>Tre oprettelsesveje:</b> (1) et opret-kort direkte i Aftalepunkter-fanen, (2) en "+ Opgave"-knap på hver besked i Beskeder, forudfyldt med beskedteksten, og (3) en flydende "+ Opgave"-knap nederst til højre (kun for koordinator) — samme opret-formular alle tre steder.<br>
+      <b>Standardpakke:</b> ny org-tabel <code>task_templates</code> (samme mønster som priskataloget) med relativ frist ("X dage før arrangementet", da skabeloner bruges på tværs af datoer). Administreres under et nyt "Opgaver" i konsollen. Ved arrangement-oprettelse er der en forudkrydset "Tilføj standardopgaver"-boks, der kopierer de matchende skabeloner ind med udregnede frister.
+    </div></div>
   </details>
 
   <footer>Verta · internt roadmap-dokument, ikke offentligt indekseret.</footer>

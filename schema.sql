@@ -171,6 +171,20 @@ create table agenda_items (
   sort_order integer not null default 0
 );
 
+-- Org-genbrugelige opgaveskabeloner ("standardpakke"), samme mønster som catalog_items.
+-- Frist er relativ (dage før arrangementet), da skabeloner bruges på tværs af datoer.
+create table task_templates (
+  id uuid primary key default gen_random_uuid(),
+  org_id uuid not null references organisations(id) on delete cascade,
+  title text not null,
+  owner text not null default 'jer',          -- 'jer' | 'kilden'
+  days_before_event integer,                  -- frist = event_date - days_before_event; null = ingen automatisk frist
+  note text not null default '',
+  event_type text,                            -- null = alle typer, ellers samme værdier som events.event_type
+  sort_order integer not null default 0,
+  created_at timestamptz not null default now()
+);
+
 create table activity_log (
   id uuid primary key default gen_random_uuid(),
   event_id uuid not null references events(id) on delete cascade,
@@ -318,6 +332,28 @@ create trigger on_activity_log_ip
   before insert on activity_log
   for each row execute function stamp_activity_log_ip();
 
+-- Gæsten må kun ændre status på egne aftalepunkter — dette trigger klapper
+-- ethvert andet felt tilbage til den gamle værdi, uanset hvad et forsøgt
+-- API-kald indeholder. RLS (agenda_update) begrænser i forvejen HVILKE
+-- rækker gæsten overhovedet kan forsøge at ramme.
+create or replace function guard_agenda_item_update()
+returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  if not is_org_staff(new.event_id) then
+    new.title := old.title;
+    new.owner := old.owner;
+    new.due_date := old.due_date;
+    new.note := old.note;
+    new.sort_order := old.sort_order;
+    new.event_id := old.event_id;
+  end if;
+  return new;
+end;
+$$;
+create trigger on_agenda_item_update
+  before update on agenda_items
+  for each row execute function guard_agenda_item_update();
+
 -- Forhindrer dobbeltbooking: samme lokale kan ikke bruges to steder samtidig
 -- samme dag. Samme lokale samme dag men forskudte tidsrum er ok; samme
 -- tidsrum i forskellige lokaler er ok.
@@ -382,6 +418,7 @@ alter table event_rooms   enable row level security;
 alter table catalog_items       enable row level security;
 alter table event_catalog_items enable row level security;
 alter table catalog_item_rooms  enable row level security;
+alter table task_templates      enable row level security;
 
 -- Superadmin: kun læsbar for sig selv. Tilføjes/fjernes manuelt via SQL.
 create policy superadmins_read_self on superadmins for select using (id = auth.uid());
@@ -481,14 +518,30 @@ create policy eaccess_read   on event_access for select using ( user_id = auth.u
 create policy eaccess_insert on event_access for insert with check ( is_org_staff(event_id) );
 create policy eaccess_delete on event_access for delete using ( is_org_staff(event_id) );
 
--- Gæster + punkter: begge parter må læse og redigere
+-- Gæster: begge parter må læse og redigere
 create policy guests_all on guests for all
   using ( is_org_staff(event_id) or is_event_guest(event_id) )
   with check ( is_org_staff(event_id) or is_event_guest(event_id) );
 
-create policy agenda_all on agenda_items for all
-  using ( is_org_staff(event_id) or is_event_guest(event_id) )
-  with check ( is_org_staff(event_id) or is_event_guest(event_id) );
+-- Aftalepunkter: kun koordinator opretter/sletter. Gæsten ser alt, men må
+-- kun opdatere status på egne ("jer") punkter — håndhævet i with check
+-- her og på kolonneniveau af guard_agenda_item_update()-triggeren ovenfor.
+create policy agenda_read on agenda_items for select
+  using ( is_org_staff(event_id) or is_event_guest(event_id) );
+create policy agenda_insert on agenda_items for insert
+  with check ( is_org_staff(event_id) );
+create policy agenda_update on agenda_items for update
+  using ( is_org_staff(event_id) or (is_event_guest(event_id) and owner = 'jer') )
+  with check ( is_org_staff(event_id) or (is_event_guest(event_id) and owner = 'jer') );
+create policy agenda_delete on agenda_items for delete
+  using ( is_org_staff(event_id) );
+
+-- Opgaveskabeloner: org'ens folk læser; kun admin opretter/ændrer/sletter (som catalog_items).
+create policy task_templates_read on task_templates for select
+  using ( org_id = my_org() or is_superadmin() );
+create policy task_templates_insert on task_templates for insert with check ( is_org_admin(org_id) );
+create policy task_templates_update on task_templates for update using ( is_org_admin(org_id) ) with check ( is_org_admin(org_id) );
+create policy task_templates_delete on task_templates for delete using ( is_org_admin(org_id) );
 
 -- LOG: append-only. Begge parter må indsætte.
 create policy log_insert on activity_log for insert
