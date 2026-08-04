@@ -193,6 +193,11 @@ footer.legal{margin-top:28px;font-size:12px;color:var(--ink-40);line-height:1.6}
 .tasknote{background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:13.5px}
 .tnhead{display:flex;align-items:center;gap:6px;margin-bottom:4px;font-size:12.5px}
 .tnfile{font-size:12.5px;padding:4px 10px}
+.notes-toggle{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:700;color:var(--ink);border:1px solid var(--line);background:var(--card);border-radius:99px;padding:6px 13px;cursor:pointer}
+.notes-toggle:hover{border-color:var(--blue);color:var(--blue)}
+.notes-toggle .fold-chev{margin-right:0;color:inherit}
+.notes-badge{background:var(--blue);color:#fff;border-radius:99px;padding:1px 8px;font-size:11.5px;font-weight:700}
+.notes-wrap{grid-column:1/-1;margin-top:10px;padding-top:10px;border-top:1px dotted var(--line)}
 
 /* loading-skærm */
 #bootLoading{position:fixed;inset:0;background:var(--paper);z-index:90;display:flex;align-items:center;justify-content:center}
@@ -284,6 +289,7 @@ footer.legal{margin-top:28px;font-size:12px;color:var(--ink-40);line-height:1.6}
       </select></div>
       <div class="field"><label for="tmFrist">Frist</label><input id="tmFrist" type="date" class="search" style="width:100%"></div>
       <div class="field"><label for="tmNote">Note</label><input id="tmNote" class="search" placeholder="Valgfri" style="width:100%"></div>
+      <div class="field"><label for="tmFile">Vedhæft fil</label><input type="file" id="tmFile" class="search" style="width:100%"></div>
     </div>
     <div class="row" style="margin-top:14px;justify-content:flex-end">
       <button class="btn" id="tmCancel">Annullér</button>
@@ -641,9 +647,10 @@ function viewGaester(){
 function taskNotesHtml(p){
   const notes = state.agendaNotes[p.id] || [];
   const isOpen = state.openTaskNotes.has(p.id);
-  return `<details data-task-notes="${p.id}" ${isOpen?'open':''} style="grid-column:1/-1;margin-top:8px">
-    <summary class="note"><span class="fold-chev">▸</span>Noter og filer (${notes.length})</summary>
-    <div style="margin-top:8px;display:flex;flex-direction:column;gap:8px">
+  return `<div class="notes-wrap">
+  <details data-task-notes="${p.id}" ${isOpen?'open':''}>
+    <summary class="notes-toggle"><span class="fold-chev">▸</span>📎 Noter og filer${notes.length?`<span class="notes-badge">${notes.length}</span>`:''}</summary>
+    <div style="margin-top:10px;display:flex;flex-direction:column;gap:8px">
       ${notes.length?notes.map(n=>`<div class="tasknote">
         <div class="tnhead"><span class="dot ${n.author_side}"></span><b>${esc(n.author_name)}</b><span class="note">${tid(n.created_at)}</span></div>
         ${n.text?`<div>${esc(n.text)}</div>`:''}
@@ -655,7 +662,8 @@ function taskNotesHtml(p){
         <button class="btn" data-note-send="${p.id}">Send</button>
       </div>
     </div>
-  </details>`;
+  </details>
+  </div>`;
 }
 function renderTask(p){
   const kilden = state.rolle==='kilden';
@@ -694,6 +702,7 @@ function viewPunkter(){
       </select>
       <input id="pkFrist" type="date" class="search" style="flex:1;min-width:140px">
       <input id="pkNote" class="search" placeholder="Note (valgfri)" style="flex:2;min-width:160px">
+      <input type="file" id="pkFile" class="search" style="flex:1;min-width:140px">
       <button class="btn primary" id="pkOpret">Opret</button>
     </div>
   </section>` : '';
@@ -1011,9 +1020,12 @@ function bind(){
       const ejer=document.getElementById('pkEjer').value;
       const frist=document.getElementById('pkFrist').value;
       const note=document.getElementById('pkNote').value;
-      createPunkt(titel, ejer, frist, note).then(()=>{
+      const fileEl=document.getElementById('pkFile');
+      const file=fileEl&&fileEl.files[0]||null;
+      createPunkt(titel, ejer, frist, note, file).then(()=>{
         const t=document.getElementById('pkTitel'); if(t) t.value='';
         const n=document.getElementById('pkNote'); if(n) n.value='';
+        if(fileEl) fileEl.value='';
       });
     };
     onEnterSubmit(document.getElementById('pkTitel'), ()=>pkOpret.click());
@@ -1090,6 +1102,7 @@ function openTaskModal(prefillTitle){
   document.querySelector('#tmEjer option[value="kilden"]').textContent = 'Mig ('+currentActor().navn+')';
   document.getElementById('tmFrist').value = '';
   document.getElementById('tmNote').value = '';
+  document.getElementById('tmFile').value = '';
   document.getElementById('taskModal').style.display = 'flex';
 }
 function closeTaskModal(){ document.getElementById('taskModal').style.display='none'; }
@@ -1100,8 +1113,9 @@ document.getElementById('tmSave').onclick=async()=>{
   const ejer=document.getElementById('tmEjer').value;
   const frist=document.getElementById('tmFrist').value;
   const note=document.getElementById('tmNote').value;
+  const file=document.getElementById('tmFile').files[0]||null;
   if(!titel.trim()){ showToast('Skriv en titel.','error'); return; }
-  await createPunkt(titel, ejer, frist, note);
+  await createPunkt(titel, ejer, frist, note, file);
   closeTaskModal();
 };
 onEnterSubmit(document.getElementById('tmTitel'), ()=>document.getElementById('tmSave').click());
@@ -1628,12 +1642,14 @@ async function updatePunktStatus(id, status){
   pushLog({area:'punkter', label:p.titel, from, to:status, cust:true, friendly:p.titel+' er nu '+STATUS_LABEL[status]});
   render();
 }
-async function createPunkt(titel, ejer, frist, note){
+async function createPunkt(titel, ejer, frist, note, file){
   if(!titel.trim()){ showToast('Skriv en titel.','error'); return; }
-  const {error}=await sb.from('agenda_items').insert({event_id:state.eventId, title:titel.trim(), owner:ejer, due_date:frist||null, note:(note||'').trim()});
+  const {data,error}=await sb.from('agenda_items').insert({event_id:state.eventId, title:titel.trim(), owner:ejer, due_date:frist||null, note:(note||'').trim()}).select('id').single();
   if(error){ showToast('Kunne ikke oprette opgave: '+error.message,'error'); return; }
   pushLog({area:'punkter', label:titel.trim(), cust:(ejer==='jer'), friendly:'Ny opgave: '+titel.trim()});
-  await reloadPunkter(); render();
+  await reloadPunkter();
+  if((note||'').trim() || file) await addAgendaNote(data.id, note, file);
+  else render();
 }
 async function deletePunkt(id){
   if(!(await appConfirm('Slet opgaven? Kan ikke fortrydes.'))) return;
