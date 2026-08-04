@@ -165,18 +165,67 @@ footer.legal{margin-top:28px;font-size:12px;color:var(--ink-40);line-height:1.6}
 .sabar-btn{background:rgba(234,237,230,.08);border-color:rgba(234,237,230,.25);color:rgba(234,237,230,.85)}
 .sabar-btn:hover{border-color:var(--amber);color:#fff}
 
-.fab{position:fixed;right:20px;bottom:20px;z-index:40;border:0;border-radius:99px;background:var(--blue);color:#fff;
+.fab{position:fixed;right:20px;bottom:calc(20px + env(safe-area-inset-bottom));z-index:40;border:0;border-radius:99px;background:var(--blue);color:#fff;
   font-weight:700;font-size:14px;padding:13px 20px;box-shadow:0 4px 14px rgba(18,21,27,.25);cursor:pointer;
   transition:transform .1s ease,filter .15s ease}
 .fab:hover{filter:brightness(1.1)}
 .fab:active{transform:scale(.96)}
 
-@media print{body{background:#fff} nav.tabs,.btn,.row.noprint,.rolebar,#superadminBar,.fab{display:none!important} .card{border:0;padding:0;margin-bottom:22px}}
+/* toast + bekræft-modal (erstatter alert/confirm) */
+#toastWrap{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:80;display:flex;flex-direction:column;gap:8px;align-items:center;padding:0 16px;width:100%;max-width:420px}
+.toast{background:var(--ink);color:#fff;border-radius:var(--radius);padding:12px 16px;font-size:13.5px;font-weight:600;
+  box-shadow:0 6px 20px rgba(18,21,27,.3);animation:toastin .2s ease both;max-width:100%}
+.toast.error{background:#5C1A1A}
+.toast.ok{background:var(--moss)}
+@keyframes toastin{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+#confirmModal{display:none;position:fixed;inset:0;background:rgba(18,21,27,.45);z-index:65;align-items:center;justify-content:center;padding:20px}
+#confirmModal .box{max-width:380px;width:100%;background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:22px}
+#confirmModal p{font-size:14.5px;line-height:1.5;margin:0 0 18px}
+
+/* felt-labels */
+.field{display:flex;flex-direction:column;gap:4px}
+.field label{font-size:11px;font-weight:600;color:var(--ink-40);letter-spacing:.03em;text-transform:uppercase}
+
+/* gemt-feedback på inline-redigering */
+.flash-saved{background:rgba(62,107,76,.16)!important;transition:background .7s ease}
+
+/* opgave-noter og filer */
+.tasknote{background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:13.5px}
+.tnhead{display:flex;align-items:center;gap:6px;margin-bottom:4px;font-size:12.5px}
+.tnfile{font-size:12.5px;padding:4px 10px}
+
+/* loading-skærm */
+#bootLoading{position:fixed;inset:0;background:var(--paper);z-index:90;display:flex;align-items:center;justify-content:center}
+
+@media print{body{background:#fff} nav.tabs,.btn,.row.noprint,.rolebar,#superadminBar,.fab,#toastWrap,#bootLoading{display:none!important} .card{border:0;padding:0;margin-bottom:22px}}
 @media (prefers-reduced-motion:no-preference){.card{animation:rise .32s ease both}@keyframes rise{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}}
+
+@media(max-width:600px){
+  .wrap{padding:18px 14px 90px}
+  .logrow{grid-template-columns:1fr;gap:2px}
+  .fab{right:14px;padding:12px 16px;font-size:13px}
+  .card{padding:14px 14px 16px}
+  .item{grid-template-columns:3px 1fr;row-gap:8px}
+  .item > .row{grid-column:1/-1;justify-content:flex-start}
+  .search{min-width:0;flex:1 1 140px}
+  .hero .sub{gap:8px}
+  .consnav{flex-wrap:wrap;border-radius:var(--radius)}
+}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
+<div id="bootLoading"><span class="mark">Verta</span></div>
+<div id="toastWrap"></div>
+<div id="confirmModal">
+  <div class="box">
+    <p id="confirmMsg"></p>
+    <div class="row" style="justify-content:flex-end">
+      <button class="btn" id="confirmCancel">Annullér</button>
+      <button class="btn primary" id="confirmOk">Bekræft</button>
+    </div>
+  </div>
+</div>
 <div id="superadminBar" style="display:none">
   <div class="sabar-inner">
     <span class="sabar-label">⚡ Superadmin<span id="sabarOrg"></span></span>
@@ -227,14 +276,14 @@ footer.legal{margin-top:28px;font-size:12px;color:var(--ink-40);line-height:1.6}
 <div id="taskModal" style="display:none;position:fixed;inset:0;background:rgba(18,21,27,.45);z-index:60;align-items:center;justify-content:center;padding:20px">
   <div style="max-width:420px;width:100%;background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:22px">
     <h2 style="font-family:'Instrument Serif',serif;font-style:italic;font-size:24px;font-weight:400;margin:0 0 14px">Opret opgave</h2>
-    <div style="display:flex;flex-direction:column;gap:8px">
-      <input id="tmTitel" class="search" placeholder="Titel" style="width:100%">
-      <select id="tmEjer" class="search" style="width:100%">
-        <option value="jer">Jer (kunden)</option>
-        <option value="kilden">Kilden</option>
-      </select>
-      <input id="tmFrist" type="date" class="search" style="width:100%">
-      <input id="tmNote" class="search" placeholder="Note (valgfri)" style="width:100%">
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <div class="field"><label for="tmTitel">Titel</label><input id="tmTitel" class="search" placeholder="Fx Bordplan" style="width:100%"></div>
+      <div class="field"><label for="tmEjer">Ansvarlig</label><select id="tmEjer" class="search" style="width:100%">
+        <option value="jer">Kunden</option>
+        <option value="kilden">Mig</option>
+      </select></div>
+      <div class="field"><label for="tmFrist">Frist</label><input id="tmFrist" type="date" class="search" style="width:100%"></div>
+      <div class="field"><label for="tmNote">Note</label><input id="tmNote" class="search" placeholder="Valgfri" style="width:100%"></div>
     </div>
     <div class="row" style="margin-top:14px;justify-content:flex-end">
       <button class="btn" id="tmCancel">Annullér</button>
@@ -247,7 +296,6 @@ footer.legal{margin-top:28px;font-size:12px;color:var(--ink-40);line-height:1.6}
 /* =========================================================
    1. DATA
    ========================================================= */
-const PHASES = [['reception','Reception'],['middag','Middag'],['fest','Fest']];
 const DAG = 86400000;
 
 /* =========================================================
@@ -259,14 +307,51 @@ const sb = window.supabase.createClient(SUPA.url, SUPA.anon);
 
 let state = { gaester:[], punkter:[], log:[],
               tab:'oversigt', soeg:'', rolle:'kilden', logType:'alle', logWho:'alle', logArea:'alle',
-              lastRead:{kilden:0, kunde:0}, phaseRooms:{}, venueRooms:[], staffList:[], invitesList:[], venuesFull:[],
+              lastRead:{kilden:0, kunde:0}, phases:[], venueRooms:[], staffList:[], invitesList:[], venuesFull:[],
               eventCatalog:[], orgCatalog:[], openRoomPickers:new Set(),
               openPickerGroups:new Set(['kladde','tilbud','bekræftet']),
               isSuperadmin:false, allOrgs:[], guestLink:'', guestLinkBusy:false,
               guestWelcome:false, contactName:'', orgOnboardingDismissed:false, orgCatalogCount:0, orgStaffCount:0,
-              taskTemplates:[] };
+              taskTemplates:[], agendaNotes:{}, openTaskNotes:new Set(), openDoneGroups:new Set() };
 function save(){ cloudSaveGuestsAgenda(); }
 const currentActor = () => state.actor||{navn:'?',side:'kilden'};
+
+/* =========================================================
+   UI-hjælpere: toast + bekræft-modal (erstatter alert/confirm), Enter-taste
+   ========================================================= */
+function showToast(msg, kind){
+  const wrap=document.getElementById('toastWrap');
+  const t=document.createElement('div');
+  t.className='toast'+(kind?' '+kind:'');
+  t.textContent=msg;
+  wrap.appendChild(t);
+  setTimeout(()=>t.remove(), 4200);
+}
+function appConfirm(msg){
+  return new Promise(resolve=>{
+    document.getElementById('confirmMsg').textContent=msg;
+    const modal=document.getElementById('confirmModal');
+    modal.style.display='flex';
+    const ok=document.getElementById('confirmOk'), cancel=document.getElementById('confirmCancel');
+    const cleanup=result=>{ modal.style.display='none'; ok.onclick=null; cancel.onclick=null; resolve(result); };
+    ok.onclick=()=>cleanup(true);
+    cancel.onclick=()=>cleanup(false);
+  });
+}
+function onEnterSubmit(el, fn){
+  if(!el) return;
+  el.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); fn(); } });
+}
+function onEnterBlur(el){
+  if(!el) return;
+  el.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); el.blur(); } });
+}
+function flashSaved(selector){
+  const el=document.querySelector(selector);
+  if(!el) return;
+  el.classList.add('flash-saved');
+  setTimeout(()=>el.classList.remove('flash-saved'),900);
+}
 
 /* =========================================================
    3. LOG
@@ -347,11 +432,9 @@ function renderTabs(){
   el.querySelectorAll('button').forEach(b=>b.onclick=()=>{state.tab=b.dataset.tab;state.soeg='';render();});
 }
 
-const PHLABEL = {reception:'reception', middag:'middag', fest:'fest'};
 function roomsLine(){
-  const src = {reception:(state.phaseRooms.reception||{}).name, middag:(state.phaseRooms.middag||{}).name, fest:(state.phaseRooms.fest||{}).name};
   const byRoom={};
-  ['reception','middag','fest'].forEach(ph=>{ const rm=src[ph]; if(rm){ (byRoom[rm]=byRoom[rm]||[]).push(PHLABEL[ph]); } });
+  (state.phases||[]).forEach(p=>{ if(p.roomName){ (byRoom[p.roomName]=byRoom[p.roomName]||[]).push(p.label); } });
   return Object.entries(byRoom).map(([rm,phs])=>esc(rm)+' ('+phs.join(' & ')+')').join(' · ');
 }
 
@@ -373,16 +456,16 @@ function viewAdmin(){
   return `
   <section class="card">
     <header><h2>Arrangementdetaljer</h2></header>
-    <div class="row" style="gap:8px;flex-wrap:wrap">
-      <input id="edTitle" class="search" placeholder="Titel" value="${esc(state.eventTitle||'')}" style="flex:2;min-width:180px">
-      <select id="edVenue" class="search" style="flex:1;min-width:140px">
+    <div class="row" style="gap:8px;flex-wrap:wrap;align-items:flex-end">
+      <div class="field" style="flex:2;min-width:180px"><label for="edTitle">Titel</label><input id="edTitle" class="search" placeholder="Titel" value="${esc(state.eventTitle||'')}" style="width:100%"></div>
+      <div class="field" style="flex:1;min-width:140px"><label for="edVenue">Lokation</label><select id="edVenue" class="search" style="width:100%">
         ${(state.venues||[]).map(v=>`<option value="${v.id}" ${v.id===state.venueId?'selected':''}>${esc(v.name)}</option>`).join('')}
-      </select>
-      <input id="edDate" type="date" class="search" value="${state.eventDate||''}" style="flex:1;min-width:140px">
-      <input id="edPrice" type="number" class="search" placeholder="Tilbud, kr" value="${state.offerTotal||0}" style="flex:1;min-width:120px">
-      <select id="edType" class="search" style="flex:1;min-width:130px">
+      </select></div>
+      <div class="field" style="flex:1;min-width:140px"><label for="edDate">Dato</label><input id="edDate" type="date" class="search" value="${state.eventDate||''}" style="width:100%"></div>
+      <div class="field" style="flex:1;min-width:120px"><label for="edPrice">Tilbudsbeløb, kr</label><input id="edPrice" type="number" class="search" placeholder="Tilbud, kr" value="${state.offerTotal||0}" style="width:100%"></div>
+      <div class="field" style="flex:1;min-width:130px"><label for="edType">Arrangementstype</label><select id="edType" class="search" style="width:100%">
         ${CAT_EVENT_TYPES.map(t=>`<option value="${t}" ${t===state.eventType?'selected':''}>${t}</option>`).join('')}
-      </select>
+      </select></div>
       <button class="btn primary" id="edSave">Gem</button>
     </div>
   </section>
@@ -420,7 +503,7 @@ function checklistHtml(title, note, items, footer){
 }
 function viewOversigt(){
   const a=antal(), linjer=prisLinjer(), t=total(), diff=t-state.offerTotal;
-  const aabne=aabnePunkter().sort((x,y)=>x.frist.localeCompare(y.frist));
+  const aabne=aabnePunkter().sort((x,y)=>(x.frist||'9999').localeCompare(y.frist||'9999'));
   const welcomeKort = (state.rolle==='kunde' && state.guestWelcome) ? `
   <section class="card" style="border-left:3px solid var(--blue)">
     <header><h2>Velkommen, ${esc(currentActor().navn)}!</h2></header>
@@ -429,7 +512,7 @@ function viewOversigt(){
     <button class="btn primary" id="welcomeDismiss">Se jeres arrangement</button>
   </section>` : '';
   const setupKort = (state.rolle==='kilden' && state.status==='kladde') ? (()=>{
-    const hasRoom=Object.keys(state.phaseRooms||{}).length>0, hasPrice=(state.offerTotal||0)>0, hasCatalog=(state.eventCatalog||[]).length>0;
+    const hasRoom=(state.phases||[]).length>0, hasPrice=(state.offerTotal||0)>0, hasCatalog=(state.eventCatalog||[]).length>0;
     return checklistHtml('Sæt arrangementet op', `${[hasRoom,hasPrice,hasCatalog].filter(Boolean).length}/3`, [
       {done:hasRoom, label:'Vælg lokaler til hver fase'},
       {done:hasPrice, label:'Sæt tilbudsbeløb', action:hasPrice?'':'<button class="btn" data-goto-tab="admin">Gå til →</button>'},
@@ -462,28 +545,41 @@ function viewOversigt(){
   const lokaleKort = (state.rolle==='kilden') ? `
   <section class="card">
     <header><h2>Lokaler pr. fase</h2><span class="note">${esc(state.venueName||'')}</span></header>
-    ${PHASES.map(([ph,lbl])=>{
-      const pr=state.phaseRooms[ph]||{}; const def=PHASE_DEFAULT_TIMES[ph];
-      return `<div class="stat" style="flex-wrap:wrap;gap:6px">
-      <span>${lbl}</span>
-      <span class="row" style="gap:6px">
-        <select class="status" data-phase-field="room" data-phase="${ph}">
+    ${(state.phases||[]).length?(state.phases||[]).map(p=>`<div class="stat" style="flex-wrap:wrap;gap:6px">
+      <input class="search" style="max-width:150px" data-phase-field="label" data-phase="${p.id}" value="${esc(p.label)}" placeholder="Fasenavn">
+      <span class="row" style="gap:6px;flex-wrap:wrap">
+        <select class="status" data-phase-field="room" data-phase="${p.id}">
           <option value="">— ikke valgt —</option>
-          ${(state.venueRooms||[]).map(r=>`<option value="${r.id}" ${pr.id===r.id?'selected':''}>${esc(r.name)}</option>`).join('')}
+          ${(state.venueRooms||[]).map(r=>`<option value="${r.id}" ${p.roomId===r.id?'selected':''}>${esc(r.name)}</option>`).join('')}
         </select>
-        <input type="time" class="search" style="width:88px" data-phase-field="start" data-phase="${ph}" value="${pr.start||def[0]}">
+        <input type="time" class="search" style="width:88px" data-phase-field="start" data-phase="${p.id}" value="${p.start||''}">
         <span class="note">–</span>
-        <input type="time" class="search" style="width:88px" data-phase-field="end" data-phase="${ph}" value="${pr.end||def[1]}">
-        <button class="btn" data-phase-save="${ph}">Gem</button>
-      </span></div>`;
-    }).join('')}
+        <input type="time" class="search" style="width:88px" data-phase-field="end" data-phase="${p.id}" value="${p.end||''}">
+        <button class="btn" data-phase-save="${p.id}">Gem</button>
+        <button class="btn" data-phase-remove="${p.id}">Slet</button>
+      </span>
+    </div>`).join(''):'<div class="empty">Ingen faser oprettet endnu — arrangementet har ikke nødvendigvis brug for alle tre klassiske faser.</div>'}
+    <div class="row" style="margin-top:10px;gap:6px;flex-wrap:wrap">
+      <input class="search" id="newPhaseLabel" placeholder="Ny fase, fx Frokost" style="max-width:160px">
+      <select class="search" id="newPhaseRoom">
+        <option value="">— lokale —</option>
+        ${(state.venueRooms||[]).map(r=>`<option value="${r.id}">${esc(r.name)}</option>`).join('')}
+      </select>
+      <input type="time" class="search" id="newPhaseStart" style="width:88px">
+      <span class="note">–</span>
+      <input type="time" class="search" id="newPhaseEnd" style="width:88px">
+      <button class="btn primary" id="addPhaseBtn">Tilføj fase</button>
+    </div>
   </section>` : '';
-  return `
-  ${welcomeKort}
-  ${setupKort}
-  ${statusKort}
-  ${deleKort}
-  ${lokaleKort}
+  const udestaaendeKort = `
+  <section class="card">
+    <header><h2>Udestående</h2><span class="note">sorteret efter frist</span></header>
+    ${aabne.length?aabne.map(p=>{const d=p.frist?dageTil(p.frist):null;return `<div class="item">
+      <span class="stripe ${p.ejer}"></span>
+      <div><div class="name">${esc(p.titel)}</div><div class="meta">${p.ejer==='jer'?'Jer':'Kilden'}${p.frist?` · frist ${datoKort(p.frist)} <span class="due ${d<0?'past':''}">${d<0?Math.abs(d)+' dage over':'om '+d+' dage'}</span>`:' · ingen frist'}</div></div>
+      <span class="chip ${p.status==='mangler'?'warn':''}"><span class="dot"></span>${STATUS_LABEL[p.status]||p.status}</span></div>`;}).join(''):'<div class="empty">Alt er aftalt. Intet udestående.</div>'}
+  </section>`;
+  const gaesterPrisKort = `
   <div class="grid2">
     <section class="card">
       <header><h2>Gæster</h2><span class="note">udledt af gæstelisten</span></header>
@@ -502,14 +598,18 @@ function viewOversigt(){
         <div class="d">Tilbud af ${datoKort(state.eventDate)}: ${kr(state.offerTotal)}. Tallet genberegnes, hver gang gæstelisten ændres.</div>
       </div>
     </section>
-  </div>
-  <section class="card">
-    <header><h2>Udestående</h2><span class="note">sorteret efter frist</span></header>
-    ${aabne.length?aabne.map(p=>{const d=dageTil(p.frist);return `<div class="item">
-      <span class="stripe ${p.ejer}"></span>
-      <div><div class="name">${esc(p.titel)}</div><div class="meta">${p.ejer==='jer'?'Jer':'Kilden'} · frist ${datoKort(p.frist)} <span class="due ${d<0?'past':''}">${d<0?Math.abs(d)+' dage over':'om '+d+' dage'}</span></div></div>
-      <span class="chip ${p.status==='mangler'?'warn':''}"><span class="dot"></span>${p.status}</span></div>`;}).join(''):'<div class="empty">Alt er aftalt. Intet udestående.</div>'}
-  </section>`;
+  </div>`;
+  if(state.rolle==='kunde'){
+    return `${welcomeKort}${udestaaendeKort}${gaesterPrisKort}`;
+  }
+  return `
+  ${welcomeKort}
+  ${setupKort}
+  ${statusKort}
+  ${deleKort}
+  ${lokaleKort}
+  ${gaesterPrisKort}
+  ${udestaaendeKort}`;
 }
 
 function viewGaester(){
@@ -538,36 +638,80 @@ function viewGaester(){
   </section>`;
 }
 
+function taskNotesHtml(p){
+  const notes = state.agendaNotes[p.id] || [];
+  const isOpen = state.openTaskNotes.has(p.id);
+  return `<details data-task-notes="${p.id}" ${isOpen?'open':''} style="grid-column:1/-1;margin-top:8px">
+    <summary class="note"><span class="fold-chev">▸</span>Noter og filer (${notes.length})</summary>
+    <div style="margin-top:8px;display:flex;flex-direction:column;gap:8px">
+      ${notes.length?notes.map(n=>`<div class="tasknote">
+        <div class="tnhead"><span class="dot ${n.author_side}"></span><b>${esc(n.author_name)}</b><span class="note">${tid(n.created_at)}</span></div>
+        ${n.text?`<div>${esc(n.text)}</div>`:''}
+        ${n.file_path?`<button class="btn tnfile" data-open-attachment="${esc(n.file_path)}">📎 ${esc(n.file_name||'Fil')}</button>`:''}
+      </div>`).join(''):'<div class="empty">Ingen noter endnu.</div>'}
+      <div class="row" style="gap:6px;flex-wrap:wrap">
+        <input class="search" data-note-text="${p.id}" placeholder="Skriv en note…" style="flex:2;min-width:160px">
+        <input type="file" data-note-file="${p.id}" style="flex:1;min-width:140px">
+        <button class="btn" data-note-send="${p.id}">Send</button>
+      </div>
+    </div>
+  </details>`;
+}
+function renderTask(p){
+  const kilden = state.rolle==='kilden';
+  const d = p.frist ? dageTil(p.frist) : null;
+  const erUdfoert = p.status==='aftalt';
+  let controls;
+  if(kilden){
+    controls = `<select class="status" data-status>${['mangler','udkast','aftalt'].map(s=>`<option value="${s}" ${p.status===s?'selected':''}>${STATUS_LABEL[s]}</option>`).join('')}</select>`;
+  } else if(p.ejer==='jer'){
+    controls = erUdfoert
+      ? `<button class="btn" data-punkt-undo="${p.id}">Fortryd</button>`
+      : `<button class="btn primary" data-punkt-done="${p.id}">Marker som udført</button>`;
+  } else {
+    controls = `<span class="chip ${p.status==='mangler'?'warn':''}"><span class="dot"></span>${STATUS_LABEL[p.status]||p.status}</span>`;
+  }
+  return `<div class="item" data-pid="${p.id}">
+    <span class="stripe ${p.ejer}"></span>
+    <div><div class="name">${esc(p.titel)}</div><div class="meta">${p.frist?`Frist ${datoKort(p.frist)} · <span class="due ${d<0?'past':''}">${d<0?Math.abs(d)+' dage over':'om '+d+' dage'}</span>`:'Ingen frist'}${p.note?' · '+esc(p.note):''}</div></div>
+    <span class="row" style="gap:6px">
+    ${controls}
+    ${kilden?`<button class="btn" data-punkt-delete="${p.id}">Slet</button>`:''}
+    </span>
+    ${taskNotesHtml(p)}
+  </div>`;
+}
 function viewPunkter(){
-  const createKort = (state.rolle==='kilden') ? `
+  const kilden = state.rolle==='kilden';
+  const createKort = kilden ? `
   <section class="card">
     <header><h2>Opret opgave</h2></header>
     <div class="row" style="gap:8px;flex-wrap:wrap">
       <input id="pkTitel" class="search" placeholder="Titel, fx Bordplan" style="flex:2;min-width:180px">
       <select id="pkEjer" class="search" style="flex:1;min-width:120px">
-        <option value="jer">Jer (kunden)</option>
-        <option value="kilden">Kilden</option>
+        <option value="jer">Kunden</option>
+        <option value="kilden">Mig (${esc(currentActor().navn)})</option>
       </select>
       <input id="pkFrist" type="date" class="search" style="flex:1;min-width:140px">
       <input id="pkNote" class="search" placeholder="Note (valgfri)" style="flex:2;min-width:160px">
       <button class="btn primary" id="pkOpret">Opret</button>
     </div>
   </section>` : '';
-  const groups = [['jer','Jeres ansvar'],['kilden','Kildens ansvar']].map(([ejer,titel])=>`
+  const groups = [['jer','Jeres ansvar'],['kilden','Kildens ansvar']].map(([ejer,titel])=>{
+    const all = state.punkter.filter(p=>p.ejer===ejer);
+    const open = all.filter(p=>p.status!=='aftalt').sort((a,b)=>(a.frist||'9999').localeCompare(b.frist||'9999'));
+    const done = all.filter(p=>p.status==='aftalt').sort((a,b)=>(b.frist||'').localeCompare(a.frist||''));
+    const doneKey = 'punkter-'+ejer;
+    return `
   <section class="card">
-    <header><h2>${titel}</h2><span class="note">${state.punkter.filter(p=>p.ejer===ejer&&p.status!=='aftalt').length} udestående</span></header>
-    ${state.punkter.filter(p=>p.ejer===ejer).length?state.punkter.filter(p=>p.ejer===ejer).sort((a,b)=>a.frist.localeCompare(b.frist)).map(p=>{
-      const d=dageTil(p.frist);
-      const kanRedigere = state.rolle==='kilden' || p.ejer==='jer';
-      return `<div class="item" data-pid="${p.id}">
-      <span class="stripe ${p.ejer}"></span>
-      <div><div class="name">${esc(p.titel)}</div><div class="meta">Frist ${datoKort(p.frist)} · <span class="due ${d<0?'past':''}">${d<0?Math.abs(d)+' dage over':'om '+d+' dage'}</span>${p.note?' · '+esc(p.note):''}</div></div>
-      <span class="row" style="gap:6px">
-      ${kanRedigere?`<select class="status" data-status>${['mangler','udkast','aftalt'].map(s=>`<option value="${s}" ${p.status===s?'selected':''}>${s}</option>`).join('')}</select>`
-        :`<span class="chip"><span class="dot"></span>${p.status}</span>`}
-      ${state.rolle==='kilden'?`<button class="btn" data-punkt-delete="${p.id}">Slet</button>`:''}
-      </span></div>`;}).join(''):'<div class="empty">Ingen opgaver endnu.</div>'}
-  </section>`).join('');
+    <header><h2>${titel}</h2><span class="note">${open.length} udestående</span></header>
+    ${open.length?open.map(renderTask).join(''):'<div class="empty">Ingen udestående opgaver.</div>'}
+    ${done.length?`<details data-done-group="${doneKey}" ${state.openDoneGroups.has(doneKey)?'open':''} style="margin-top:10px">
+      <summary class="note"><span class="fold-chev">▸</span>Udført (${done.length})</summary>
+      <div style="margin-top:8px;display:flex;flex-direction:column;gap:8px">${done.map(renderTask).join('')}</div>
+    </details>`:''}
+  </section>`;
+  }).join('');
   return createKort + groups;
 }
 
@@ -591,6 +735,7 @@ function viewKoekken(){
 
 function tid(ts){ return new Date(ts).toLocaleString('da-DK',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}); }
 const AREA_TXT = {gaester:'Gæster',punkter:'Punkter',pris:'Pris',system:'System'};
+const STATUS_LABEL = {mangler:'Mangler', udkast:'Udkast', aftalt:'Udført'};
 
 function viewLog(){
   const whoList=[...new Set(state.log.map(e=>e.who))];
@@ -658,6 +803,7 @@ function viewBeskeder(){
    6. RENDER + HÆNDELSER
    ========================================================= */
 function render(){
+  document.getElementById('bootLoading').style.display = 'none';
   renderSuperadminBar();
   document.getElementById('logout').style.display = '';
   document.getElementById('backToList').style.display = (state.rolle==='kilden' && (state.events||[]).length>1 && state.view==='workspace') ? '' : 'none';
@@ -675,17 +821,24 @@ function render(){
     if(state.view==='superadmin'){
       v.innerHTML=viewSuperadminHome();
       v.querySelectorAll('[data-enter-org]').forEach(el=>el.onclick=()=>enterOrgAsSuperadmin(el.dataset.enterOrg));
-      const dc=document.getElementById('doCreate'); if(dc) dc.onclick=createDemoOrg;
-      const ncc=document.getElementById('ncCreate'); if(ncc) ncc.onclick=createRealCustomer;
+      const dc=document.getElementById('doCreate'); if(dc){ dc.onclick=createDemoOrg; onEnterSubmit(document.getElementById('doName'), ()=>dc.click()); }
+      const ncc=document.getElementById('ncCreate'); if(ncc){ ncc.onclick=createRealCustomer;
+        onEnterSubmit(document.getElementById('ncOrgName'), ()=>ncc.click());
+        onEnterSubmit(document.getElementById('ncAdminName'), ()=>ncc.click());
+        onEnterSubmit(document.getElementById('ncAdminEmail'), ()=>ncc.click());
+      }
     } else if(state.view==='users'){
       v.innerHTML=viewBrugere();
-      const is=document.getElementById('invSend'); if(is) is.onclick=inviteStaff;
+      const is=document.getElementById('invSend'); if(is){ is.onclick=inviteStaff;
+        onEnterSubmit(document.getElementById('invName'), ()=>is.click());
+        onEnterSubmit(document.getElementById('invEmail'), ()=>is.click());
+      }
       v.querySelectorAll('[data-cancel-invite]').forEach(el=>el.onclick=()=>cancelInvite(el.dataset.cancelInvite));
       v.querySelectorAll('[data-remove-user]').forEach(el=>el.onclick=()=>removeStaff(el.dataset.removeUser));
       v.querySelectorAll('[data-role-user]').forEach(el=>el.onchange=()=>changeStaffRole(el.dataset.roleUser, el.value));
     } else if(state.view==='venues'){
       v.innerHTML=viewLokationer();
-      const vc=document.getElementById('venCreate'); if(vc) vc.onclick=createVenue;
+      const vc=document.getElementById('venCreate'); if(vc){ vc.onclick=createVenue; onEnterSubmit(document.getElementById('venName'), ()=>vc.click()); }
       v.querySelectorAll('[data-venue-name]').forEach(el=>{
         const before=el.value;
         el.onblur=()=>{ if(el.value!==before) renameVenue(el.dataset.venueName, el.value); };
@@ -704,13 +857,17 @@ function render(){
       });
       v.querySelectorAll('[data-delete-venue]').forEach(el=>el.onclick=()=>deleteVenue(el.dataset.deleteVenue));
       v.querySelectorAll('[data-delete-room]').forEach(el=>el.onclick=()=>deleteRoom(el.dataset.deleteRoom));
-      v.querySelectorAll('[data-add-room]').forEach(el=>el.onclick=()=>{
+      v.querySelectorAll('[data-add-room]').forEach(el=>{
         const input=document.querySelector(`[data-new-room="${el.dataset.addRoom}"]`);
-        addRoom(el.dataset.addRoom, input.value);
+        el.onclick=()=>addRoom(el.dataset.addRoom, input.value);
+        onEnterSubmit(input, ()=>el.click());
       });
     } else if(state.view==='katalog'){
       v.innerHTML=viewKatalog();
-      const cc=document.getElementById('ciCreate'); if(cc) cc.onclick=createCatalogItem;
+      const cc=document.getElementById('ciCreate'); if(cc){ cc.onclick=createCatalogItem;
+        onEnterSubmit(document.getElementById('ciName'), ()=>cc.click());
+        onEnterSubmit(document.getElementById('ciPrice'), ()=>cc.click());
+      }
       v.querySelectorAll('[data-delete-catalog-item]').forEach(el=>el.onclick=()=>deleteCatalogItem(el.dataset.deleteCatalogItem));
       v.querySelectorAll('.item-room').forEach(el=>el.onchange=()=>{
         if(el.checked) addCatalogItemRoom(el.dataset.item, el.dataset.room);
@@ -735,12 +892,16 @@ function render(){
       });
     } else if(state.view==='opgaver'){
       v.innerHTML=viewOpgaver();
-      const tc=document.getElementById('ttCreate'); if(tc) tc.onclick=createTaskTemplate;
+      const tc=document.getElementById('ttCreate'); if(tc){ tc.onclick=createTaskTemplate;
+        onEnterSubmit(document.getElementById('ttTitle'), ()=>tc.click());
+        onEnterSubmit(document.getElementById('ttDays'), ()=>tc.click());
+        onEnterSubmit(document.getElementById('ttNote'), ()=>tc.click());
+      }
       v.querySelectorAll('[data-delete-task-template]').forEach(el=>el.onclick=()=>deleteTaskTemplate(el.dataset.deleteTaskTemplate));
     } else {
       v.innerHTML=viewPicker();
       v.querySelectorAll('[data-open]').forEach(el=>el.onclick=()=>openEvent(el.dataset.open));
-      const nc=document.getElementById('neCreate'); if(nc) nc.onclick=createEvent;
+      const nc=document.getElementById('neCreate'); if(nc){ nc.onclick=createEvent; onEnterSubmit(document.getElementById('neTitle'), ()=>nc.click()); }
       const sd=document.getElementById('setupDismiss'); if(sd) sd.onclick=async()=>{
         await sb.from('organisations').update({onboarding_dismissed:true}).eq('id',state.orgId);
         state.orgOnboardingDismissed=true; render();
@@ -806,11 +967,12 @@ function bind(){
       const f=el.dataset.f;
       if(el.type==='checkbox') el.onchange=()=>guestMutation(()=>g[f]=el.checked, (f==='middag'?'Middag':'Reception')+(el.checked?' tilføjet':' fjernet')+' · '+g.navn);
       else if(el.tagName==='SELECT') el.onchange=()=>guestMutation(()=>g[f]=el.value, 'Kategori ændret · '+g.navn);
-      else { const before=g[f]; el.oninput=()=>g[f]=el.value;
+      else { const before=g[f]; el.oninput=()=>g[f]=el.value; onEnterBlur(el);
         el.onblur=()=>{ if(g[f]!==before){
           if(f==='kost') pushLog({area:'gaester',label:'Særlig kost · '+g.navn,from:before||'—',to:g[f]||'—',cust:true,friendly:'Særlig kost opdateret for '+(g.navn||'en gæst')+(g[f]?' ('+g[f]+')':'')});
           else pushLog({area:'gaester',label:'Navn ændret',from:before||'—',to:g[f]||'—'});
           save(); render();
+          flashSaved(`tr[data-id="${g.id}"] [data-f="${f}"]`);
         }};
       }
     });
@@ -824,17 +986,39 @@ function bind(){
     if(sel) sel.onchange=()=>updatePunktStatus(p.id, sel.value);
   });
   document.querySelectorAll('[data-punkt-delete]').forEach(el=>el.onclick=()=>deletePunkt(el.dataset.punktDelete));
+  document.querySelectorAll('[data-punkt-done]').forEach(el=>el.onclick=()=>updatePunktStatus(el.dataset.punktDone,'aftalt'));
+  document.querySelectorAll('[data-punkt-undo]').forEach(el=>el.onclick=()=>updatePunktStatus(el.dataset.punktUndo,'mangler'));
+  document.querySelectorAll('[data-done-group]').forEach(el=>el.ontoggle=()=>{
+    if(el.open) state.openDoneGroups.add(el.dataset.doneGroup);
+    else state.openDoneGroups.delete(el.dataset.doneGroup);
+  });
+  document.querySelectorAll('[data-task-notes]').forEach(el=>el.ontoggle=()=>{
+    if(el.open) state.openTaskNotes.add(el.dataset.taskNotes);
+    else state.openTaskNotes.delete(el.dataset.taskNotes);
+  });
+  document.querySelectorAll('[data-open-attachment]').forEach(el=>el.onclick=()=>openAttachment(el.dataset.openAttachment));
+  document.querySelectorAll('[data-note-send]').forEach(el=>{
+    const id=el.dataset.noteSend;
+    const textEl=document.querySelector(`[data-note-text="${id}"]`);
+    const fileEl=document.querySelector(`[data-note-file="${id}"]`);
+    el.onclick=()=>addAgendaNote(id, textEl.value, fileEl.files[0]||null);
+    onEnterSubmit(textEl, ()=>el.click());
+  });
   const pkOpret=document.getElementById('pkOpret');
-  if(pkOpret) pkOpret.onclick=()=>{
-    const titel=document.getElementById('pkTitel').value;
-    const ejer=document.getElementById('pkEjer').value;
-    const frist=document.getElementById('pkFrist').value;
-    const note=document.getElementById('pkNote').value;
-    createPunkt(titel, ejer, frist, note).then(()=>{
-      const t=document.getElementById('pkTitel'); if(t) t.value='';
-      const n=document.getElementById('pkNote'); if(n) n.value='';
-    });
-  };
+  if(pkOpret){
+    pkOpret.onclick=()=>{
+      const titel=document.getElementById('pkTitel').value;
+      const ejer=document.getElementById('pkEjer').value;
+      const frist=document.getElementById('pkFrist').value;
+      const note=document.getElementById('pkNote').value;
+      createPunkt(titel, ejer, frist, note).then(()=>{
+        const t=document.getElementById('pkTitel'); if(t) t.value='';
+        const n=document.getElementById('pkNote'); if(n) n.value='';
+      });
+    };
+    onEnterSubmit(document.getElementById('pkTitel'), ()=>pkOpret.click());
+    onEnterSubmit(document.getElementById('pkNote'), ()=>pkOpret.click());
+  }
 
   const fT=document.getElementById('fType'); if(fT) fT.onchange=()=>{state.logType=fT.value;render();};
   const fW=document.getElementById('fWho');  if(fW) fW.onchange=()=>{state.logWho=fW.value;render();};
@@ -852,31 +1036,50 @@ function bind(){
   if(cta) cta.onclick=()=>{const sel=document.getElementById('catalogSel');if(sel.value)addCatalogToEvent(sel.value);};
   document.querySelectorAll('[data-remove-catalog]').forEach(b=>{ b.onclick=()=>removeCatalogFromEvent(b.dataset.removeCatalog); });
 
-  const es=document.getElementById('edSave'); if(es) es.onclick=updateEventDetails;
+  const es=document.getElementById('edSave'); if(es){ es.onclick=updateEventDetails;
+    onEnterSubmit(document.getElementById('edTitle'), ()=>es.click());
+    onEnterSubmit(document.getElementById('edPrice'), ()=>es.click());
+  }
 
   document.querySelectorAll('[data-goto-tab]').forEach(el=>el.onclick=()=>{state.tab=el.dataset.gotoTab; render();});
   const wd=document.getElementById('welcomeDismiss'); if(wd) wd.onclick=()=>{state.guestWelcome=false; render();};
 
   const glGen=document.getElementById('guestLinkGen');
-  if(glGen) glGen.onclick=()=>{
-    const name=document.getElementById('guestLinkName').value.trim();
-    const email=document.getElementById('guestLinkEmail').value.trim();
-    generateGuestLink(name, email);
-  };
+  if(glGen){
+    glGen.onclick=()=>{
+      const name=document.getElementById('guestLinkName').value.trim();
+      const email=document.getElementById('guestLinkEmail').value.trim();
+      generateGuestLink(name, email);
+    };
+    onEnterSubmit(document.getElementById('guestLinkName'), ()=>glGen.click());
+    onEnterSubmit(document.getElementById('guestLinkEmail'), ()=>glGen.click());
+  }
   const glCopy=document.getElementById('guestLinkCopy'); if(glCopy) glCopy.onclick=copyGuestLink;
   const glNew=document.getElementById('guestLinkNew'); if(glNew) glNew.onclick=()=>{ state.guestLink=''; render(); };
 
-  PHASES.forEach(([ph])=>{
-    const btn=document.querySelector(`[data-phase-save="${ph}"]`);
+  (state.phases||[]).forEach(p=>{
+    const btn=document.querySelector(`[data-phase-save="${p.id}"]`);
     if(!btn) return;
-    const roomEl=document.querySelector(`[data-phase-field="room"][data-phase="${ph}"]`);
-    const startEl=document.querySelector(`[data-phase-field="start"][data-phase="${ph}"]`);
-    const endEl=document.querySelector(`[data-phase-field="end"][data-phase="${ph}"]`);
+    const labelEl=document.querySelector(`[data-phase-field="label"][data-phase="${p.id}"]`);
+    const roomEl=document.querySelector(`[data-phase-field="room"][data-phase="${p.id}"]`);
+    const startEl=document.querySelector(`[data-phase-field="start"][data-phase="${p.id}"]`);
+    const endEl=document.querySelector(`[data-phase-field="end"][data-phase="${p.id}"]`);
     btn.onclick=async()=>{
       btn.disabled=true; btn.textContent='Gemmer…';
-      await setPhaseRoom(ph, roomEl.value, startEl.value, endEl.value);
+      await updatePhase(p.id, labelEl.value, roomEl.value, startEl.value, endEl.value);
     };
+    onEnterBlur(labelEl); onEnterBlur(startEl); onEnterBlur(endEl);
   });
+  document.querySelectorAll('[data-phase-remove]').forEach(el=>el.onclick=()=>removePhase(el.dataset.phaseRemove));
+  const addPhaseBtn=document.getElementById('addPhaseBtn');
+  if(addPhaseBtn) addPhaseBtn.onclick=()=>{
+    const label=document.getElementById('newPhaseLabel').value;
+    const roomId=document.getElementById('newPhaseRoom').value;
+    const start=document.getElementById('newPhaseStart').value;
+    const end=document.getElementById('newPhaseEnd').value;
+    addPhase(label, roomId, start, end);
+  };
+  onEnterSubmit(document.getElementById('newPhaseLabel'), ()=>addPhaseBtn&&addPhaseBtn.click());
 }
 
 document.getElementById('brandHome').onclick=goHome;
@@ -884,6 +1087,7 @@ document.getElementById('brandHome').onclick=goHome;
 function openTaskModal(prefillTitle){
   document.getElementById('tmTitel').value = prefillTitle || '';
   document.getElementById('tmEjer').value = 'jer';
+  document.querySelector('#tmEjer option[value="kilden"]').textContent = 'Mig ('+currentActor().navn+')';
   document.getElementById('tmFrist').value = '';
   document.getElementById('tmNote').value = '';
   document.getElementById('taskModal').style.display = 'flex';
@@ -896,10 +1100,12 @@ document.getElementById('tmSave').onclick=async()=>{
   const ejer=document.getElementById('tmEjer').value;
   const frist=document.getElementById('tmFrist').value;
   const note=document.getElementById('tmNote').value;
-  if(!titel.trim()){ alert('Skriv en titel.'); return; }
+  if(!titel.trim()){ showToast('Skriv en titel.','error'); return; }
   await createPunkt(titel, ejer, frist, note);
   closeTaskModal();
 };
+onEnterSubmit(document.getElementById('tmTitel'), ()=>document.getElementById('tmSave').click());
+onEnterSubmit(document.getElementById('tmNote'), ()=>document.getElementById('tmSave').click());
 
 document.getElementById('sabarGuestToggle').onclick=()=>{
   state.rolle = state.rolle==='kunde' ? 'kilden' : 'kunde';
@@ -1011,29 +1217,29 @@ async function createRealCustomer(){
   const orgName=document.getElementById('ncOrgName').value.trim();
   const adminName=document.getElementById('ncAdminName').value.trim();
   const adminEmail=document.getElementById('ncAdminEmail').value.trim();
-  if(!orgName||!adminName||!adminEmail){ alert('Udfyld alle tre felter.'); return; }
+  if(!orgName||!adminName||!adminEmail){ showToast('Udfyld alle tre felter.','error'); return; }
   const btn=document.getElementById('ncCreate'), orig=btn.textContent;
   btn.disabled=true; btn.textContent='Opretter…';
   const {error}=await sb.from('organisations').insert({name:orgName});
-  if(error){ btn.disabled=false; btn.textContent=orig; alert('Kunne ikke oprette: '+error.message); return; }
+  if(error){ btn.disabled=false; btn.textContent=orig; showToast('Kunne ikke oprette: '+error.message,'error'); return; }
   const {data:org}=await sb.from('organisations').select('id').eq('name',orgName).order('created_at',{ascending:false}).limit(1).maybeSingle();
   if(org){
     const {error:invErr}=await sb.from('invites').insert({org_id:org.id, name:adminName, email:adminEmail, role:'admin'});
-    if(invErr){ btn.disabled=false; btn.textContent=orig; alert('Organisationen blev oprettet, men invitationen fejlede: '+invErr.message); await loadSuperadminHome(); render(); return; }
+    if(invErr){ btn.disabled=false; btn.textContent=orig; showToast('Organisationen blev oprettet, men invitationen fejlede: '+invErr.message,'error'); await loadSuperadminHome(); render(); return; }
   }
   btn.disabled=false; btn.textContent=orig;
-  alert('Oprettet. Bed '+adminName+' logge ind med '+adminEmail+' på vertacph.netlify.app/app.');
+  showToast('Oprettet. Bed '+adminName+' logge ind med '+adminEmail+' på vertacph.netlify.app/app.','ok');
   await loadSuperadminHome(); render();
 }
 async function createDemoOrg(){
   const nameEl=document.getElementById('doName');
   const name=nameEl.value.trim();
   const seed=document.getElementById('doSeed').checked;
-  if(!name){ alert('Skriv et navn.'); return; }
+  if(!name){ showToast('Skriv et navn.','error'); return; }
   const btn=document.getElementById('doCreate'), orig=btn.textContent;
   btn.disabled=true; btn.textContent='Opretter…';
   const {error}=await sb.from('organisations').insert({name});
-  if(error){ btn.disabled=false; btn.textContent=orig; alert('Kunne ikke oprette: '+error.message); return; }
+  if(error){ btn.disabled=false; btn.textContent=orig; showToast('Kunne ikke oprette: '+error.message,'error'); return; }
   const {data:org}=await sb.from('organisations').select('id').eq('name',name).order('created_at',{ascending:false}).limit(1).maybeSingle();
   if(seed && org) await seedDemoOrg(org.id);
   btn.disabled=false; btn.textContent=orig;
@@ -1099,7 +1305,7 @@ async function openEvent(id){
   state.punkter=(ps||[]).map(pFromDb);
   state.log=(lg||[]).map(logFromDb);
   state._dbG=new Set(state.gaester.map(g=>g.id));
-  await Promise.all([loadRooms(id), loadCatalog(id)]);
+  await Promise.all([loadRooms(id), loadCatalog(id), loadAgendaNotes(id)]);
   if(state.rolle==='kilden'){ await Promise.all([loadEventStaff(), loadOrgCatalog()]); logCloudView(); }
   else { const {data:contact}=await sb.rpc('get_event_contact',{target_event:id}); state.contactName=contact||''; logCloudView(); }
   state.view='workspace'; state.tab='oversigt';
@@ -1117,6 +1323,19 @@ function subscribeRealtime(id){
     .on('postgres_changes', {event:'*', schema:'public', table:'activity_log', filter:'event_id=eq.'+id}, async()=>{
       const {data:lg}=await sb.from('activity_log').select('*').eq('event_id',id).order('ts',{ascending:false});
       state.log=(lg||[]).map(logFromDb); render();
+    })
+    .on('postgres_changes', {event:'*', schema:'public', table:'guests', filter:'event_id=eq.'+id}, async()=>{
+      const {data:gs}=await sb.from('guests').select('*').eq('event_id',id).order('sort_order');
+      state.gaester=(gs||[]).map(gFromDb); state._dbG=new Set(state.gaester.map(g=>g.id)); render();
+    })
+    .on('postgres_changes', {event:'*', schema:'public', table:'agenda_items', filter:'event_id=eq.'+id}, async()=>{
+      await reloadPunkter(); render();
+    })
+    .on('postgres_changes', {event:'*', schema:'public', table:'agenda_item_notes', filter:'event_id=eq.'+id}, async()=>{
+      await loadAgendaNotes(id); render();
+    })
+    .on('postgres_changes', {event:'*', schema:'public', table:'event_rooms', filter:'event_id=eq.'+id}, async()=>{
+      await loadRooms(id); render();
     })
     .subscribe();
 }
@@ -1137,28 +1356,28 @@ async function inviteStaff(){
   const name=document.getElementById('invName').value.trim();
   const email=document.getElementById('invEmail').value.trim();
   const role=document.getElementById('invRole').value;
-  if(!name||!email){ alert('Udfyld navn og mail.'); return; }
+  if(!name||!email){ showToast('Udfyld navn og mail.','error'); return; }
   const btn=document.getElementById('invSend'), orig=btn.textContent;
   btn.disabled=true; btn.textContent='Inviterer…';
   const {error}=await sb.from('invites').insert({org_id:state.orgId, name, email, role});
   btn.disabled=false; btn.textContent=orig;
-  if(error){ alert('Kunne ikke invitere: '+error.message); return; }
+  if(error){ showToast('Kunne ikke invitere: '+error.message,'error'); return; }
   await loadUsers(); render();
 }
 async function cancelInvite(id){
   const {error}=await sb.from('invites').delete().eq('id',id);
-  if(error){ alert('Kunne ikke fortryde invitation: '+error.message); return; }
+  if(error){ showToast('Kunne ikke fortryde invitation: '+error.message,'error'); return; }
   await loadUsers(); render();
 }
 async function changeStaffRole(id, role){
   const {error}=await sb.from('staff').update({role}).eq('id',id);
-  if(error){ alert('Kunne ikke ændre rolle: '+error.message); }
+  if(error){ showToast('Kunne ikke ændre rolle: '+error.message,'error'); }
   await loadUsers(); render();
 }
 async function removeStaff(id){
-  if(!confirm('Fjern denne medarbejder? Handlingen kan ikke fortrydes.')) return;
+  if(!(await appConfirm('Fjern denne medarbejder? Handlingen kan ikke fortrydes.'))) return;
   const {error}=await sb.from('staff').delete().eq('id',id);
-  if(error){ alert('Kunne ikke fjerne medarbejder: '+error.message); return; }
+  if(error){ showToast('Kunne ikke fjerne medarbejder: '+error.message,'error'); return; }
   await loadUsers(); render();
 }
 async function loadVenuesFull(){
@@ -1169,53 +1388,57 @@ async function loadVenuesFull(){
 }
 async function createVenue(){
   const el=document.getElementById('venName'); const name=el.value.trim();
-  if(!name){ alert('Skriv et navn.'); return; }
+  if(!name){ showToast('Skriv et navn.','error'); return; }
   const btn=document.getElementById('venCreate'), orig=btn.textContent;
   btn.disabled=true; btn.textContent='Opretter…';
   const {error}=await sb.from('venues').insert({org_id:state.orgId, name});
   btn.disabled=false; btn.textContent=orig;
-  if(error){ alert('Kunne ikke oprette lokation: '+error.message); return; }
+  if(error){ showToast('Kunne ikke oprette lokation: '+error.message,'error'); return; }
   await loadVenuesFull(); render();
 }
 async function renameVenue(id, name){
   if(!name.trim()) return;
   const {error}=await sb.from('venues').update({name:name.trim()}).eq('id',id);
-  if(error) alert('Kunne ikke omdøbe lokation: '+error.message);
+  if(error) showToast('Kunne ikke omdøbe lokation: '+error.message,'error');
   await loadVenuesFull(); render();
+  if(!error) flashSaved(`[data-venue-name="${id}"]`);
 }
 async function updateVenueAddress(id, address){
   const {error}=await sb.from('venues').update({address:address.trim()||null}).eq('id',id);
-  if(error) alert('Kunne ikke gemme adresse: '+error.message);
+  if(error) showToast('Kunne ikke gemme adresse: '+error.message,'error');
   await loadVenuesFull(); render();
+  if(!error) flashSaved(`[data-venue-address="${id}"]`);
 }
 async function deleteVenue(id){
-  if(!confirm('Slet lokationen? Alle lokaler under den slettes også. Kan ikke fortrydes.')) return;
+  if(!(await appConfirm('Slet lokationen? Alle lokaler under den slettes også. Kan ikke fortrydes.'))) return;
   const {error}=await sb.from('venues').delete().eq('id',id);
-  if(error){ alert('Kunne ikke slette lokation: '+error.message); return; }
+  if(error){ showToast('Kunne ikke slette lokation: '+error.message,'error'); return; }
   await loadVenuesFull(); render();
 }
 async function addRoom(venueId, name){
   if(!name||!name.trim()) return;
   const {error}=await sb.from('rooms').insert({venue_id:venueId, name:name.trim(), sort_order:99});
-  if(error){ alert('Kunne ikke tilføje lokale: '+error.message); return; }
+  if(error){ showToast('Kunne ikke tilføje lokale: '+error.message,'error'); return; }
   await loadVenuesFull(); render();
 }
 async function renameRoom(id, name){
   if(!name.trim()) return;
   const {error}=await sb.from('rooms').update({name:name.trim()}).eq('id',id);
-  if(error) alert('Kunne ikke omdøbe lokale: '+error.message);
+  if(error) showToast('Kunne ikke omdøbe lokale: '+error.message,'error');
   await loadVenuesFull(); render();
+  if(!error) flashSaved(`[data-room-name="${id}"]`);
 }
 async function updateRoomCapacity(id, value){
   const n=parseInt(value,10);
   const {error}=await sb.from('rooms').update({capacity_max:isNaN(n)?null:n}).eq('id',id);
-  if(error) alert('Kunne ikke gemme kapacitet: '+error.message);
+  if(error) showToast('Kunne ikke gemme kapacitet: '+error.message,'error');
   await loadVenuesFull(); render();
+  if(!error) flashSaved(`[data-room-capacity="${id}"]`);
 }
 async function deleteRoom(id){
-  if(!confirm('Slet lokalet? Kan ikke fortrydes.')) return;
+  if(!(await appConfirm('Slet lokalet? Kan ikke fortrydes.'))) return;
   const {error}=await sb.from('rooms').delete().eq('id',id);
-  if(error){ alert('Kunne ikke slette lokale: '+error.message); return; }
+  if(error){ showToast('Kunne ikke slette lokale: '+error.message,'error'); return; }
   await loadVenuesFull(); render();
 }
 const CAT_CATEGORIES = ['menu','bar','reception','tilvalg','andet'];
@@ -1237,24 +1460,24 @@ async function loadOrgCatalog(){
 async function addCatalogItemRoom(itemId, roomId){
   if(!roomId) return;
   const {error}=await sb.from('catalog_item_rooms').insert({catalog_item_id:itemId, room_id:roomId});
-  if(error){ alert('Kunne ikke tilføje lokale: '+error.message); return; }
+  if(error){ showToast('Kunne ikke tilføje lokale: '+error.message,'error'); return; }
   await loadOrgCatalog(); render();
 }
 async function removeCatalogItemRoom(itemId, roomId){
   const {error}=await sb.from('catalog_item_rooms').delete().eq('catalog_item_id',itemId).eq('room_id',roomId);
-  if(error){ alert('Kunne ikke fjerne lokale: '+error.message); return; }
+  if(error){ showToast('Kunne ikke fjerne lokale: '+error.message,'error'); return; }
   await loadOrgCatalog(); render();
 }
 async function addCatalogItemRooms(itemId, roomIds){
   if(!roomIds.length) return;
   const {error}=await sb.from('catalog_item_rooms').insert(roomIds.map(rid=>({catalog_item_id:itemId, room_id:rid})));
-  if(error){ alert('Kunne ikke tilføje lokaler: '+error.message); return; }
+  if(error){ showToast('Kunne ikke tilføje lokaler: '+error.message,'error'); return; }
   await loadOrgCatalog(); render();
 }
 async function removeCatalogItemRooms(itemId, roomIds){
   if(!roomIds.length) return;
   const {error}=await sb.from('catalog_item_rooms').delete().eq('catalog_item_id',itemId).in('room_id',roomIds);
-  if(error){ alert('Kunne ikke fjerne lokaler: '+error.message); return; }
+  if(error){ showToast('Kunne ikke fjerne lokaler: '+error.message,'error'); return; }
   await loadOrgCatalog(); render();
 }
 function groupRoomsByVenue(rooms){
@@ -1277,11 +1500,11 @@ async function createCatalogItem(){
   const childHalf=document.getElementById('ciChildHalf').checked;
   const eventType=document.getElementById('ciEventType').value||null;
   const roomIds=[...document.querySelectorAll('.ci-room:checked')].map(el=>el.value);
-  if(!name){ alert('Skriv et navn.'); return; }
+  if(!name){ showToast('Skriv et navn.','error'); return; }
   const btn=document.getElementById('ciCreate'), orig=btn.textContent;
   btn.disabled=true; btn.textContent='Opretter…';
   const {error}=await sb.from('catalog_items').insert({org_id:state.orgId, name, category, price_kr:price, basis, child_half:childHalf, event_type:eventType});
-  if(error){ btn.disabled=false; btn.textContent=orig; alert('Kunne ikke oprette katalogvare: '+error.message); return; }
+  if(error){ btn.disabled=false; btn.textContent=orig; showToast('Kunne ikke oprette katalogvare: '+error.message,'error'); return; }
   if(roomIds.length){
     const {data:created}=await sb.from('catalog_items').select('id').eq('org_id',state.orgId).eq('name',name)
       .order('created_at',{ascending:false}).limit(1).maybeSingle();
@@ -1291,45 +1514,56 @@ async function createCatalogItem(){
   await loadOrgCatalog(); render();
 }
 async function deleteCatalogItem(id){
-  if(!confirm('Slet katalogvaren? Kan ikke fortrydes.')) return;
+  if(!(await appConfirm('Slet katalogvaren? Kan ikke fortrydes.'))) return;
   const {error}=await sb.from('catalog_items').delete().eq('id',id);
-  if(error){ alert('Kunne ikke slette: '+error.message); return; }
+  if(error){ showToast('Kunne ikke slette: '+error.message,'error'); return; }
   await loadOrgCatalog(); render();
 }
 async function addCatalogToEvent(itemId){
   if(!itemId) return;
   const {error}=await sb.from('event_catalog_items').insert({event_id:state.eventId, catalog_item_id:itemId});
-  if(error){ alert('Kunne ikke tilføje: '+error.message); return; }
+  if(error){ showToast('Kunne ikke tilføje: '+error.message,'error'); return; }
   await loadCatalog(state.eventId); render();
 }
 async function removeCatalogFromEvent(itemId){
   const {error}=await sb.from('event_catalog_items').delete().eq('event_id',state.eventId).eq('catalog_item_id',itemId);
-  if(error){ alert('Kunne ikke fjerne: '+error.message); return; }
+  if(error){ showToast('Kunne ikke fjerne: '+error.message,'error'); return; }
   await loadCatalog(state.eventId); render();
 }
-const PHASE_DEFAULT_TIMES = {reception:['15:00','17:00'], middag:['18:00','21:00'], fest:['21:00','01:00']};
 async function loadRooms(id){
-  const {data:er}=await sb.from('event_rooms').select('phase, room_id, start_time, end_time, rooms(name)').eq('event_id',id);
-  state.phaseRooms={}; (er||[]).forEach(r=>{ state.phaseRooms[r.phase]={id:r.room_id, name:r.rooms?r.rooms.name:'', start:(r.start_time||'').slice(0,5), end:(r.end_time||'').slice(0,5)}; });
+  const {data:er}=await sb.from('event_rooms').select('id, label, room_id, start_time, end_time, sort_order, rooms(name)').eq('event_id',id).order('sort_order');
+  state.phases=(er||[]).map(r=>({id:r.id, label:r.label, roomId:r.room_id, roomName:r.rooms?r.rooms.name:'', start:(r.start_time||'').slice(0,5), end:(r.end_time||'').slice(0,5)}));
   if(state.rolle==='kilden' && state.venueId){
     const {data:vr}=await sb.from('rooms').select('id,name').eq('venue_id',state.venueId).order('sort_order');
     state.venueRooms=vr||[];
   }
 }
-async function setPhaseRoom(phase, roomId, startTime, endTime){
-  if(roomId){
-    const {error}=await sb.from('event_rooms').upsert({event_id:state.eventId, phase, room_id:roomId, start_time:startTime||null, end_time:endTime||null});
-    if(error){ alert('Kunne ikke gemme lokale: '+error.message); await loadRooms(state.eventId); render(); return; }
-  } else {
-    await sb.from('event_rooms').delete().eq('event_id',state.eventId).eq('phase',phase);
-  }
-  const nm=(state.venueRooms.find(r=>r.id===roomId)||{}).name||'—';
-  pushLog({area:'system', label:'Lokale · '+phase, from:'', to:nm, cust:false});
+async function addPhase(label, roomId, startTime, endTime){
+  if(!label.trim()){ showToast('Skriv et navn på fasen.', 'error'); return; }
+  const sortOrder=(state.phases||[]).length;
+  const {error}=await sb.from('event_rooms').insert({event_id:state.eventId, label:label.trim(), room_id:roomId||null, start_time:startTime||null, end_time:endTime||null, sort_order:sortOrder});
+  if(error){ showToast('Kunne ikke tilføje fase: '+error.message, 'error'); return; }
+  pushLog({area:'system', label:'Fase tilføjet', from:'', to:label.trim(), cust:false});
+  await loadRooms(state.eventId); render();
+}
+async function updatePhase(id, label, roomId, startTime, endTime){
+  if(!label.trim()){ showToast('Skriv et navn på fasen.', 'error'); return; }
+  const {error}=await sb.from('event_rooms').update({label:label.trim(), room_id:roomId||null, start_time:startTime||null, end_time:endTime||null}).eq('id',id);
+  if(error){ showToast('Kunne ikke gemme fase: '+error.message, 'error'); await loadRooms(state.eventId); render(); return; }
+  pushLog({area:'system', label:'Fase · '+label.trim(), from:'', to:(state.venueRooms.find(r=>r.id===roomId)||{}).name||'—', cust:false});
+  await loadRooms(state.eventId); render();
+}
+async function removePhase(id){
+  const p=(state.phases||[]).find(x=>x.id===id);
+  if(!(await appConfirm('Slet fasen "'+(p?p.label:'')+'"? Kan ikke fortrydes.'))) return;
+  const {error}=await sb.from('event_rooms').delete().eq('id',id);
+  if(error){ showToast('Kunne ikke slette fase: '+error.message, 'error'); return; }
+  pushLog({area:'system', label:'Fase fjernet', from:p?p.label:'', to:'', cust:false});
   await loadRooms(state.eventId); render();
 }
 async function addCoordinator(sid){
   const {error}=await sb.from('event_staff').insert({event_id:state.eventId, staff_id:sid});
-  if(error){ alert('Kunne ikke tildele: '+error.message); return; }
+  if(error){ showToast('Kunne ikke tildele: '+error.message,'error'); return; }
   const nm=(state.roster.find(r=>r.id===sid)||{}).name||'medarbejder';
   pushLog({area:'system', label:'Medarbejder tildelt', from:'', to:nm, cust:false});
   await loadEventStaff(); render();
@@ -1337,7 +1571,7 @@ async function addCoordinator(sid){
 async function removeCoordinator(sid){
   const nm=(state.eventStaff.find(s=>s.id===sid)||{}).name||'medarbejder';
   const {error}=await sb.from('event_staff').delete().eq('event_id',state.eventId).eq('staff_id',sid);
-  if(error){ alert('Kunne ikke fjerne: '+error.message); return; }
+  if(error){ showToast('Kunne ikke fjerne: '+error.message,'error'); return; }
   pushLog({area:'system', label:'Medarbejder fjernet', from:nm, to:'', cust:false});
   await loadEventStaff(); render();
 }
@@ -1348,10 +1582,10 @@ async function setEventStatus(id, status){
   const toIdx=EVENT_STATUSES.findIndex(([v])=>v===status);
   if(toIdx<fromIdx){
     const label=(EVENT_STATUSES.find(([v])=>v===status)||[])[1]||status;
-    if(!confirm('Sæt status tilbage til "'+label+'"? Det er et skridt tilbage i processen.')) return;
+    if(!(await appConfirm('Sæt status tilbage til "'+label+'"? Det er et skridt tilbage i processen.'))) return;
   }
   const {error}=await sb.from('events').update({status}).eq('id',id);
-  if(error){ alert('Kunne ikke ændre status: '+error.message); return; }
+  if(error){ showToast('Kunne ikke ændre status: '+error.message,'error'); return; }
   state.status=status;
   pushLog({area:'system', label:'Status', from, to:status, cust:true, friendly:'Status ændret til '+status});
   const {data:evs}=await sb.from('events').select('id,title,event_date,status,offer_total_kr,event_type,venues(name)').eq('org_id',state.orgId).order('event_date',{ascending:false});
@@ -1364,12 +1598,12 @@ async function updateEventDetails(){
   const date=document.getElementById('edDate').value;
   const price=parseInt(document.getElementById('edPrice').value||'0',10)||0;
   const eventType=document.getElementById('edType').value;
-  if(!title||!venueId||!date){ alert('Udfyld titel, lokation og dato.'); return; }
+  if(!title||!venueId||!date){ showToast('Udfyld titel, lokation og dato.','error'); return; }
   const btn=document.getElementById('edSave'), orig=btn.textContent;
   btn.disabled=true; btn.textContent='Gemmer…';
   const {error}=await sb.from('events').update({title, venue_id:venueId, event_date:date, offer_total_kr:price, event_type:eventType}).eq('id',state.eventId);
   btn.disabled=false; btn.textContent=orig;
-  if(error){ alert('Kunne ikke gemme: '+error.message); return; }
+  if(error){ showToast('Kunne ikke gemme: '+error.message,'error'); return; }
   const {data:ev}=await sb.from('events').select('*,venues(name)').eq('id',state.eventId).maybeSingle();
   if(ev){ state.offerTotal=ev.offer_total_kr; state.eventDate=ev.event_date; state.eventTitle=ev.title; state.venueName=ev.venues?ev.venues.name:''; state.venueId=ev.venue_id; state.eventType=ev.event_type; }
   await loadRooms(state.eventId);
@@ -1389,25 +1623,54 @@ async function updatePunktStatus(id, status){
   const p=state.punkter.find(x=>x.id===id); if(!p) return;
   const from=p.status;
   const {error}=await sb.from('agenda_items').update({status}).eq('id',id);
-  if(error){ alert('Kunne ikke ændre status: '+error.message); return; }
+  if(error){ showToast('Kunne ikke ændre status: '+error.message,'error'); return; }
   p.status=status;
-  pushLog({area:'punkter', label:p.titel, from, to:status, cust:true, friendly:p.titel+' er nu '+status});
+  pushLog({area:'punkter', label:p.titel, from, to:status, cust:true, friendly:p.titel+' er nu '+STATUS_LABEL[status]});
   render();
 }
 async function createPunkt(titel, ejer, frist, note){
-  if(!titel.trim()){ alert('Skriv en titel.'); return; }
+  if(!titel.trim()){ showToast('Skriv en titel.','error'); return; }
   const {error}=await sb.from('agenda_items').insert({event_id:state.eventId, title:titel.trim(), owner:ejer, due_date:frist||null, note:(note||'').trim()});
-  if(error){ alert('Kunne ikke oprette opgave: '+error.message); return; }
+  if(error){ showToast('Kunne ikke oprette opgave: '+error.message,'error'); return; }
   pushLog({area:'punkter', label:titel.trim(), cust:(ejer==='jer'), friendly:'Ny opgave: '+titel.trim()});
   await reloadPunkter(); render();
 }
 async function deletePunkt(id){
-  if(!confirm('Slet opgaven? Kan ikke fortrydes.')) return;
+  if(!(await appConfirm('Slet opgaven? Kan ikke fortrydes.'))) return;
   const p=state.punkter.find(x=>x.id===id);
   const {error}=await sb.from('agenda_items').delete().eq('id',id);
-  if(error){ alert('Kunne ikke slette: '+error.message); return; }
+  if(error){ showToast('Kunne ikke slette: '+error.message,'error'); return; }
   pushLog({area:'punkter', label:p?p.titel:'', cust:false, friendly:'Opgave slettet: '+(p?p.titel:'')});
   await reloadPunkter(); render();
+}
+const noteFromDb = r => ({id:r.id, agenda_item_id:r.agenda_item_id, author_name:r.author_name, author_side:r.author_side, text:r.text||'', file_path:r.file_path||'', file_name:r.file_name||'', created_at:r.created_at});
+async function loadAgendaNotes(eventId){
+  const {data}=await sb.from('agenda_item_notes').select('*').eq('event_id',eventId).order('created_at');
+  const grouped={};
+  (data||[]).forEach(r=>{ (grouped[r.agenda_item_id]=grouped[r.agenda_item_id]||[]).push(noteFromDb(r)); });
+  state.agendaNotes=grouped;
+}
+async function addAgendaNote(agendaItemId, text, file){
+  const t=(text||'').trim();
+  if(!t && !file){ showToast('Skriv en note eller vælg en fil.','error'); return; }
+  const actor=currentActor();
+  let file_path=null, file_name=null;
+  if(file){
+    file_path=`${state.eventId}/${agendaItemId}/${Date.now()}-${file.name}`;
+    const {error:upErr}=await sb.storage.from('task-attachments').upload(file_path, file);
+    if(upErr){ showToast('Kunne ikke uploade fil: '+upErr.message,'error'); return; }
+    file_name=file.name;
+  }
+  const {error}=await sb.from('agenda_item_notes').insert({agenda_item_id:agendaItemId, event_id:state.eventId, author_name:actor.navn, author_side:actor.side, text:t, file_path, file_name});
+  if(error){ showToast('Kunne ikke gemme note: '+error.message,'error'); return; }
+  await loadAgendaNotes(state.eventId);
+  state.openTaskNotes.add(agendaItemId);
+  render();
+}
+async function openAttachment(path){
+  const {data,error}=await sb.storage.from('task-attachments').createSignedUrl(path, 60);
+  if(error){ showToast('Kunne ikke åbne fil: '+error.message,'error'); return; }
+  window.open(data.signedUrl,'_blank');
 }
 async function applyTaskTemplates(eventId, eventDate, eventType){
   const {data:templates}=await sb.from('task_templates').select('*').eq('org_id',state.orgId);
@@ -1431,33 +1694,33 @@ async function createTaskTemplate(){
   const days=daysRaw===''?null:(parseInt(daysRaw,10)||0);
   const note=document.getElementById('ttNote').value.trim();
   const eventType=document.getElementById('ttEventType').value||null;
-  if(!title){ alert('Skriv en titel.'); return; }
+  if(!title){ showToast('Skriv en titel.','error'); return; }
   const btn=document.getElementById('ttCreate'), orig=btn.textContent;
   btn.disabled=true; btn.textContent='Opretter…';
   const {error}=await sb.from('task_templates').insert({org_id:state.orgId, title, owner, days_before_event:days, note, event_type:eventType});
   btn.disabled=false; btn.textContent=orig;
-  if(error){ alert('Kunne ikke oprette: '+error.message); return; }
+  if(error){ showToast('Kunne ikke oprette: '+error.message,'error'); return; }
   await loadTaskTemplates(); render();
 }
 async function deleteTaskTemplate(id){
-  if(!confirm('Slet skabelonen? Kan ikke fortrydes.')) return;
+  if(!(await appConfirm('Slet skabelonen? Kan ikke fortrydes.'))) return;
   const {error}=await sb.from('task_templates').delete().eq('id',id);
-  if(error){ alert('Kunne ikke slette: '+error.message); return; }
+  if(error){ showToast('Kunne ikke slette: '+error.message,'error'); return; }
   await loadTaskTemplates(); render();
 }
 async function generateGuestLink(name, email){
-  if(!name || !email){ alert('Udfyld både navn og mail.'); return; }
+  if(!name || !email){ showToast('Udfyld både navn og mail.','error'); return; }
   state.guestLinkBusy=true; render();
   try{
     const {data, error}=await sb.functions.invoke('invite-guest', {body:{eventId:state.eventId, email, displayName:name}});
     if(error || !data || !data.link){
-      alert('Kunne ikke oprette link: '+(error?.message || data?.error || 'ukendt fejl'));
+      showToast('Kunne ikke oprette link: '+(error?.message || data?.error || 'ukendt fejl'),'error');
       return;
     }
     state.guestLink=data.link;
     pushLog({area:'system', label:'Gæstelink', cust:false, friendly:'Magisk link genereret til '+name+' ('+email+')'});
   }catch(e){
-    alert('Kunne ikke oprette link: '+e.message);
+    showToast('Kunne ikke oprette link: '+e.message,'error');
   }finally{
     state.guestLinkBusy=false; render();
   }
@@ -1475,13 +1738,13 @@ async function createEvent(){
   const date=document.getElementById('neDate').value;
   const eventType=document.getElementById('neType').value;
   const useTasks=document.getElementById('neTasks').checked;
-  if(!title||!venueId||!date){ alert('Udfyld titel, lokation og dato.'); return; }
+  if(!title||!venueId||!date){ showToast('Udfyld titel, lokation og dato.','error'); return; }
   const btn=document.getElementById('neCreate'), orig=btn.textContent;
   btn.disabled=true; btn.textContent='Opretter…';
   const {error}=await sb.from('events')
     .insert({title, venue_id:venueId, org_id:state.orgId, event_date:date, offer_total_kr:0, status:'kladde', event_type:eventType});
   btn.disabled=false; btn.textContent=orig;
-  if(error){ alert('Kunne ikke oprette: '+error.message); return; }
+  if(error){ showToast('Kunne ikke oprette: '+error.message,'error'); return; }
   const {data:evs}=await sb.from('events').select('id,title,event_date,status,offer_total_kr,event_type,venues(name)').eq('org_id',state.orgId).order('event_date',{ascending:false});
   state.events=evs||[];
   const created=(state.events||[]).find(e=>e.title===title && e.event_date===date);
@@ -1497,7 +1760,7 @@ function logCloudView(){
 }
 
 /* skærmstyring */
-function showGate(msg){ const g=document.getElementById('gate'); g.style.display='flex'; document.querySelector('.wrap').style.visibility='hidden'; if(msg) document.getElementById('gateMsg').textContent=msg; }
+function showGate(msg){ document.getElementById('bootLoading').style.display='none'; const g=document.getElementById('gate'); g.style.display='flex'; document.querySelector('.wrap').style.visibility='hidden'; if(msg) document.getElementById('gateMsg').textContent=msg; }
 function showApp(){ document.getElementById('gate').style.display='none'; document.querySelector('.wrap').style.visibility='visible'; }
 function showNoAccess(){ showGate('Du er logget ind som '+state.userEmail+', men har endnu ikke adgang til et arrangement. Bed admin om at koble dig på.'); }
 function showPicker(){ unsubscribeRealtime(); state.eventId=null; state.view='picker'; showApp(); render(); }
@@ -1737,7 +2000,8 @@ function viewBrugere(){
 }
 
 (async function init(){
-  document.getElementById('gateSend').onclick=async(ev)=>{
+  const gateSend=document.getElementById('gateSend');
+  gateSend.onclick=async(ev)=>{
     const email=document.getElementById('gateEmail').value.trim(); if(!email) return;
     const btn=ev.currentTarget, orig=btn.textContent;
     btn.disabled=true; btn.textContent='Sender…';
@@ -1745,6 +2009,7 @@ function viewBrugere(){
     document.getElementById('gateMsg').textContent = error ? ('Fejl: '+error.message) : ('Tjek din indbakke — vi har sendt et login-link til '+email+'.');
     btn.disabled=false; btn.textContent=orig;
   };
+  onEnterSubmit(document.getElementById('gateEmail'), ()=>gateSend.click());
   document.getElementById('logout').onclick=async()=>{ await sb.auth.signOut(); location.reload(); };
   document.getElementById('backToList').onclick=()=>{ showPicker(); };
   const {data:{session}}=await sb.auth.getSession();

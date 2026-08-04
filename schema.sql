@@ -7,7 +7,9 @@
 drop trigger if exists on_auth_user_created on auth.users;
 drop trigger if exists on_event_created on events;
 drop table if exists activity_log       cascade;
+drop table if exists agenda_item_notes  cascade;
 drop table if exists agenda_items       cascade;
+drop table if exists task_templates     cascade;
 drop table if exists guests             cascade;
 drop table if exists invites            cascade;
 drop table if exists event_access       cascade;
@@ -109,15 +111,19 @@ create table event_access (
   unique (event_id, user_id)
 );
 
--- Lokale pr. fase: ét lokale for hver fase i arrangementet
+-- Lokale pr. fase. Fri-tekst label + sort_order i stedet for en fast reception/
+-- middag/fest-treenighed — et arrangement har ikke nødvendigvis tre faser, og
+-- faser skal kunne tilføjes/fjernes/omdøbes fra UI'et.
 create table event_rooms (
+  id uuid primary key default gen_random_uuid(),
   event_id uuid not null references events(id) on delete cascade,
-  phase text not null,                 -- reception | middag | fest
+  label text not null,                 -- fasens navn, fx "Reception", "Frokost", "Foredrag"
   room_id uuid not null references rooms(id) on delete cascade,
   start_time time,                     -- tidsrum for denne fase (bruges til at forhindre dobbeltbooking)
   end_time time,                       -- hvis end_time <= start_time, regnes det som efter midnat
-  primary key (event_id, phase)
+  sort_order integer not null default 0
 );
+create index on event_rooms (event_id);
 
 -- Priskatalog: org'ens genbrugelige menuer/pakker/fri bar/tilvalg (fx natmad).
 -- Prissat pr. person (grundlag = reception/middag) eller som fast beløb (grundlag = fast).
@@ -165,11 +171,27 @@ create table agenda_items (
   event_id uuid not null references events(id) on delete cascade,
   title text not null,
   owner text not null default 'jer',         -- 'jer' | 'kilden'
-  status text not null default 'mangler',    -- mangler | udkast | aftalt
+  status text not null default 'mangler',    -- mangler | udkast | aftalt ("Udført" i UI'et)
   due_date date,
   note text not null default '',
   sort_order integer not null default 0
 );
+
+-- Tekst-noter og filbilag til aftalepunkter — synlige for begge parter, der kan se
+-- punktet. event_id denormaliseret (samme mønster som resten af skemaet) til enkel RLS.
+create table agenda_item_notes (
+  id uuid primary key default gen_random_uuid(),
+  agenda_item_id uuid not null references agenda_items(id) on delete cascade,
+  event_id uuid not null references events(id) on delete cascade,
+  author_name text not null,
+  author_side text not null,          -- 'jer' | 'kilden'
+  text text not null default '',
+  file_path text,                     -- sti i Storage-bucket 'task-attachments', null hvis ingen fil
+  file_name text,                     -- oprindeligt filnavn til visning
+  created_at timestamptz not null default now()
+);
+create index on agenda_item_notes (agenda_item_id);
+create index on agenda_item_notes (event_id);
 
 -- Org-genbrugelige opgaveskabeloner ("standardpakke"), samme mønster som catalog_items.
 -- Frist er relativ (dage før arrangementet), da skabeloner bruges på tværs af datoer.
@@ -386,12 +408,12 @@ begin
     new_end := new_end + interval '1 day';   -- fase går over midnat
   end if;
 
-  select er.phase, e2.title into conflict_row
+  select er.label, e2.title into conflict_row
   from event_rooms er
   join events e2 on e2.id = er.event_id
   where er.room_id = new.room_id
     and er.start_time is not null and er.end_time is not null
-    and not (er.event_id = new.event_id and er.phase = new.phase)
+    and er.id <> new.id
     and (e2.event_date + er.start_time) < new_end
     and new_start < (e2.event_date + er.end_time
         + (case when er.end_time <= er.start_time then interval '1 day' else interval '0' end))
@@ -399,7 +421,7 @@ begin
 
   if found then
     raise exception 'Lokalet er allerede booket % – % (% · %)',
-      new.start_time, new.end_time, conflict_row.title, conflict_row.phase;
+      new.start_time, new.end_time, conflict_row.title, conflict_row.label;
   end if;
 
   return new;
@@ -422,6 +444,7 @@ alter table event_staff   enable row level security;
 alter table event_access  enable row level security;
 alter table guests        enable row level security;
 alter table agenda_items  enable row level security;
+alter table agenda_item_notes enable row level security;
 alter table activity_log  enable row level security;
 alter table rooms         enable row level security;
 alter table event_rooms   enable row level security;
@@ -546,6 +569,14 @@ create policy agenda_update on agenda_items for update
 create policy agenda_delete on agenda_items for delete
   using ( is_org_staff(event_id) );
 
+-- Noter/bilag til aftalepunkter: begge parter må læse og oprette; kun koordinator sletter.
+create policy agenda_notes_read on agenda_item_notes for select
+  using ( is_org_staff(event_id) or is_event_guest(event_id) );
+create policy agenda_notes_insert on agenda_item_notes for insert
+  with check ( is_org_staff(event_id) or is_event_guest(event_id) );
+create policy agenda_notes_delete on agenda_item_notes for delete
+  using ( is_org_staff(event_id) );
+
 -- Opgaveskabeloner: org'ens folk læser; kun admin opretter/ændrer/sletter (som catalog_items).
 create policy task_templates_read on task_templates for select
   using ( org_id = my_org() or is_superadmin() );
@@ -564,13 +595,36 @@ create policy log_read_guest on activity_log for select
   using ( is_event_guest(event_id) and (entry_type = 'message' or customer_visible = true) );
 
 -- =====================================================================
---  5. REALTIME — begge parter ser nye beskeder/log-hændelser live.
+--  5. STORAGE — filbilag til aftalepunkter
+--     Privat bucket. Sti-konvention: {event_id}/{agenda_item_id}/{filnavn} —
+--     genbruger is_org_staff()/is_event_guest() uændret via foldernavnet.
+-- =====================================================================
+insert into storage.buckets (id, name, public) values ('task-attachments','task-attachments', false)
+  on conflict (id) do nothing;
+
+create policy task_attachments_read on storage.objects for select
+  using (bucket_id = 'task-attachments' and (
+    is_org_staff(((storage.foldername(name))[1])::uuid) or is_event_guest(((storage.foldername(name))[1])::uuid)
+  ));
+create policy task_attachments_insert on storage.objects for insert
+  with check (bucket_id = 'task-attachments' and (
+    is_org_staff(((storage.foldername(name))[1])::uuid) or is_event_guest(((storage.foldername(name))[1])::uuid)
+  ));
+create policy task_attachments_delete on storage.objects for delete
+  using (bucket_id = 'task-attachments' and is_org_staff(((storage.foldername(name))[1])::uuid));
+
+-- =====================================================================
+--  6. REALTIME — begge parter ser ændringer live.
 --     RLS ovenfor filtrerer stadig hvem der må se hvad.
 -- =====================================================================
 alter publication supabase_realtime add table activity_log;
+alter publication supabase_realtime add table guests;
+alter publication supabase_realtime add table agenda_items;
+alter publication supabase_realtime add table event_rooms;
+alter publication supabase_realtime add table agenda_item_notes;
 
 -- =====================================================================
---  6. SEED — Madkastellet, to lokationer, flere arrangementer
+--  7. SEED — Madkastellet, to lokationer, flere arrangementer
 -- =====================================================================
 insert into organisations (id, name) values
   ('11111111-1111-1111-1111-111111111111', 'Madkastellet');
@@ -617,10 +671,10 @@ insert into event_catalog_items (event_id, catalog_item_id) values
   ('33333333-3333-3333-3333-333333333333','55555555-5555-5555-5555-555555555557');
 
 -- lokale pr. fase for Emily & Lars: reception på terrassen, resten indendørs
-insert into event_rooms (event_id, phase, room_id, start_time, end_time) values
-  ('33333333-3333-3333-3333-333333333333','reception','44444444-4444-4444-4444-444444444441','15:00','17:00'),
-  ('33333333-3333-3333-3333-333333333333','middag',   '44444444-4444-4444-4444-444444444442','18:00','21:00'),
-  ('33333333-3333-3333-3333-333333333333','fest',     '44444444-4444-4444-4444-444444444442','21:00','01:00');
+insert into event_rooms (event_id, label, room_id, start_time, end_time, sort_order) values
+  ('33333333-3333-3333-3333-333333333333','Reception','44444444-4444-4444-4444-444444444441','15:00','17:00',1),
+  ('33333333-3333-3333-3333-333333333333','Middag',   '44444444-4444-4444-4444-444444444442','18:00','21:00',2),
+  ('33333333-3333-3333-3333-333333333333','Fest',     '44444444-4444-4444-4444-444444444442','21:00','01:00',3);
 
 -- Gæster til Emily & Lars: 65 voksne (64 middag), 6 børn, 6 babyer
 insert into guests (event_id, name, category, reception, dinner, dietary, sort_order) values
@@ -668,7 +722,7 @@ insert into activity_log (event_id, ts, actor_name, actor_side, entry_type, area
  ('33333333-3333-3333-3333-333333333333', now()-interval '3 days','Christina (Kilden)','kilden','message','system','','','',false,'','Hej Emily. Fint, vi rykker gerne forretten en anelse — sig til, når I har et ønsket tidspunkt, så justerer jeg programmet.');
 
 -- =====================================================================
---  7. BOOTSTRAP — kør, når du har logget ind via magic link mindst én gang.
+--  8. BOOTSTRAP — kør, når du har logget ind via magic link mindst én gang.
 --     Find dit UUID under Authentication → Users.
 -- =====================================================================
 -- -- Gør dig selv til SUPERADMIN (Verta-medarbejder, organisationsuafhængig):
