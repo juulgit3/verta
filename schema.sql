@@ -185,7 +185,8 @@ create table activity_log (
   to_val text not null default '',
   customer_visible boolean not null default false,
   friendly text not null default '',
-  message_text text not null default ''
+  message_text text not null default '',
+  ip_address text                            -- stemplet server-side, se stamp_activity_log_ip()
 );
 
 create index on activity_log (event_id, ts desc);
@@ -300,6 +301,22 @@ $$;
 create trigger on_event_created
   after insert on events
   for each row execute function assign_event_creator();
+
+-- Stempler ip_address på hvert log-opslag ud fra PostgRESTs request-headers.
+-- Klienten kan ikke forfalske feltet — et BEFORE INSERT-trigger overskriver
+-- altid, uanset hvad der blev sendt i insert-kaldet. Tekst med vilje (ikke
+-- inet): en uventet/manglende header skal aldrig kunne fejle selve
+-- indsættelsen og dermed blokere beskeder eller ændringer i loggen.
+create or replace function stamp_activity_log_ip()
+returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  new.ip_address := nullif(split_part(current_setting('request.headers', true)::json->>'x-forwarded-for', ',', 1), '');
+  return new;
+end;
+$$;
+create trigger on_activity_log_ip
+  before insert on activity_log
+  for each row execute function stamp_activity_log_ip();
 
 -- Forhindrer dobbeltbooking: samme lokale kan ikke bruges to steder samtidig
 -- samme dag. Samme lokale samme dag men forskudte tidsrum er ok; samme

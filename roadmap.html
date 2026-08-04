@@ -90,6 +90,7 @@ footer{margin-top:40px;font-size:12px;color:var(--ink-40)}
       <b>Gæstens første besøg:</b> et engangs-velkomstkort (styret af nyt felt <code>event_access.first_visited_at</code>, ikke localStorage) møder gæsten ved allerførste login med en kort forklaring og kontaktpersonens navn — hentet via ny RPC-funktion <code>get_event_contact</code>, da gæsten ellers ingen adgang har til medarbejderdata.<br>
       Undervejs blev et reelt hul rettet: der var før ingen måde at redigere et arrangements titel, dato, pris, type eller lokation efter oprettelse — nyt "Arrangementdetaljer"-kort i Admin-fanen løser det.
     </div></div>
+    <div class="card"><div class="t">IP-stempel i aktivitetsloggen</div><div class="d">Hvert log-opslag (login, ændring, besked — begge parters) stemples nu server-side med afsender-IP'en, via et Postgres-trigger der læser PostgRESTs request-headers. Klienten kan ikke forfalske feltet. Vises kun for medarbejdere i Log-fanen, aldrig for gæsten. Bygget samtidig: gæstens åbning af eget arrangement bliver nu overhovedet logget som et opslag — det skete ikke før, kun medarbejderes gjorde, så der var reelt intet at stemple.</div></div>
   </details>
 
   <footer>Verta · internt roadmap-dokument, ikke offentligt indekseret.</footer>

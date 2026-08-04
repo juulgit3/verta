@@ -690,7 +690,7 @@ function viewLog(){
       <span class="what">${
         e.type==='view' ? '<span class="view">kiggede ind</span>' :
         e.type==='message' ? `<span class="tag">Besked</span><span class="msgq">”${esc(e.text||'')}”</span>` :
-        `<span class="tag">${AREA_TXT[e.area]}</span>${esc(e.label)}${(e.from||e.to)?` <span class="delta">${e.from?esc(e.from):'—'}<span class="arrow">→</span>${esc(e.to)}</span>`:''}`}</span>
+        `<span class="tag">${AREA_TXT[e.area]}</span>${esc(e.label)}${(e.from||e.to)?` <span class="delta">${e.from?esc(e.from):'—'}<span class="arrow">→</span>${esc(e.to)}</span>`:''}`}${e.ip?` <span class="note" style="font-variant-numeric:tabular-nums">· ${esc(e.ip)}</span>`:''}</span>
     </div>`).join(''):'<div class="empty">Ingen hændelser matcher filteret.</div>'}
   </section>`;
 }
@@ -973,7 +973,7 @@ const gFromDb = r => ({id:r.id, navn:r.name, kat:r.category, reception:r.recepti
 const gToDb   = (g,i) => ({id:g.id, event_id:state.eventId, name:g.navn, category:g.kat, reception:g.reception, dinner:g.middag, dietary:g.kost, sort_order:i});
 const pFromDb = r => ({id:r.id, titel:r.title, ejer:r.owner, status:r.status, frist:r.due_date||'', note:r.note||''});
 const pToDb   = (p,i) => ({id:p.id, event_id:state.eventId, title:p.titel, owner:p.ejer, status:p.status, due_date:p.frist||null, note:p.note||'', sort_order:i});
-const logFromDb = r => ({id:r.id, ts:new Date(r.ts).getTime(), side:r.actor_side, who:r.actor_name, type:r.entry_type, area:r.area, label:r.label, from:r.from_val, to:r.to_val, cust:r.customer_visible, friendly:r.friendly, text:r.message_text});
+const logFromDb = r => ({id:r.id, ts:new Date(r.ts).getTime(), side:r.actor_side, who:r.actor_name, type:r.entry_type, area:r.area, label:r.label, from:r.from_val, to:r.to_val, cust:r.customer_visible, friendly:r.friendly, text:r.message_text, ip:r.ip_address||''});
 const logToDb   = e => ({event_id:state.eventId, ts:new Date(e.ts).toISOString(), actor_name:e.who, actor_side:e.side, entry_type:e.type, area:e.area, label:e.label||'', from_val:e.from||'', to_val:e.to||'', customer_visible:!!e.cust, friendly:e.friendly||'', message_text:e.text||''});
 
 async function cloudSaveGuestsAgenda(){
@@ -1147,7 +1147,7 @@ async function openEvent(id){
   await loadRooms(id);
   await loadCatalog(id);
   if(state.rolle==='kilden'){ await loadEventStaff(); await loadOrgCatalog(); logCloudView(); }
-  else { const {data:contact}=await sb.rpc('get_event_contact',{target_event:id}); state.contactName=contact||''; }
+  else { const {data:contact}=await sb.rpc('get_event_contact',{target_event:id}); state.contactName=contact||''; logCloudView(); }
   state.view='workspace'; state.tab='oversigt';
   showApp(); render();
   subscribeRealtime(id);
