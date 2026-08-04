@@ -106,6 +106,12 @@ footer{margin-top:40px;font-size:12px;color:var(--ink-40)}
       <b>Tre oprettelsesveje:</b> (1) et opret-kort direkte i Aftalepunkter-fanen, (2) en "+ Opgave"-knap på hver besked i Beskeder, forudfyldt med beskedteksten, og (3) en flydende "+ Opgave"-knap nederst til højre (kun for koordinator) — samme opret-formular alle tre steder.<br>
       <b>Standardpakke:</b> ny org-tabel <code>task_templates</code> (samme mønster som priskataloget) med relativ frist ("X dage før arrangementet", da skabeloner bruges på tværs af datoer). Administreres under et nyt "Opgaver" i konsollen. Ved arrangement-oprettelse er der en forudkrydset "Tilføj standardopgaver"-boks, der kopierer de matchende skabeloner ind med udregnede frister.
     </div></div>
+    <div class="card"><div class="t">Stor oprydning: fjernet lokal demo-tilstand, rettet fem hardcodede fejl</div><div class="d">
+      En større gennemgang af hele app/index.html (endte på ca. 150 linjer kortere) for at simplificere så meget som muligt.<br><br>
+      <b>Fjernet helt:</b> den lokale demo-tilstand (rolleskifter, localStorage, seed-data) — SUPA har været udfyldt gennem hele projektet, så stien var permanent dødvægt. Al <code>MODE==='cloud'</code>-forgrening væk; appen er nu ren cloud-only.<br>
+      <b>Fem rettede fejl,</b> alle et resultat af, at demo-indhold for Emily &amp; Lars aldrig blev gjort arrangement-specifikt: "Program" og "Menu" (samt en hardcodet "ekstra hovedret"-linje) blev vist identisk for ethvert arrangement i enhver organisation — fjernet, da der ikke findes en model for arrangement-specifikt program/menu endnu. Hardcodet dato ("Tilbud af 4. september") i prisafstemningen rettet til at bruge arrangementets rigtige dato. Browserfanens titel og eksport-filnavnet var statiske — begge er nu dynamiske. Et dødt felt (<code>toastmaster</code>) fjernet.<br>
+      <b>Oprydning:</b> <code>EVENT</code>-objektet (en global variabel ved siden af <code>state</code>, rest fra den lokale demo) er samlet ind i <code>state.eventDate</code>/<code>state.offerTotal</code>. De to "kom godt i gang"-agtige tjeklister (org-opsætning og arrangement-opsætning) deler nu én lille hjælpefunktion (<code>checklistHtml</code>) i stedet for duplikeret markup. <code>README.md</code> opdateret — den beskrev stadig lokal tilstand og listede allerede-byggede ting (lokations-/brugerstyring, Realtime) som fremtidigt arbejde.
+    </div></div>
   </details>
 
   <footer>Verta · internt roadmap-dokument, ikke offentligt indekseret.</footer>

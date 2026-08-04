@@ -17,7 +17,7 @@ UI-sproget er **dansk**. Behold det.
 - `docs/admin-preview.html` — statisk designmockup af admin-konsollen. Ikke en del af appen; kun reference.
 
 ## Arkitektur (app/index.html)
-- **Dobbelt tilstand.** Øverst i `<script>` står `const SUPA = { url:'', anon:'' }`. Tomt → appen kører lokalt (localStorage, rolleskifter til demo). Udfyldt → cloud-tilstand med rigtigt login mod Supabase.
+- **Ren cloud-app.** Øverst i `<script>` står `const SUPA = { url, anon }` — kræves udfyldt, appen forudsætter Supabase. (Tidligere fandtes en lokal demo-tilstand uden Supabase; fjernet som en del af en oprydning, da den var blevet permanent dødvægt — den rigtige app har kørt mod Supabase siden tidligt i projektet.)
 - **Backend:** Supabase (Postgres + Auth + RLS), plus én Edge Function (`invite-guest`, Deno/TypeScript) — se nedenfor.
 - **Auth:** magic link (passwordless). Medarbejdere ligger i `staff` (roller: `admin` | `coordinator`); brudepar bindes til ét arrangement via `event_access`.
 - **Hierarki:** organisation → lokation (`venues`) → arrangement (`events`). Lokaler (`rooms`) hører til en lokation; `event_rooms` kobler hver fase (reception/middag/fest) til ét lokale. Medarbejdere kobles til arrangementer mange-til-mange via `event_staff`.

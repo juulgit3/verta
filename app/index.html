@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Emily &amp; Lars · 4. september 2026</title>
+<title>Verta</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Familjen+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -29,12 +29,7 @@ input,select,textarea{font:inherit;color:inherit}
 .topline{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
 .eyebrow{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-40);font-weight:600}
 
-/* role switcher */
 .rolebar{display:flex;align-items:center;gap:10px}
-.seg{display:inline-flex;border:1px solid var(--line);border-radius:99px;overflow:hidden;background:var(--card)}
-.seg button{border:0;background:none;padding:6px 13px;font-size:13px;font-weight:600;cursor:pointer;color:var(--ink-60)}
-.seg button[aria-pressed="true"]{background:var(--ink);color:#fff}
-.seg button:first-child[aria-pressed="true"]{background:var(--ink)}
 .consnav{display:inline-flex;border:1px solid var(--line);border-radius:99px;overflow:hidden;background:var(--card);margin-bottom:16px}
 .consnav button{border:0;background:none;padding:7px 15px;font-size:14px;font-weight:600;cursor:pointer;color:var(--ink-60)}
 .consnav button[aria-pressed="true"]{background:var(--ink);color:#fff}
@@ -196,21 +191,17 @@ footer.legal{margin-top:28px;font-size:12px;color:var(--ink-40);line-height:1.6}
   <div class="topline">
     <button class="brand" id="brandHome" type="button" title="Til din forside">
       <span class="mark">Verta</span>
-      <span class="org" id="orgName">Madkastellet</span>
+      <span class="org" id="orgName"></span>
     </button>
     <div class="rolebar">
       <span class="whoami" id="whoami"></span>
       <button class="btn" id="backToList" style="display:none">‹ Arrangementer</button>
       <button class="btn" id="logout" style="display:none">Log ud</button>
-      <span class="seg" id="localRoleSeg" role="group" aria-label="Skift rolle">
-        <button data-role="kilden" aria-pressed="true">Kilden</button>
-        <button data-role="kunde" aria-pressed="false">Brudepar</button>
-      </span>
     </div>
   </div>
 
   <div class="hero">
-    <h1 id="heroTitle">Emily &amp; Lars</h1>
+    <h1 id="heroTitle">Verta</h1>
     <div class="eventloc" id="eventLoc"></div>
     <div class="sub" id="heroChips"></div>
   </div>
@@ -256,129 +247,26 @@ footer.legal{margin-top:28px;font-size:12px;color:var(--ink-40);line-height:1.6}
 /* =========================================================
    1. DATA
    ========================================================= */
-const EVENT = { dato:'2026-09-04', sted:'Kilden', org:'Madkastellet',
-  rooms:{reception:'Terrassen ved vejen', middag:'Lokalet indendørs', fest:'Lokalet indendørs'},
-  tilbud:108245, toastmaster:'Christian' };
 const PHASES = [['reception','Reception'],['middag','Middag'],['fest','Fest']];
-
-const AKTORER = {
-  kilden:{ id:'kilden', navn:'Christina (Kilden)', side:'kilden' },
-  kunde: { id:'kunde',  navn:'Emily',              side:'kunde'  }
-};
-
-const PRISER = [
-  {id:'pakke',    navn:'Bryllupspakke, middag',     sats:1220, grundlag:'middag',   boernHalv:true},
-  {id:'reception',navn:'Reception 14–15:30',        sats:150,  grundlag:'reception',boernHalv:true},
-  {id:'time',     navn:'Ekstra time',               sats:100,  grundlag:'middag',   boernHalv:false},
-  {id:'natmad',   navn:'Natmad, gourmet hotdogs',   sats:85,   grundlag:'middag',   boernHalv:false},
-  {id:'naturvin', navn:'Naturvin',                  sats:75,   grundlag:'middag',   boernHalv:false},
-  {id:'fotograf', navn:'Forplejning fotograf + DJ', sats:325,  grundlag:'fast'},
-  {id:'dj',       navn:'DJ-udstyr',                 sats:3000, grundlag:'fast'}
-];
-
-const NAVNGIVNE = [
-  ['Emily','voksen',true,true,''],['Lars','voksen',true,true,''],
-  ['Sarah K','voksen',true,true,'Glutenallergi'],['Christina','voksen',true,true,'Glutenallergi'],
-  ['Lærke','voksen',true,true,'Laktoseintolerant'],['Helle','voksen',true,true,'Nøddeallergi'],
-  ['Nanna E','voksen',true,true,'Ingen jordskokker'],['Mie','voksen',true,true,'Skaldyrsallergi'],
-  ['Per','voksen',true,true,'Spiser ikke fisk']
-];
-
-function seedGaester(){
-  const g = NAVNGIVNE.map((r,i)=>({id:'g'+i,navn:r[0],kat:r[1],reception:r[2],middag:r[3],kost:r[4]}));
-  for(let i=g.length;i<65;i++) g.push({id:'g'+i,navn:'Voksen '+(i-8),kat:'voksen',reception:true,middag:true,kost:''});
-  g[64].middag=false;
-  for(let i=0;i<6;i++) g.push({id:'b'+i,navn:'Barn '+(i+1),kat:'barn',reception:true,middag:false,kost:''});
-  for(let i=0;i<6;i++) g.push({id:'s'+i,navn:'Baby '+(i+1),kat:'baby',reception:true,middag:i<3,kost:''});
-  return g;
-}
-
-const PUNKTER_SEED = [
-  {id:'p1',titel:'Bordplan',ejer:'jer',status:'mangler',frist:'2026-08-28',note:''},
-  {id:'p2',titel:'DJ – ankomsttidspunkt',ejer:'jer',status:'mangler',frist:'2026-08-21',note:'DJ bruger Kildens udstyr'},
-  {id:'p3',titel:'Endeligt deltagerantal',ejer:'jer',status:'udkast',frist:'2026-08-21',note:'67/69 til middag skal blive ét tal'},
-  {id:'p4',titel:'Allergier og særlig kost',ejer:'jer',status:'udkast',frist:'2026-08-25',note:'Bekræftes mod gæstelisten'},
-  {id:'p5',titel:'Bordkort og pynt afleveres',ejer:'jer',status:'aftalt',frist:'2026-09-03',note:'Dagen inden'},
-  {id:'p6',titel:'Blomster leveres',ejer:'jer',status:'aftalt',frist:'2026-09-03',note:'Dagen inden eller på dagen. Kildens vaser'},
-  {id:'p7',titel:'Bobler medbringes (2 slags)',ejer:'jer',status:'aftalt',frist:'2026-09-04',note:'Serveres i champagneskål'},
-  {id:'p8',titel:'Bryllupskage til reception',ejer:'jer',status:'aftalt',frist:'2026-09-04',note:'Medbringes'},
-  {id:'p9',titel:'Cocio til natmad',ejer:'jer',status:'aftalt',frist:'2026-09-04',note:'Medbringes, sættes ud kl. 01'},
-  {id:'p10',titel:'Weissbier på flaske',ejer:'kilden',status:'aftalt',frist:'2026-09-04',note:''},
-  {id:'p11',titel:'Opdækning og servietringe',ejer:'kilden',status:'aftalt',frist:'2026-09-03',note:'Lysegrå duge, hvide stofservietter, krondyrsservietringe, hvide bloklys'},
-  {id:'p12',titel:'Bordopstilling',ejer:'kilden',status:'aftalt',frist:'2026-09-03',note:'2 langborde + gavebord, DJ-udstyr stilles frem'},
-  {id:'p13',titel:'Lejlighed til babyer',ejer:'kilden',status:'aftalt',frist:'2026-09-04',note:''},
-  {id:'p14',titel:'Hovedret til fotograf',ejer:'kilden',status:'aftalt',frist:'2026-09-04',note:'Anden ret end den almindelige menu'},
-  {id:'p15',titel:'Vin på bordene',ejer:'kilden',status:'aftalt',frist:'2026-09-04',note:'Både almindelig vin og naturvin'}
-];
-
-const PROGRAM = [
-  ['14:00','Ankomst til reception'],['15:30','Reception slutter, gæsterne går på Bakken'],
-  ['17:00','Gæsterne kommer tilbage og går til bords'],['17:30','Forret'],['18:15','Forret ryddes'],
-  ['19:15','Hovedret'],['20:15','Hovedret ryddes'],['21:15','Dessert + kaffe- og te-buffet'],
-  ['22:00','Dessert ryddes'],['22:45','Brudevals'],['23:00','Fest med fri bar'],
-  ['01:00','Natmad'],['03:00','Tak for i dag']
-];
-
-const MENU = {
-  Forret:'Hiramasa. Ceviche på dansk ravfisk med syltede ferskner, farvede tomater, koriander og ponzu med lime. Brød og rørt smør.',
-  Hovedret:'Grillet havtaske med kaffir lime hollandaise, grøn tomatcarpaccio og grillede grøntsager. Sharing: lun kartoffelsalat, grøn salat og brød.',
-  Dessert:'Rødgrød med jordbær, ribs og rabarber. Hyldeblomst, fløde og vanilje.',
-  Natmad:'Gourmet hotdogs.'
-};
-
 const DAG = 86400000;
-function seedLog(){
-  const now = Date.now();
-  return [
-    {ts:now-2*DAG, side:'kilden', who:'Christina (Kilden)', type:'change', area:'punkter', label:'Bordkort og pynt', from:'udkast', to:'aftalt', cust:true,  friendly:'Bordkort og pynt er bekræftet — afleveres dagen inden'},
-    {ts:now-3*DAG, side:'kunde',  who:'Emily',              type:'view',   area:'system',  label:'Åbnede arrangementet', from:'', to:'', cust:false, friendly:''},
-    {ts:now-3.5*DAG, side:'kilden', who:'Christina (Kilden)', type:'message', area:'system', text:'Hej Emily. Fint, vi rykker gerne forretten en anelse — sig endelig til, når I har et ønsket tidspunkt, så justerer jeg programmet. Vi ses snart.', from:'', to:'', cust:false, friendly:''},
-    {ts:now-4*DAG, side:'kunde', who:'Emily', type:'message', area:'system', text:'Hej Kilden. Vi overvejer at rykke forretten en lille smule senere — er der plads i tidsplanen til det?', from:'', to:'', cust:false, friendly:''},
-    {ts:now-5*DAG, side:'kilden', who:'Christina (Kilden)', type:'view',   area:'system',  label:'Åbnede arrangementet', from:'', to:'', cust:false, friendly:''},
-    {ts:now-7*DAG, side:'kilden', who:'Malene (Kilden)',    type:'change', area:'system',  label:'Medarbejder tildelt', from:'', to:'Christina', cust:false, friendly:''},
-    {ts:now-10*DAG,side:'kunde',  who:'Emily',              type:'change', area:'gaester', label:'Særlig kost', from:'', to:'Helle: nøddeallergi', cust:true, friendly:'Særlig kost tilføjet for Helle (nøddeallergi)'},
-    {ts:now-14*DAG,side:'kunde',  who:'Lars',               type:'change', area:'gaester', label:'Deltagerantal (middag)', from:'62', to:'64', cust:true, friendly:'Deltagerantal til middag opdateret til 64'},
-    {ts:now-21*DAG,side:'kilden', who:'Christina (Kilden)', type:'change', area:'system',  label:'Aftale oprettet fra tilbud', from:'', to:'108.245 kr.', cust:true, friendly:'Jeres aftale blev oprettet ud fra tilbuddet'}
-  ].map((e,i)=>({id:'seed'+i, ...e}));
-}
 
 /* =========================================================
-   2. KONFIGURATION + LAGRING
-   Indsæt din Project URL + anon-nøgle for at køre mod Supabase.
-   Lades de tomme, kører appen lokalt som før (rolleskifter).
+   2. KONFIGURATION
+   Project URL + anon-nøgle. anon er ikke hemmelig — må gerne committes.
    ========================================================= */
 const SUPA = { url:'https://bksaazivbzgxzmgzhbqu.supabase.co', anon:'sb_publishable_y81wiQGZXEzwxO56U7BSFg_A2fwkaXg' };   // ← Supabase → Project Settings → API
-const MODE = SUPA.url ? 'cloud' : 'local';
-const sb = MODE==='cloud' ? window.supabase.createClient(SUPA.url, SUPA.anon) : null;
+const sb = window.supabase.createClient(SUPA.url, SUPA.anon);
 
-const store = {
-  async load(){
-    try{
-      if(window.storage){ const r=await window.storage.get('bryllup'); return r?JSON.parse(r.value):null; }
-      const raw=localStorage.getItem('bryllup'); return raw?JSON.parse(raw):null;
-    }catch(e){ return null; }
-  },
-  async save(data){
-    try{
-      const s=JSON.stringify(data);
-      if(window.storage){ await window.storage.set('bryllup',s); } else { localStorage.setItem('bryllup',s); }
-    }catch(e){}
-  }
-};
-
-let state = { gaester:seedGaester(), punkter:PUNKTER_SEED.map(p=>({...p})), log:seedLog(),
+let state = { gaester:[], punkter:[], log:[],
               tab:'oversigt', soeg:'', rolle:'kilden', logType:'alle', logWho:'alle', logArea:'alle',
               lastRead:{kilden:0, kunde:0}, phaseRooms:{}, venueRooms:[], staffList:[], invitesList:[], venuesFull:[],
-              eventCatalog:PRISER, orgCatalog:[], openRoomPickers:new Set(),
+              eventCatalog:[], orgCatalog:[], openRoomPickers:new Set(),
               openPickerGroups:new Set(['kladde','tilbud','bekræftet']),
               isSuperadmin:false, allOrgs:[], guestLink:'', guestLinkBusy:false,
               guestWelcome:false, contactName:'', orgOnboardingDismissed:false, orgCatalogCount:0, orgStaffCount:0,
               taskTemplates:[] };
-function save(){
-  if(MODE==='cloud') cloudSaveGuestsAgenda();
-  else store.save({gaester:state.gaester, punkter:state.punkter, log:state.log, lastRead:state.lastRead});
-}
-const currentActor = () => MODE==='cloud' ? (state.actor||{navn:'?',side:'kilden'}) : AKTORER[state.rolle];
+function save(){ cloudSaveGuestsAgenda(); }
+const currentActor = () => state.actor||{navn:'?',side:'kilden'};
 
 /* =========================================================
    3. LOG
@@ -388,14 +276,7 @@ function pushLog({area,label,from='',to='',cust=false,friendly=''}){
   const ev={id:'e'+Date.now()+Math.random().toString(36).slice(2,5), ts:Date.now(),
     side:a.side, who:a.navn, type:'change', area, label, from:String(from), to:String(to), cust, friendly, text:''};
   state.log.unshift(ev);
-  if(MODE==='cloud') sb.from('activity_log').insert(logToDb(ev)).then(({error})=>error&&console.error('log',error));
-}
-function logView(){
-  const a=currentActor(), last=state.log[0];
-  if(last && last.type==='view' && last.side===a.side && (Date.now()-last.ts)<30*60000) return;
-  state.log.unshift({id:'v'+Date.now(), ts:Date.now(), side:a.side, who:a.navn,
-    type:'view', area:'system', label:'Åbnede arrangementet', from:'', to:'', cust:false, friendly:''});
-  save();
+  sb.from('activity_log').insert(logToDb(ev)).then(({error})=>error&&console.error('log',error));
 }
 function pushMessage(text){
   const a=currentActor();
@@ -403,9 +284,8 @@ function pushMessage(text){
     type:'message', area:'system', text:text.trim(), from:'', to:'', cust:false, friendly:''};
   state.log.unshift(ev);
   state.lastRead[a.side]=Date.now();
-  if(MODE==='cloud') sb.from('activity_log').insert(logToDb(ev)).then(({error})=>error&&console.error('msg',error));
-  else save();
-  /* v2: her udløser en Edge Function en mail til den anden part */
+  sb.from('activity_log').insert(logToDb(ev)).then(({error})=>error&&console.error('msg',error));
+  /* v2: her udløser en Edge Function en mail til den anden part, jf. roadmap */
 }
 const unread = rolle => { const last=state.lastRead[rolle]||0;
   return state.log.filter(e=>e.type==='message'&&e.side!==rolle&&e.ts>last).length; };
@@ -462,27 +342,23 @@ const TABS = {
 
 function renderTabs(){
   const el=document.getElementById('tabs'), n=unread(state.rolle);
-  el.innerHTML = TABS[state.rolle].filter(([id])=>id!=='admin'||MODE==='cloud').map(([id,label])=>
+  el.innerHTML = TABS[state.rolle].map(([id,label])=>
     `<button role="tab" data-tab="${id}" aria-selected="${state.tab===id}">${label}${id==='beskeder'&&n?`<span class="tabbadge">${n}</span>`:''}</button>`).join('');
   el.querySelectorAll('button').forEach(b=>b.onclick=()=>{state.tab=b.dataset.tab;state.soeg='';render();});
 }
 
 const PHLABEL = {reception:'reception', middag:'middag', fest:'fest'};
 function roomsLine(){
-  const src = MODE==='cloud'
-    ? {reception:(state.phaseRooms.reception||{}).name, middag:(state.phaseRooms.middag||{}).name, fest:(state.phaseRooms.fest||{}).name}
-    : (EVENT.rooms||{});
+  const src = {reception:(state.phaseRooms.reception||{}).name, middag:(state.phaseRooms.middag||{}).name, fest:(state.phaseRooms.fest||{}).name};
   const byRoom={};
   ['reception','middag','fest'].forEach(ph=>{ const rm=src[ph]; if(rm){ (byRoom[rm]=byRoom[rm]||[]).push(PHLABEL[ph]); } });
   return Object.entries(byRoom).map(([rm,phs])=>esc(rm)+' ('+phs.join(' & ')+')').join(' · ');
 }
 
 function heroChips(){
-  const d=dageTil(EVENT.dato), aabne=aabnePunkter();
+  const d=dageTil(state.eventDate), aabne=aabnePunkter();
   const jer=aabne.filter(p=>p.ejer==='jer').length, kilden=aabne.filter(p=>p.ejer==='kilden').length;
-  const datoTxt = MODE==='cloud'
-    ? new Date(EVENT.dato+'T00:00:00').toLocaleDateString('da-DK',{weekday:'long',day:'numeric',month:'long',year:'numeric'})
-    : 'Fredag 4. september 2026';
+  const datoTxt = new Date(state.eventDate+'T00:00:00').toLocaleDateString('da-DK',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
   document.getElementById('heroChips').innerHTML=`
     <span class="chip blue"><span class="dot"></span>${datoTxt}</span>
     <span class="chip"><span class="dot"></span><b class="num">${d}</b>&nbsp;dage til</span>
@@ -502,8 +378,8 @@ function viewAdmin(){
       <select id="edVenue" class="search" style="flex:1;min-width:140px">
         ${(state.venues||[]).map(v=>`<option value="${v.id}" ${v.id===state.venueId?'selected':''}>${esc(v.name)}</option>`).join('')}
       </select>
-      <input id="edDate" type="date" class="search" value="${EVENT.dato||''}" style="flex:1;min-width:140px">
-      <input id="edPrice" type="number" class="search" placeholder="Tilbud, kr" value="${EVENT.tilbud||0}" style="flex:1;min-width:120px">
+      <input id="edDate" type="date" class="search" value="${state.eventDate||''}" style="flex:1;min-width:140px">
+      <input id="edPrice" type="number" class="search" placeholder="Tilbud, kr" value="${state.offerTotal||0}" style="flex:1;min-width:120px">
       <select id="edType" class="search" style="flex:1;min-width:130px">
         ${CAT_EVENT_TYPES.map(t=>`<option value="${t}" ${t===state.eventType?'selected':''}>${t}</option>`).join('')}
       </select>
@@ -534,32 +410,38 @@ function viewAdmin(){
     </div>
   </section>`;
 }
+/* Delt kort til "kom godt i gang"-agtige tjeklister (org-opsætning, arrangement-opsætning) */
+function checklistHtml(title, note, items, footer){
+  return `<section class="card">
+    <header><h2>${title}</h2><span class="note">${note}</span></header>
+    ${items.map(i=>`<div class="stat"><span>${i.done?'✓ ':''}${i.label}${i.optional&&!i.done?' <span class="note">(valgfrit)</span>':''}</span>${i.action||''}</div>`).join('')}
+    ${footer||''}
+  </section>`;
+}
 function viewOversigt(){
-  const a=antal(), linjer=prisLinjer(), t=total(), diff=t-EVENT.tilbud;
+  const a=antal(), linjer=prisLinjer(), t=total(), diff=t-state.offerTotal;
   const aabne=aabnePunkter().sort((x,y)=>x.frist.localeCompare(y.frist));
-  const welcomeKort = (MODE==='cloud' && state.rolle==='kunde' && state.guestWelcome) ? `
+  const welcomeKort = (state.rolle==='kunde' && state.guestWelcome) ? `
   <section class="card" style="border-left:3px solid var(--blue)">
     <header><h2>Velkommen, ${esc(currentActor().navn)}!</h2></header>
-    <p style="margin:0 0 10px;font-size:14.5px;line-height:1.6">I er tilmeldt jeres ${esc(state.eventType||'arrangement')} hos ${esc(state.venueName||'')} d. ${datoKort(EVENT.dato)}${state.contactName?' — jeres kontakt hos '+esc(state.orgName||'')+' er '+esc(state.contactName):''}.</p>
+    <p style="margin:0 0 10px;font-size:14.5px;line-height:1.6">I er tilmeldt jeres ${esc(state.eventType||'arrangement')} hos ${esc(state.venueName||'')} d. ${datoKort(state.eventDate)}${state.contactName?' — jeres kontakt hos '+esc(state.orgName||'')+' er '+esc(state.contactName):''}.</p>
     <p style="margin:0 0 14px;font-size:14px;color:var(--ink-60);line-height:1.6">Her kan I se overblik og pris, holde jeres gæsteliste opdateret, følge aftalepunkter og skrive beskeder direkte til os.</p>
     <button class="btn primary" id="welcomeDismiss">Se jeres arrangement</button>
   </section>` : '';
-  const setupKort = (MODE==='cloud' && state.rolle==='kilden' && state.status==='kladde') ? (()=>{
-    const hasRoom=Object.keys(state.phaseRooms||{}).length>0, hasPrice=(EVENT.tilbud||0)>0, hasCatalog=(state.eventCatalog||[]).length>0;
-    return `
-  <section class="card">
-    <header><h2>Sæt arrangementet op</h2><span class="note">${[hasRoom,hasPrice,hasCatalog].filter(Boolean).length}/3</span></header>
-    <div class="stat"><span>${hasRoom?'✓ ':''}Vælg lokaler til hver fase</span></div>
-    <div class="stat"><span>${hasPrice?'✓ ':''}Sæt tilbudsbeløb</span>${hasPrice?'':'<button class="btn" data-goto-tab="admin">Gå til →</button>'}</div>
-    <div class="stat"><span>${hasCatalog?'✓ ':''}Tilføj katalogvarer</span>${hasCatalog?'':'<button class="btn" data-goto-tab="admin">Gå til →</button>'}</div>
-    <div class="note" style="margin-top:8px">Guiden forsvinder, når I skifter status fra Kladde til Tilbud.</div>
-  </section>`; })() : '';
-  const statusKort = (MODE==='cloud' && state.rolle==='kilden') ? `
+  const setupKort = (state.rolle==='kilden' && state.status==='kladde') ? (()=>{
+    const hasRoom=Object.keys(state.phaseRooms||{}).length>0, hasPrice=(state.offerTotal||0)>0, hasCatalog=(state.eventCatalog||[]).length>0;
+    return checklistHtml('Sæt arrangementet op', `${[hasRoom,hasPrice,hasCatalog].filter(Boolean).length}/3`, [
+      {done:hasRoom, label:'Vælg lokaler til hver fase'},
+      {done:hasPrice, label:'Sæt tilbudsbeløb', action:hasPrice?'':'<button class="btn" data-goto-tab="admin">Gå til →</button>'},
+      {done:hasCatalog, label:'Tilføj katalogvarer', action:hasCatalog?'':'<button class="btn" data-goto-tab="admin">Gå til →</button>'}
+    ], '<div class="note" style="margin-top:8px">Guiden forsvinder, når I skifter status fra Kladde til Tilbud.</div>');
+  })() : '';
+  const statusKort = (state.rolle==='kilden') ? `
   <section class="card">
     <header><h2>Status</h2><span class="note">klik for at ændre</span></header>
     ${statusStepsHtml(state.status, state.eventId, true)}
   </section>` : '';
-  const deleKort = (MODE==='cloud' && state.rolle==='kilden') ? `
+  const deleKort = (state.rolle==='kilden') ? `
   <section class="card">
     <header><h2>Del med gæsten</h2><span class="note">magisk login-link</span></header>
     ${state.guestLink ? `
@@ -577,7 +459,7 @@ function viewOversigt(){
     </div>
     `}
   </section>` : '';
-  const lokaleKort = (MODE==='cloud' && state.rolle==='kilden') ? `
+  const lokaleKort = (state.rolle==='kilden') ? `
   <section class="card">
     <header><h2>Lokaler pr. fase</h2><span class="note">${esc(state.venueName||'')}</span></header>
     ${PHASES.map(([ph,lbl])=>{
@@ -617,7 +499,7 @@ function viewOversigt(){
       <div class="stat" style="border-top:1px solid var(--line);margin-top:6px;padding-top:12px"><span style="font-weight:700">I alt</span><b class="big">${kr(t)}</b></div>
       <div class="recon ${diff!==0?'off':''}">
         <div class="t">${diff===0?'Stemmer med Kildens tilbud':'Afviger '+kr(Math.abs(diff))+(diff>0?' over':' under')+' tilbuddet'}</div>
-        <div class="d">Tilbud af 4. september: ${kr(EVENT.tilbud)}. Tallet genberegnes, hver gang gæstelisten ændres.</div>
+        <div class="d">Tilbud af ${datoKort(state.eventDate)}: ${kr(state.offerTotal)}. Tallet genberegnes, hver gang gæstelisten ændres.</div>
       </div>
     </section>
   </div>
@@ -627,10 +509,6 @@ function viewOversigt(){
       <span class="stripe ${p.ejer}"></span>
       <div><div class="name">${esc(p.titel)}</div><div class="meta">${p.ejer==='jer'?'Jer':'Kilden'} · frist ${datoKort(p.frist)} <span class="due ${d<0?'past':''}">${d<0?Math.abs(d)+' dage over':'om '+d+' dage'}</span></div></div>
       <span class="chip ${p.status==='mangler'?'warn':''}"><span class="dot"></span>${p.status}</span></div>`;}).join(''):'<div class="empty">Alt er aftalt. Intet udestående.</div>'}
-  </section>
-  <section class="card">
-    <header><h2>Program</h2><span class="note">14:00–03:00</span></header>
-    ${PROGRAM.map(([t,x])=>`<div class="stat"><span class="num" style="font-weight:600;width:56px;display:inline-block">${t}</span><span style="flex:1;text-align:left;margin-left:12px">${x}</span></div>`).join('')}
   </section>`;
 }
 
@@ -661,7 +539,7 @@ function viewGaester(){
 }
 
 function viewPunkter(){
-  const createKort = (MODE==='cloud' && state.rolle==='kilden') ? `
+  const createKort = (state.rolle==='kilden') ? `
   <section class="card">
     <header><h2>Opret opgave</h2></header>
     <div class="row" style="gap:8px;flex-wrap:wrap">
@@ -687,7 +565,7 @@ function viewPunkter(){
       <span class="row" style="gap:6px">
       ${kanRedigere?`<select class="status" data-status>${['mangler','udkast','aftalt'].map(s=>`<option value="${s}" ${p.status===s?'selected':''}>${s}</option>`).join('')}</select>`
         :`<span class="chip"><span class="dot"></span>${p.status}</span>`}
-      ${MODE==='cloud'&&state.rolle==='kilden'?`<button class="btn" data-punkt-delete="${p.id}">Slet</button>`:''}
+      ${state.rolle==='kilden'?`<button class="btn" data-punkt-delete="${p.id}">Slet</button>`:''}
       </span></div>`;}).join(''):'<div class="empty">Ingen opgaver endnu.</div>'}
   </section>`).join('');
   return createKort + groups;
@@ -704,15 +582,10 @@ function viewKoekken(){
     <div class="stat"><span>Babyer til middag (uden kuvert)</span><b class="num">${a.middag.babyer}</b></div>
     <div class="stat"><span>Snacks til reception</span><b class="num">${a.reception.total}</b></div>
     <div class="stat"><span>Natmad</span><b class="num">${a.middag.voksne+a.middag.boern}</b></div>
-    <div class="stat"><span>Ekstra hovedret</span><b class="num">1 (fotograf, anden ret)</b></div>
   </section>
   <section class="card">
     <header><h2>Særlig kost</h2><span class="note">${kost.length} kuverter</span></header>
     ${Object.keys(samlet).length?Object.entries(samlet).map(([k,n])=>`<div class="stat"><span><b>${esc(k)}</b><br><span class="note">${n.map(esc).join(', ')}</span></span><b class="num">${n.length}</b></div>`).join(''):'<div class="empty">Ingen registreret endnu.</div>'}
-  </section>
-  <section class="card">
-    <header><h2>Menu</h2><span class="note">3 retter + natmad</span></header>
-    ${Object.entries(MENU).map(([k,v])=>`<div style="padding:9px 0;border-bottom:1px dotted var(--line)"><div class="name">${k}</div><div class="note">${v}</div></div>`).join('')}
   </section>`;
 }
 
@@ -775,7 +648,7 @@ function viewBeskeder(){
       </div>
     </div>
     ${msgs.length?msgs.map(m=>`<div class="msg ${m.side}">
-      <div class="mhead"><span class="mwho">${esc(m.who)}</span><span class="row" style="gap:8px"><span class="mtime">${tid(m.ts)}</span>${MODE==='cloud'&&state.rolle==='kilden'?`<button class="btn" data-msg-to-task="${esc((m.text||'').slice(0,80))}" style="font-size:11px;padding:2px 7px">+ Opgave</button>`:''}</span></div>
+      <div class="mhead"><span class="mwho">${esc(m.who)}</span><span class="row" style="gap:8px"><span class="mtime">${tid(m.ts)}</span>${state.rolle==='kilden'?`<button class="btn" data-msg-to-task="${esc((m.text||'').slice(0,80))}" style="font-size:11px;padding:2px 7px">+ Opgave</button>`:''}</span></div>
       <div class="mtext">${esc(m.text||'')}</div>
     </div>`).join(''):'<div class="empty">Ingen beskeder endnu. Skriv den første ovenfor.</div>'}
   </section>`;
@@ -785,14 +658,13 @@ function viewBeskeder(){
    6. RENDER + HÆNDELSER
    ========================================================= */
 function render(){
-  const cloud = MODE==='cloud';
-  document.getElementById('localRoleSeg').style.display = cloud ? 'none' : '';
   renderSuperadminBar();
-  document.getElementById('logout').style.display = cloud ? '' : 'none';
-  document.getElementById('backToList').style.display = (cloud && state.rolle==='kilden' && (state.events||[]).length>1 && state.view==='workspace') ? '' : 'none';
-  document.getElementById('fabAddTask').style.display = (cloud && state.rolle==='kilden' && state.view==='workspace') ? 'block' : 'none';
+  document.getElementById('logout').style.display = '';
+  document.getElementById('backToList').style.display = (state.rolle==='kilden' && (state.events||[]).length>1 && state.view==='workspace') ? '' : 'none';
+  document.getElementById('fabAddTask').style.display = (state.rolle==='kilden' && state.view==='workspace') ? 'block' : 'none';
 
-  if(cloud && (state.view==='picker' || state.view==='users' || state.view==='venues' || state.view==='katalog' || state.view==='opgaver' || state.view==='superadmin')){
+  if(state.view==='picker' || state.view==='users' || state.view==='venues' || state.view==='katalog' || state.view==='opgaver' || state.view==='superadmin'){
+    document.title = 'Verta';
     document.getElementById('whoami').textContent = state.actor?('Logget ind som '+state.actor.navn):'';
     document.getElementById('orgName').textContent = state.view==='superadmin' ? '' : (state.orgName||'');
     document.getElementById('eventLoc').innerHTML='';
@@ -889,20 +761,21 @@ function render(){
     return;
   }
 
-  if(cloud) document.getElementById('heroTitle').textContent = state.eventTitle||'Arrangement';
-  document.getElementById('orgName').textContent = cloud ? (state.orgName||'') : EVENT.org;
-  const locName = cloud ? (state.venueName||'') : EVENT.sted;
+  document.getElementById('heroTitle').textContent = state.eventTitle||'Arrangement';
+  document.title = (state.eventTitle||'Arrangement')+' · Verta';
+  document.getElementById('orgName').textContent = state.orgName||'';
+  const locName = state.venueName||'';
   const rl = roomsLine();
   document.getElementById('eventLoc').innerHTML = locName
     ? '<span class="loc">'+esc(locName)+'</span>'+(rl?' · '+rl:'') : '';
-  if(state.tab==='beskeder'){ state.lastRead[state.rolle]=Date.now(); if(MODE==='local') save(); }
+  if(state.tab==='beskeder') state.lastRead[state.rolle]=Date.now();
   document.getElementById('whoami').textContent='Logget ind som '+currentActor().navn;
   heroChips(); renderTabs();
   const map={oversigt:viewOversigt,gaester:viewGaester,punkter:viewPunkter,koekken:viewKoekken,log:viewLog,admin:viewAdmin,tidslinje:viewTidslinje,beskeder:viewBeskeder};
   if(!map[state.tab]) state.tab='oversigt';
   document.getElementById('view').innerHTML=map[state.tab]();
   document.getElementById('legal').textContent = state.rolle==='kilden'
-    ? 'Medarbejdervisning. Fuld log med opslag og ændringer. Data ligger lokalt indtil Supabase kobles på.'
+    ? 'Medarbejdervisning. Fuld log med opslag og ændringer.'
     : 'Brudeparrets visning via magic link. Tidslinjen viser kun ændringer — ikke hvem der har kigget hvornår.';
   bind();
 }
@@ -919,7 +792,11 @@ function bind(){
   if(add) add.onclick=()=>guestMutation(()=>state.gaester.push({id:'n'+Date.now(),navn:'Ny gæst',kat:'voksen',reception:true,middag:true,kost:''}),'Gæst tilføjet');
 
   const eks=document.getElementById('eksport');
-  if(eks) eks.onclick=()=>{const blob=new Blob([JSON.stringify({event:EVENT,gaester:state.gaester,punkter:state.punkter,log:state.log},null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='bryllup-2026-09-04.json';a.click();};
+  if(eks) eks.onclick=()=>{
+    const blob=new Blob([JSON.stringify({eventTitle:state.eventTitle, eventDate:state.eventDate, offerTotal:state.offerTotal, gaester:state.gaester, punkter:state.punkter, log:state.log},null,2)],{type:'application/json'});
+    const slug=(state.eventTitle||'arrangement').toLowerCase().replace(/[^a-z0-9æøå]+/gi,'-').replace(/^-+|-+$/g,'');
+    const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=slug+'-'+(state.eventDate||'')+'.json';a.click();
+  };
 
   const pr=document.getElementById('print'); if(pr) pr.onclick=()=>window.print();
 
@@ -944,12 +821,7 @@ function bind(){
   document.querySelectorAll('[data-pid]').forEach(el=>{
     const p=state.punkter.find(x=>x.id===el.dataset.pid);
     const sel=el.querySelector('[data-status]');
-    if(sel) sel.onchange=()=>{
-      if(MODE==='cloud') updatePunktStatus(p.id, sel.value);
-      else { const from=p.status;p.status=sel.value;
-        pushLog({area:'punkter',label:p.titel,from,to:p.status,cust:true,friendly:p.titel+' er nu '+p.status});
-        save();render(); }
-    };
+    if(sel) sel.onchange=()=>updatePunktStatus(p.id, sel.value);
   });
   document.querySelectorAll('[data-punkt-delete]').forEach(el=>el.onclick=()=>deletePunkt(el.dataset.punktDelete));
   const pkOpret=document.getElementById('pkOpret');
@@ -1029,14 +901,6 @@ document.getElementById('tmSave').onclick=async()=>{
   closeTaskModal();
 };
 
-document.querySelectorAll('#localRoleSeg button').forEach(b=>{
-  b.onclick=()=>{
-    state.rolle=b.dataset.role; state.tab='oversigt'; state.soeg='';
-    document.querySelectorAll('#localRoleSeg button').forEach(x=>x.setAttribute('aria-pressed',x.dataset.role===state.rolle));
-    logView(); render();
-  };
-});
-
 document.getElementById('sabarGuestToggle').onclick=()=>{
   state.rolle = state.rolle==='kunde' ? 'kilden' : 'kunde';
   render();
@@ -1058,7 +922,7 @@ function renderSuperadminBar(){
 }
 
 /* =========================================================
-   7. CLOUD-LAG (aktivt når SUPA er udfyldt)
+   7. CLOUD-LAG
    ========================================================= */
 const gFromDb = r => ({id:r.id, navn:r.name, kat:r.category, reception:r.reception, middag:r.dinner, kost:r.dietary||''});
 const gToDb   = (g,i) => ({id:g.id, event_id:state.eventId, name:g.navn, category:g.kat, reception:g.reception, dinner:g.middag, dietary:g.kost, sort_order:i});
@@ -1226,7 +1090,7 @@ async function openEvent(id){
     sb.from('agenda_items').select('*').eq('event_id',id).order('sort_order'),
     sb.from('activity_log').select('*').eq('event_id',id).order('ts',{ascending:false})
   ]);
-  if(ev){ EVENT.tilbud=ev.offer_total_kr; EVENT.dato=ev.event_date; state.eventTitle=ev.title; state.venueName=ev.venues?ev.venues.name:''; state.venueId=ev.venue_id; state.orgName=ev.organisations?ev.organisations.name:(state.orgName||''); state.ownerStaffId=ev.owner_staff_id; state.eventType=ev.event_type; state.status=ev.status; }
+  if(ev){ state.offerTotal=ev.offer_total_kr; state.eventDate=ev.event_date; state.eventTitle=ev.title; state.venueName=ev.venues?ev.venues.name:''; state.venueId=ev.venue_id; state.orgName=ev.organisations?ev.organisations.name:(state.orgName||''); state.ownerStaffId=ev.owner_staff_id; state.eventType=ev.event_type; state.status=ev.status; }
   state.gaester=(gs||[]).map(gFromDb);
   state.punkter=(ps||[]).map(pFromDb);
   state.log=(lg||[]).map(logFromDb);
@@ -1504,7 +1368,7 @@ async function updateEventDetails(){
   btn.disabled=false; btn.textContent=orig;
   if(error){ alert('Kunne ikke gemme: '+error.message); return; }
   const {data:ev}=await sb.from('events').select('*,venues(name)').eq('id',state.eventId).maybeSingle();
-  if(ev){ EVENT.tilbud=ev.offer_total_kr; EVENT.dato=ev.event_date; state.eventTitle=ev.title; state.venueName=ev.venues?ev.venues.name:''; state.venueId=ev.venue_id; state.eventType=ev.event_type; }
+  if(ev){ state.offerTotal=ev.offer_total_kr; state.eventDate=ev.event_date; state.eventTitle=ev.title; state.venueName=ev.venues?ev.venues.name:''; state.venueId=ev.venue_id; state.eventType=ev.event_type; }
   await loadRooms(state.eventId);
   pushLog({area:'system', label:'Arrangementdetaljer', cust:true, friendly:'Arrangementdetaljer opdateret'});
   render();
@@ -1635,7 +1499,6 @@ function showApp(){ document.getElementById('gate').style.display='none'; docume
 function showNoAccess(){ showGate('Du er logget ind som '+state.userEmail+', men har endnu ikke adgang til et arrangement. Bed admin om at koble dig på.'); }
 function showPicker(){ unsubscribeRealtime(); state.eventId=null; state.view='picker'; showApp(); render(); }
 function goHome(){
-  if(MODE!=='cloud'){ state.tab='oversigt'; render(); return; }
   if(!state.actor) return;
   if(state.isSuperadmin && !state.orgId){
     unsubscribeRealtime(); state.view='superadmin'; showApp();
@@ -1822,15 +1685,12 @@ function viewPicker(){
     staff:(state.staffList&&state.staffList.length)||state.orgStaffCount||0
   };
   const showSetup = state.isAdmin && !state.orgOnboardingDismissed && !(setup.venues>0 && setup.events>0);
-  const setupKort = showSetup ? `
-  <section class="card">
-    <header><h2>Kom godt i gang</h2><span class="note">${[setup.venues>0,setup.catalog>0,setup.staff>1,setup.events>0].filter(Boolean).length}/4</span></header>
-    <div class="stat"><span>${setup.venues>0?'✓ ':''}Opret jeres første lokation (+ mindst ét lokale)</span>${setup.venues>0?'':'<button class="btn" data-nav="venues">Gå til →</button>'}</div>
-    <div class="stat"><span>${setup.catalog>0?'✓ ':''}Byg jeres priskatalog <span class="note">(valgfrit)</span></span>${setup.catalog>0?'':'<button class="btn" data-nav="katalog">Gå til →</button>'}</div>
-    <div class="stat"><span>${setup.staff>1?'✓ ':''}Inviter kolleger <span class="note">(valgfrit)</span></span>${setup.staff>1?'':'<button class="btn" data-nav="users">Gå til →</button>'}</div>
-    <div class="stat"><span>${setup.events>0?'✓ ':''}Opret jeres første arrangement</span></div>
-    <div class="row" style="margin-top:12px"><button class="btn" id="setupDismiss">Skjul denne guide</button></div>
-  </section>` : '';
+  const setupKort = showSetup ? checklistHtml('Kom godt i gang', `${[setup.venues>0,setup.catalog>0,setup.staff>1,setup.events>0].filter(Boolean).length}/4`, [
+    {done:setup.venues>0, label:'Opret jeres første lokation (+ mindst ét lokale)', action:setup.venues>0?'':'<button class="btn" data-nav="venues">Gå til →</button>'},
+    {done:setup.catalog>0, label:'Byg jeres priskatalog', optional:true, action:setup.catalog>0?'':'<button class="btn" data-nav="katalog">Gå til →</button>'},
+    {done:setup.staff>1, label:'Inviter kolleger', optional:true, action:setup.staff>1?'':'<button class="btn" data-nav="users">Gå til →</button>'},
+    {done:setup.events>0, label:'Opret jeres første arrangement'}
+  ], '<div class="row" style="margin-top:12px"><button class="btn" id="setupDismiss">Skjul denne guide</button></div>') : '';
   return `${consoleNav('picker')}
     <div style="margin:20px 0 10px"><span class="eyebrow">${state.isAdmin?'Admin · alle arrangementer':'Dine arrangementer'}</span></div>
     ${setupKort}
@@ -1874,13 +1734,6 @@ function viewBrugere(){
 }
 
 (async function init(){
-  if(MODE==='local'){
-    const saved=await store.load();
-    if(saved&&saved.gaester){ state.gaester=saved.gaester; state.punkter=saved.punkter||state.punkter; state.log=saved.log||state.log; state.lastRead=saved.lastRead||state.lastRead; }
-    logView(); render();
-    return;
-  }
-  // CLOUD
   document.getElementById('gateSend').onclick=async(ev)=>{
     const email=document.getElementById('gateEmail').value.trim(); if(!email) return;
     const btn=ev.currentTarget, orig=btn.textContent;

@@ -4,7 +4,7 @@ Følg trinene i rækkefølge. Regn med ca. 30 minutter første gang. Du behøver
 
 ## Filerne
 - `index.html` — marketingsiden (offentlig, ingen login), ligger på roden
-- `app/index.html` — selve appen (én fil, kører lokalt uden config, mod Supabase når den er sat op), tilgås via `/app`
+- `app/index.html` — selve appen (én fil, kræver Supabase sat op — se Trin 2-3), tilgås via `/app`
 - `schema.sql` — databasen (tabeller, sikkerhedsregler, testdata)
 - `README.md` — denne guide
 
@@ -33,12 +33,9 @@ Sikkerheden ligger i databasens RLS-regler, ikke i at skjule anon-nøglen.
 1. **Settings → API**: kopiér **Project URL** og **anon public**-nøglen.
 2. Åbn `app/index.html`, find denne linje øverst i `<script>`:
    ```js
-   const SUPA = { url:'', anon:'' };
+   const SUPA = { url:'https://bksaazivbzgxzmgzhbqu.supabase.co', anon:'...' };
    ```
-   Indsæt dine værdier:
-   ```js
-   const SUPA = { url:'https://xxxx.supabase.co', anon:'eyJhbGciOi...' };
-   ```
+   Indsæt dine egne værdier. Appen kræver dem for at kunne starte — uden dem fejler login-skærmen.
 3. Commit ændringen til GitHub.
 
 ## Trin 4 · Netlify
@@ -83,10 +80,8 @@ Hvert fremtidigt push til GitHub deployer automatisk igen.
 ## Hvis noget driller
 - **Login-linket sender mig det forkerte sted hen / intet sker** → Site URL og Redirect URL i Trin 5 skal matche din Netlify-URL præcist (https, uden ekstra skråstreg).
 - **"Ingen adgang" bliver ved** → tjek, at `staff`-rækken i Trin 6 har dit rigtige UID og org-id'et `1111...`.
-- **Appen viser stadig rolleskifteren i stedet for login** → så er `SUPA.url` tom. Tjek, at Trin 3 blev committet og deployet.
+- **Login-skærmen loader ikke / fejl med det samme** → tjek at `SUPA.url`/`SUPA.anon` i Trin 3 rent faktisk blev committet og deployet — appen kræver dem.
 - **Tom side / fejl** → åbn browserens konsol (F12) og noter den ordrette fejl.
 
-## Bevidst gemt til pass 2
-- Admin-konsollens **lokations- og brugerstyring** som rigtige skærme (oprette lokaler/brugere fra UI'et frem for SQL).
-- **Realtime**, så begge parter ser ændringer live.
-- **Notifikationsmail** ved nye beskeder (Edge Function + maildienst).
+## Bevidst gemt til senere
+- **Notifikationsmail** ved vigtige hændelser (nye beskeder, nye opgaver) — se `/roadmap` for den fulde plan, inkl. samtykke-krav.
