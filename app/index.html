@@ -694,15 +694,15 @@ function viewPunkter(){
   const createKort = kilden ? `
   <section class="card">
     <header><h2>Opret opgave</h2></header>
-    <div class="row" style="gap:8px;flex-wrap:wrap">
-      <input id="pkTitel" class="search" placeholder="Titel, fx Bordplan" style="flex:2;min-width:180px">
-      <select id="pkEjer" class="search" style="flex:1;min-width:120px">
+    <div class="row" style="gap:8px;flex-wrap:wrap;align-items:flex-end">
+      <div class="field" style="flex:2;min-width:180px"><label for="pkTitel">Titel</label><input id="pkTitel" class="search" placeholder="Fx Bordplan" style="width:100%"></div>
+      <div class="field" style="flex:1;min-width:120px"><label for="pkEjer">Ansvarlig</label><select id="pkEjer" class="search" style="width:100%">
         <option value="jer">Kunden</option>
         <option value="kilden">Mig (${esc(currentActor().navn)})</option>
-      </select>
-      <input id="pkFrist" type="date" class="search" style="flex:1;min-width:140px">
-      <input id="pkNote" class="search" placeholder="Note (valgfri)" style="flex:2;min-width:160px">
-      <input type="file" id="pkFile" class="search" style="flex:1;min-width:140px">
+      </select></div>
+      <div class="field" style="flex:1;min-width:140px"><label for="pkFrist">Frist</label><input id="pkFrist" type="date" class="search" style="width:100%"></div>
+      <div class="field" style="flex:2;min-width:160px"><label for="pkNote">Note</label><input id="pkNote" class="search" placeholder="Valgfri" style="width:100%"></div>
+      <div class="field" style="flex:1;min-width:140px"><label for="pkFile">Vedhæft fil</label><input type="file" id="pkFile" class="search" style="width:100%"></div>
       <button class="btn primary" id="pkOpret">Opret</button>
     </div>
   </section>` : '';
