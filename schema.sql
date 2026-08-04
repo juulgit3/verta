@@ -208,6 +208,16 @@ create index on guests       (event_id);
 create index on agenda_items (event_id);
 create index on events       (org_id, event_date);
 
+-- Fremmednøgler der slås op direkte fra klienten (ikke kun via RLS).
+-- event_access.user_id er vigtigst: slås op ved hver gæste-login (cloudBoot).
+create index on event_access  (user_id);
+create index on staff         (org_id);
+create index on catalog_items (org_id);
+create index on task_templates(org_id);
+create index on venues        (org_id);
+create index on invites       (org_id);
+create index on rooms         (venue_id);
+
 -- =====================================================================
 --  2. HJÆLPEFUNKTIONER (security definer — undgår RLS-rekursion)
 -- =====================================================================

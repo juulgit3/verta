@@ -953,16 +953,18 @@ async function cloudBoot(user){
   const {data:st}=await sb.from('staff').select('*').eq('id',user.id).maybeSingle();
   if(st){
     state.rolle='kilden'; state.actor={navn:st.name, side:'kilden'}; state.isAdmin=(st.role==='admin'); state.orgId=st.org_id;
-    const {data:orgRow}=await sb.from('organisations').select('name,onboarding_dismissed').eq('id',st.org_id).maybeSingle();
+    const [{data:orgRow},{data:vens},{count:catCount},{count:staffCnt},{data:evs}] = await Promise.all([
+      sb.from('organisations').select('name,onboarding_dismissed').eq('id',st.org_id).maybeSingle(),
+      sb.from('venues').select('id,name').eq('org_id',st.org_id).order('name'),
+      sb.from('catalog_items').select('id',{count:'exact',head:true}).eq('org_id',st.org_id),
+      sb.from('staff').select('id',{count:'exact',head:true}).eq('org_id',st.org_id),
+      sb.from('events').select('id,title,event_date,status,offer_total_kr,event_type,venues(name)').order('event_date',{ascending:false})
+    ]);
     state.orgName=orgRow?orgRow.name:'';
     state.orgOnboardingDismissed=!!(orgRow&&orgRow.onboarding_dismissed);
-    const {data:vens}=await sb.from('venues').select('id,name').eq('org_id',st.org_id).order('name');
     state.venues=vens||[];
-    const {count:catCount}=await sb.from('catalog_items').select('id',{count:'exact',head:true}).eq('org_id',st.org_id);
     state.orgCatalogCount=catCount||0;
-    const {count:staffCnt}=await sb.from('staff').select('id',{count:'exact',head:true}).eq('org_id',st.org_id);
     state.orgStaffCount=staffCnt||0;
-    const {data:evs}=await sb.from('events').select('id,title,event_date,status,offer_total_kr,event_type,venues(name)').order('event_date',{ascending:false});
     state.events=evs||[];
     if(state.events.length===1) openEvent(state.events[0].id); else showPicker();
     return;
@@ -991,15 +993,17 @@ async function loadSuperadminHome(){
 async function enterOrgAsSuperadmin(orgId){
   const org=(state.allOrgs||[]).find(o=>o.id===orgId);
   state.orgId=orgId; state.orgName=org?org.name:'';
-  const {data:orgRow}=await sb.from('organisations').select('onboarding_dismissed').eq('id',orgId).maybeSingle();
+  const [{data:orgRow},{data:vens},{count:catCount},{count:staffCnt},{data:evs}] = await Promise.all([
+    sb.from('organisations').select('onboarding_dismissed').eq('id',orgId).maybeSingle(),
+    sb.from('venues').select('id,name').eq('org_id',orgId).order('name'),
+    sb.from('catalog_items').select('id',{count:'exact',head:true}).eq('org_id',orgId),
+    sb.from('staff').select('id',{count:'exact',head:true}).eq('org_id',orgId),
+    sb.from('events').select('id,title,event_date,status,offer_total_kr,event_type,venues(name)').eq('org_id',orgId).order('event_date',{ascending:false})
+  ]);
   state.orgOnboardingDismissed=!!(orgRow&&orgRow.onboarding_dismissed);
-  const {data:vens}=await sb.from('venues').select('id,name').eq('org_id',orgId).order('name');
   state.venues=vens||[];
-  const {count:catCount}=await sb.from('catalog_items').select('id',{count:'exact',head:true}).eq('org_id',orgId);
   state.orgCatalogCount=catCount||0;
-  const {count:staffCnt}=await sb.from('staff').select('id',{count:'exact',head:true}).eq('org_id',orgId);
   state.orgStaffCount=staffCnt||0;
-  const {data:evs}=await sb.from('events').select('id,title,event_date,status,offer_total_kr,event_type,venues(name)').eq('org_id',orgId).order('event_date',{ascending:false});
   state.events=evs||[];
   if(state.events.length===1) openEvent(state.events[0].id); else showPicker();
 }
@@ -1095,9 +1099,8 @@ async function openEvent(id){
   state.punkter=(ps||[]).map(pFromDb);
   state.log=(lg||[]).map(logFromDb);
   state._dbG=new Set(state.gaester.map(g=>g.id));
-  await loadRooms(id);
-  await loadCatalog(id);
-  if(state.rolle==='kilden'){ await loadEventStaff(); await loadOrgCatalog(); logCloudView(); }
+  await Promise.all([loadRooms(id), loadCatalog(id)]);
+  if(state.rolle==='kilden'){ await Promise.all([loadEventStaff(), loadOrgCatalog()]); logCloudView(); }
   else { const {data:contact}=await sb.rpc('get_event_contact',{target_event:id}); state.contactName=contact||''; logCloudView(); }
   state.view='workspace'; state.tab='oversigt';
   showApp(); render();
