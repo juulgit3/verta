@@ -188,9 +188,10 @@ footer.legal{margin-top:28px;font-size:12px;color:var(--ink-40);line-height:1.6}
 .field select,.field input{width:100%}
 
 /* formular med flere felter, pænt justeret i grid i stedet for flex (undgår hulter-til-bulter ombrydning) */
-.formgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px 14px;align-items:end}
+.formgrid{display:grid;grid-template-columns:1.6fr 1fr 1fr;gap:12px 14px;align-items:end}
+.formgrid .full{grid-column:1/-1}
 .formgrid .btn{grid-column:1/-1;justify-self:end}
-input[type=file].search{padding:6px 8px;font-size:12.5px;min-width:0}
+input[type=file].search{padding:6px 8px;font-size:13px;min-width:0}
 
 /* gemt-feedback på inline-redigering */
 .flash-saved{background:rgba(62,107,76,.16)!important;transition:background .7s ease}
@@ -703,14 +704,14 @@ function viewPunkter(){
   <section class="card">
     <header><h2>Opret opgave</h2></header>
     <div class="formgrid">
-      <div class="field" style="grid-column:span 2"><label for="pkTitel">Titel</label><input id="pkTitel" class="search" placeholder="Fx Bordplan"></div>
+      <div class="field"><label for="pkTitel">Titel</label><input id="pkTitel" class="search" placeholder="Fx Bordplan"></div>
       <div class="field"><label for="pkEjer">Ansvarlig</label><select id="pkEjer" class="search">
         <option value="jer">Kunden</option>
         <option value="kilden">Mig (${esc(currentActor().navn)})</option>
       </select></div>
       <div class="field"><label for="pkFrist">Frist</label><input id="pkFrist" type="date" class="search"></div>
-      <div class="field" style="grid-column:span 2"><label for="pkNote">Note</label><input id="pkNote" class="search" placeholder="Valgfri"></div>
-      <div class="field"><label for="pkFile">Vedhæft fil</label><input type="file" id="pkFile" class="search"></div>
+      <div class="field full"><label for="pkNote">Note</label><input id="pkNote" class="search" placeholder="Valgfri"></div>
+      <div class="field full"><label for="pkFile">Vedhæft fil</label><input type="file" id="pkFile" class="search"></div>
       <button class="btn primary" id="pkOpret">Opret</button>
     </div>
   </section>` : '';
