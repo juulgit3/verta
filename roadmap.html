@@ -131,6 +131,9 @@ footer{margin-top:40px;font-size:12px;color:var(--ink-40)}
       Realtime-abonnementet dækkede kun <code>activity_log</code>; dækker nu også <code>guests</code>, <code>agenda_items</code>, <code>agenda_item_notes</code> og <code>event_rooms</code>, så samtidige seere ikke længere ser forældet data.<br>
       Ny loading-skærm ved boot og arrangementsåbning (var før et blankt øjeblik), en kort grøn "gemt"-blink på felter der gemmes ved blur (lokationer, lokaler, gæsteliste), og en bredere mobil-tilpasning (kortere padding, aftalepunkter og gæstetabel folder pænere på smalle skærme).
     </div></div>
+    <div class="card"><div class="t">Selvbetjent kodeord som alternativ til magisk link</div><div class="d">
+      Man skulle før altid vente på en mail for at logge ind. Login-skærmen har nu et toggle til at logge ind med kodeord i stedet (<code>signInWithPassword</code>), og en ny "Kodeord"-knap i topbjælken lader en logget-ind bruger selv sætte et kodeord (<code>updateUser({password})</code>) — helt selvbetjent, ingen admin sætter eller ser andres kodeord. Første login skal stadig ske via magisk link (det er dér kontoen oprettes), men fremover kan man vælge kodeord og undgå at vente på mail hver gang.
+    </div></div>
   </details>
 
   <footer>Verta · internt roadmap-dokument, ikke offentligt indekseret.</footer>

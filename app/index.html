@@ -259,6 +259,7 @@ input[type=file].search{padding:6px 8px;font-size:13px;min-width:0}
     <div class="rolebar">
       <span class="whoami" id="whoami"></span>
       <button class="btn" id="backToList" style="display:none">‹ Arrangementer</button>
+      <button class="btn" id="setPasswordBtn" style="display:none">Kodeord</button>
       <button class="btn" id="logout" style="display:none">Log ud</button>
     </div>
   </div>
@@ -279,7 +280,24 @@ input[type=file].search{padding:6px 8px;font-size:13px;min-width:0}
       <h2 style="font-family:'Instrument Serif',serif;font-style:italic;font-size:30px;font-weight:400;margin:0 0 4px">Log ind</h2>
       <p id="gateMsg" class="note" style="color:var(--ink-60);font-size:14px;margin:0 0 16px">Skriv din mail — du får et link, du logger ind med. Ingen adgangskode.</p>
       <input id="gateEmail" class="search" style="width:100%;margin-bottom:10px" type="email" placeholder="dig@eksempel.dk" autocomplete="email">
+      <input id="gatePassword" type="password" class="search" style="width:100%;margin-bottom:10px;display:none" placeholder="Kodeord" autocomplete="current-password">
       <button class="btn primary" id="gateSend" style="width:100%">Send login-link</button>
+      <button class="btn primary" id="gatePasswordLogin" style="width:100%;display:none">Log ind</button>
+      <button class="btn" type="button" id="gateToggleMode" style="width:100%;margin-top:8px">Har du et kodeord? Log ind med det i stedet</button>
+    </div>
+  </div>
+  <div id="passwordModal" style="display:none;position:fixed;inset:0;background:rgba(18,21,27,.45);z-index:60;align-items:center;justify-content:center;padding:20px">
+    <div style="max-width:380px;width:100%;background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:22px">
+      <h2 style="font-family:'Instrument Serif',serif;font-style:italic;font-size:24px;font-weight:400;margin:0 0 14px">Sæt kodeord</h2>
+      <p class="note" style="margin:0 0 14px;font-size:13.5px;line-height:1.5">Så kan du logge ind med kodeord i stedet for at vente på en mail, næste gang.</p>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <div class="field"><label for="pwNew">Nyt kodeord</label><input id="pwNew" type="password" class="search" placeholder="Mindst 8 tegn" style="width:100%" autocomplete="new-password"></div>
+        <div class="field"><label for="pwConfirm">Bekræft kodeord</label><input id="pwConfirm" type="password" class="search" style="width:100%" autocomplete="new-password"></div>
+      </div>
+      <div class="row" style="margin-top:14px;justify-content:flex-end">
+        <button class="btn" id="pwCancel">Annullér</button>
+        <button class="btn primary" id="pwSave">Gem</button>
+      </div>
     </div>
   </div>
 
@@ -824,6 +842,7 @@ function render(){
   document.getElementById('bootLoading').style.display = 'none';
   renderSuperadminBar();
   document.getElementById('logout').style.display = '';
+  document.getElementById('setPasswordBtn').style.display = '';
   document.getElementById('backToList').style.display = (state.rolle==='kilden' && (state.events||[]).length>1 && state.view==='workspace') ? '' : 'none';
   document.getElementById('fabAddTask').style.display = (state.rolle==='kilden' && state.view==='workspace') ? 'block' : 'none';
 
@@ -2035,6 +2054,54 @@ function viewBrugere(){
     btn.disabled=false; btn.textContent=orig;
   };
   onEnterSubmit(document.getElementById('gateEmail'), ()=>gateSend.click());
+
+  let gateMode='link';
+  const gatePwLogin=document.getElementById('gatePasswordLogin');
+  const gateToggle=document.getElementById('gateToggleMode');
+  function setGateMode(mode){
+    gateMode=mode;
+    const isPw = mode==='password';
+    gateSend.style.display = isPw?'none':'';
+    document.getElementById('gatePassword').style.display = isPw?'':'none';
+    gatePwLogin.style.display = isPw?'':'none';
+    gateToggle.textContent = isPw ? 'Log ind med magisk link i stedet' : 'Har du et kodeord? Log ind med det i stedet';
+    document.getElementById('gateMsg').textContent = isPw ? 'Skriv din mail og dit kodeord.' : 'Skriv din mail — du får et link, du logger ind med. Ingen adgangskode.';
+  }
+  gateToggle.onclick=()=>setGateMode(gateMode==='password'?'link':'password');
+  gatePwLogin.onclick=async()=>{
+    const email=document.getElementById('gateEmail').value.trim();
+    const password=document.getElementById('gatePassword').value;
+    if(!email||!password) return;
+    const orig=gatePwLogin.textContent;
+    gatePwLogin.disabled=true; gatePwLogin.textContent='Logger ind…';
+    const {error}=await sb.auth.signInWithPassword({email,password});
+    gatePwLogin.disabled=false; gatePwLogin.textContent=orig;
+    if(error) document.getElementById('gateMsg').textContent='Forkert mail eller kodeord.';
+  };
+  onEnterSubmit(document.getElementById('gatePassword'), ()=>gatePwLogin.click());
+
+  document.getElementById('setPasswordBtn').onclick=()=>{
+    document.getElementById('pwNew').value='';
+    document.getElementById('pwConfirm').value='';
+    document.getElementById('passwordModal').style.display='flex';
+  };
+  document.getElementById('pwCancel').onclick=()=>{ document.getElementById('passwordModal').style.display='none'; };
+  const pwSave=document.getElementById('pwSave');
+  pwSave.onclick=async()=>{
+    const pw1=document.getElementById('pwNew').value;
+    const pw2=document.getElementById('pwConfirm').value;
+    if(pw1.length<8){ showToast('Kodeordet skal være mindst 8 tegn.','error'); return; }
+    if(pw1!==pw2){ showToast('Kodeordene er ikke ens.','error'); return; }
+    const orig=pwSave.textContent;
+    pwSave.disabled=true; pwSave.textContent='Gemmer…';
+    const {error}=await sb.auth.updateUser({password:pw1});
+    pwSave.disabled=false; pwSave.textContent=orig;
+    if(error){ showToast('Kunne ikke sætte kodeord: '+error.message,'error'); return; }
+    document.getElementById('passwordModal').style.display='none';
+    showToast('Kodeord sat. Du kan nu logge ind med det.','ok');
+  };
+  onEnterSubmit(document.getElementById('pwConfirm'), ()=>pwSave.click());
+
   document.getElementById('logout').onclick=async()=>{ await sb.auth.signOut(); location.reload(); };
   document.getElementById('backToList').onclick=()=>{ showPicker(); };
   const {data:{session}}=await sb.auth.getSession();
