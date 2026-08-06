@@ -162,6 +162,7 @@ footer.legal{margin-top:28px;font-size:12px;color:var(--ink-40);line-height:1.6}
 .sabar-inner{max-width:960px;margin:0 auto;padding:9px 18px;display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap}
 .sabar-label{font-size:12.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--amber)}
 .sabar-label #sabarOrg{color:rgba(234,237,230,.65);font-weight:600;text-transform:none;letter-spacing:0}
+.sabar-label #sabarActorNote{color:var(--amber);font-weight:700;text-transform:none;letter-spacing:0}
 .sabar-btn{background:rgba(234,237,230,.08);border-color:rgba(234,237,230,.25);color:rgba(234,237,230,.85)}
 .sabar-btn:hover{border-color:var(--amber);color:#fff}
 
@@ -242,8 +243,9 @@ input[type=file].search{padding:6px 8px;font-size:13px;min-width:0}
 </div>
 <div id="superadminBar" style="display:none">
   <div class="sabar-inner">
-    <span class="sabar-label">⚡ Superadmin<span id="sabarOrg"></span></span>
+    <span class="sabar-label">⚡ Superadmin<span id="sabarOrg"></span><span id="sabarActorNote"></span></span>
     <span class="row" style="gap:8px">
+      <select class="btn sabar-btn" id="sabarActorSelect" style="display:none"></select>
       <button class="btn sabar-btn" id="sabarGuestToggle" style="display:none">Vis som gæst</button>
       <button class="btn sabar-btn" id="sabarHome">Kontrolrum</button>
     </span>
@@ -345,7 +347,8 @@ let state = { gaester:[], punkter:[], log:[],
               openPickerGroups:new Set(['kladde','tilbud','bekræftet']),
               isSuperadmin:false, allOrgs:[], guestLink:'', guestLinkBusy:false,
               guestWelcome:false, contactName:'', orgOnboardingDismissed:false, orgCatalogCount:0, orgStaffCount:0,
-              taskTemplates:[], agendaNotes:{}, openTaskNotes:new Set(), openDoneGroups:new Set() };
+              taskTemplates:[], agendaNotes:{}, openTaskNotes:new Set(), openDoneGroups:new Set(),
+              superadminActor:null, impersonating:null, roster:[] };
 function save(){ cloudSaveGuestsAgenda(); }
 const currentActor = () => state.actor||{navn:'?',side:'kilden'};
 
@@ -1161,15 +1164,37 @@ document.getElementById('sabarGuestToggle').onclick=()=>{
 };
 document.getElementById('sabarHome').onclick=()=>{
   unsubscribeRealtime();
+  state.impersonating=null; state.actor=state.superadminActor;
   state.eventId=null; state.orgId=null; state.orgName=''; state.view='superadmin';
   showApp(); loadSuperadminHome().then(render);
 };
+function setActor(staffId){
+  if(!staffId){
+    state.impersonating=null;
+    state.actor=state.superadminActor;
+  } else {
+    const s=(state.roster||[]).find(r=>r.id===staffId);
+    if(!s) return;
+    state.impersonating={id:s.id, navn:s.name};
+    state.actor={navn:s.name, side:'kilden'};
+  }
+  render();
+}
 function renderSuperadminBar(){
   const bar=document.getElementById('superadminBar');
   if(!bar) return;
   if(!state.isSuperadmin){ bar.style.display='none'; return; }
   bar.style.display='block';
   document.getElementById('sabarOrg').textContent = state.orgName ? (' · i '+state.orgName) : '';
+  document.getElementById('sabarActorNote').textContent = state.impersonating ? (' · viser som '+state.impersonating.navn) : '';
+  const as=document.getElementById('sabarActorSelect');
+  as.style.display = state.orgId ? '' : 'none';
+  if(state.orgId){
+    const mig='Mig ('+((state.superadminActor||{}).navn||'Superadmin')+')';
+    as.innerHTML = `<option value="">${esc(mig)}</option>` + (state.roster||[]).map(r=>`<option value="${r.id}">${esc(r.name)}</option>`).join('');
+    as.value = state.impersonating ? state.impersonating.id : '';
+    as.onchange = ()=>setActor(as.value);
+  }
   const gt=document.getElementById('sabarGuestToggle');
   gt.style.display = state.eventId ? '' : 'none';
   gt.textContent = state.rolle==='kunde' ? 'Vis som medarbejder' : 'Vis som gæst';
@@ -1199,6 +1224,7 @@ async function cloudBoot(user){
   if(sa){
     state.isSuperadmin=true; state.isAdmin=true; state.rolle='kilden';
     state.actor={navn:(sa.name||'Superadmin')+' (Verta)', side:'kilden'};
+    state.superadminActor=state.actor;
     state.view='superadmin';
     showApp();
     await loadSuperadminHome(); render();
@@ -1247,18 +1273,21 @@ async function loadSuperadminHome(){
 async function enterOrgAsSuperadmin(orgId){
   const org=(state.allOrgs||[]).find(o=>o.id===orgId);
   state.orgId=orgId; state.orgName=org?org.name:'';
-  const [{data:orgRow},{data:vens},{count:catCount},{count:staffCnt},{data:evs}] = await Promise.all([
+  state.impersonating=null; state.actor=state.superadminActor;
+  const [{data:orgRow},{data:vens},{count:catCount},{count:staffCnt},{data:evs},{data:roster}] = await Promise.all([
     sb.from('organisations').select('onboarding_dismissed').eq('id',orgId).maybeSingle(),
     sb.from('venues').select('id,name').eq('org_id',orgId).order('name'),
     sb.from('catalog_items').select('id',{count:'exact',head:true}).eq('org_id',orgId),
     sb.from('staff').select('id',{count:'exact',head:true}).eq('org_id',orgId),
-    sb.from('events').select('id,title,event_date,status,offer_total_kr,event_type,venues(name)').eq('org_id',orgId).order('event_date',{ascending:false})
+    sb.from('events').select('id,title,event_date,status,offer_total_kr,event_type,venues(name)').eq('org_id',orgId).order('event_date',{ascending:false}),
+    sb.from('staff').select('id,name').eq('org_id',orgId).order('name')
   ]);
   state.orgOnboardingDismissed=!!(orgRow&&orgRow.onboarding_dismissed);
   state.venues=vens||[];
   state.orgCatalogCount=catCount||0;
   state.orgStaffCount=staffCnt||0;
   state.events=evs||[];
+  state.roster=roster||[];
   if(state.events.length===1) openEvent(state.events[0].id); else showPicker();
 }
 async function createRealCustomer(){

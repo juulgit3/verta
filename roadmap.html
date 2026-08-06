@@ -134,6 +134,9 @@ footer{margin-top:40px;font-size:12px;color:var(--ink-40)}
     <div class="card"><div class="t">Selvbetjent kodeord som alternativ til magisk link</div><div class="d">
       Man skulle før altid vente på en mail for at logge ind. Login-skærmen har nu et toggle til at logge ind med kodeord i stedet (<code>signInWithPassword</code>), og en ny "Kodeord"-knap i topbjælken lader en logget-ind bruger selv sætte et kodeord (<code>updateUser({password})</code>) — helt selvbetjent, ingen admin sætter eller ser andres kodeord. Første login skal stadig ske via magisk link (det er dér kontoen oprettes), men fremover kan man vælge kodeord og undgå at vente på mail hver gang.
     </div></div>
+    <div class="card"><div class="t">Superadmin kan skifte identitet til en medarbejder</div><div class="d">
+      Superadmin-bjælken har nu, når man er inde i en organisation, en dropdown med organisationens medarbejdere (fx til at vise en demo som en navngiven person i stedet for "Superadmin (Verta)"). Vælger man en medarbejder, stemples fremtidige log-opslag, beskeder og opgavenoter med det navn; man kan altid skifte tilbage til sig selv via samme dropdown, eller det sker automatisk, når man går tilbage til Kontrolrum. Rent visningslag — superadmin har allerede fuld adgang via RLS, uanset hvem der er valgt.
+    </div></div>
   </details>
 
   <footer>Verta · internt roadmap-dokument, ikke offentligt indekseret.</footer>
