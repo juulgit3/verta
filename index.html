@@ -30,6 +30,7 @@ a{color:inherit;text-decoration:none}
 /* ---- header ---- */
 header.site{position:sticky;top:0;z-index:20;background:rgba(234,237,230,.88);backdrop-filter:blur(6px);border-bottom:1px solid var(--line)}
 .nav{display:flex;align-items:center;justify-content:space-between;padding:16px 0;gap:20px}
+.nav-actions{display:flex;align-items:center;gap:10px}
 .nav .mark{font-size:23px;color:var(--blue)}
 .nav-links{display:flex;gap:26px;font-size:14.5px;font-weight:600;color:var(--ink-70)}
 .nav-links a:hover{color:var(--ink)}
@@ -173,7 +174,10 @@ footer.site .fnote{margin-top:10px;font-size:12.5px;color:var(--ink-45);line-hei
       <a href="/pris">Pris</a>
       <a href="/kontakt">Kontakt</a>
     </nav>
-    <button class="btn primary" type="button">Book en demo</button>
+    <div class="nav-actions">
+      <a class="btn" href="/app">Login</a>
+      <button class="btn primary" type="button">Book en demo</button>
+    </div>
   </div>
 </header>
 
