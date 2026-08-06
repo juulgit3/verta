@@ -479,7 +479,7 @@ function heroChips(){
     <span class="chip blue"><span class="dot"></span>${datoTxt}</span>
     <span class="chip"><span class="dot"></span><b class="num">${d}</b>&nbsp;dage til</span>
     <span class="chip ${jer?'warn':'ok'}"><span class="dot"></span>${jer?jer+' punkter afventer jer':'Intet afventer jer'}</span>
-    ${kilden&&state.rolle==='kilden'?`<span class="chip warn"><span class="dot"></span>${kilden} afventer Kilden</span>`:''}
+    ${kilden&&state.rolle==='kilden'?`<span class="chip warn"><span class="dot"></span>${kilden} afventer os</span>`:''}
     ${state.rolle==='kunde'&&state.contactName?`<span class="chip"><span class="dot"></span>Kontakt: ${esc(state.contactName)}</span>`:''}`;
 }
 
@@ -566,7 +566,7 @@ function viewOversigt(){
       <button class="btn" id="guestLinkCopy">Kopiér</button>
       <button class="btn" id="guestLinkNew">Nyt link</button>
     </div>
-    <div class="note" style="display:block;margin-top:6px;font-size:12px">Linket logger gæsten direkte ind på dette arrangement. Del det kun med brudeparret.</div>
+    <div class="note" style="display:block;margin-top:6px;font-size:12px">Linket logger gæsten direkte ind på dette arrangement. Del det kun med kunden.</div>
     ` : `
     <div class="row" style="gap:8px;flex-wrap:wrap">
       <input class="search" id="guestLinkName" placeholder="Navn (fx Emily &amp; Lars)" style="flex:1 1 160px">
@@ -609,7 +609,7 @@ function viewOversigt(){
     <header><h2>Udestående</h2><span class="note">sorteret efter frist</span></header>
     ${aabne.length?aabne.map(p=>{const d=p.frist?dageTil(p.frist):null;return `<div class="item">
       <span class="stripe ${p.ejer}"></span>
-      <div><div class="name">${esc(p.titel)}</div><div class="meta">${p.ejer==='jer'?'Jer':'Kilden'}${p.frist?` · frist ${datoKort(p.frist)} <span class="due ${d<0?'past':''}">${d<0?Math.abs(d)+' dage over':'om '+d+' dage'}</span>`:' · ingen frist'}</div></div>
+      <div><div class="name">${esc(p.titel)}</div><div class="meta">${ejerLabel(p.ejer)}${p.frist?` · frist ${datoKort(p.frist)} <span class="due ${d<0?'past':''}">${d<0?Math.abs(d)+' dage over':'om '+d+' dage'}</span>`:' · ingen frist'}</div></div>
       <span class="chip ${p.status==='mangler'?'warn':''}"><span class="dot"></span>${STATUS_LABEL[p.status]||p.status}</span></div>`;}).join(''):'<div class="empty">Alt er aftalt. Intet udestående.</div>'}
   </section>`;
   const gaesterPrisKort = `
@@ -627,7 +627,7 @@ function viewOversigt(){
       ${linjer.map(l=>`<div class="stat"><span>${l.navn}<br><span class="note">${l.grundlagTxt}</span></span><b class="num">${kr(l.belob)}</b></div>`).join('')}
       <div class="stat" style="border-top:1px solid var(--line);margin-top:6px;padding-top:12px"><span style="font-weight:700">I alt</span><b class="big">${kr(t)}</b></div>
       <div class="recon ${diff!==0?'off':''}">
-        <div class="t">${diff===0?'Stemmer med Kildens tilbud':'Afviger '+kr(Math.abs(diff))+(diff>0?' over':' under')+' tilbuddet'}</div>
+        <div class="t">${diff===0?'Stemmer med tilbuddet':'Afviger '+kr(Math.abs(diff))+(diff>0?' over':' under')+' tilbuddet'}</div>
         <div class="d">Tilbud af ${datoKort(state.eventDate)}: ${kr(state.offerTotal)}. Tallet genberegnes, hver gang gæstelisten ændres.</div>
       </div>
     </section>
@@ -733,7 +733,8 @@ function viewPunkter(){
       <button class="btn primary" id="pkOpret">Opret</button>
     </div>
   </section>` : '';
-  const groups = [['jer','Jeres ansvar'],['kilden','Kildens ansvar']].map(([ejer,titel])=>{
+  const kildenTitel = kilden ? 'Vores ansvar' : `Ansvar hos ${state.orgName||'os'}`;
+  const groups = [['jer','Jeres ansvar'],['kilden',kildenTitel]].map(([ejer,titel])=>{
     const all = state.punkter.filter(p=>p.ejer===ejer);
     const open = all.filter(p=>p.status!=='aftalt').sort((a,b)=>(a.frist||'9999').localeCompare(b.frist||'9999'));
     const done = all.filter(p=>p.status==='aftalt').sort((a,b)=>(b.frist||'').localeCompare(a.frist||''));
@@ -772,6 +773,11 @@ function viewKoekken(){
 function tid(ts){ return new Date(ts).toLocaleString('da-DK',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}); }
 const AREA_TXT = {gaester:'Gæster',punkter:'Punkter',pris:'Pris',system:'System'};
 const STATUS_LABEL = {mangler:'Mangler', udkast:'Udkast', aftalt:'Udført'};
+/* Label for et opgave-/aftalepunkts ejer ('jer'=kunden, 'kilden'=organisationen) — afhænger af hvem der ser på det, aldrig et hardkodet firmanavn. */
+function ejerLabel(ejer){
+  if(ejer==='jer') return state.rolle==='kilden' ? 'Kunden' : 'Jer';
+  return state.rolle==='kilden' ? 'Os' : (state.orgName||'Os');
+}
 
 function viewLog(){
   const whoList=[...new Set(state.log.map(e=>e.who))];
@@ -809,7 +815,7 @@ function viewTidslinje(){
       <div class="tlday">${dag}</div>
       ${liste.map(e=>`<div class="tlitem ${e.side}">
         <div class="txt">${esc(e.friendly)}</div>
-        <div class="by">${e.side==='kunde'?'af jer':'af Kilden'} · ${new Date(e.ts).toLocaleTimeString('da-DK',{hour:'2-digit',minute:'2-digit'})}</div>
+        <div class="by">${e.side==='kunde'?'af jer':'af '+esc(state.orgName||'os')} · ${new Date(e.ts).toLocaleTimeString('da-DK',{hour:'2-digit',minute:'2-digit'})}</div>
       </div>`).join('')}`).join('')}</div>`
     :'<div class="empty">Ingen ændringer endnu.</div>'}
   </section>`;
@@ -817,7 +823,7 @@ function viewTidslinje(){
 
 function viewBeskeder(){
   const msgs=state.log.filter(e=>e.type==='message').sort((a,b)=>b.ts-a.ts);
-  const modpart = state.rolle==='kilden' ? 'brudeparret' : 'Kilden';
+  const modpart = state.rolle==='kilden' ? 'kunden' : (state.orgName||'os');
   return `
   <section class="card">
     <header><h2>Beskeder</h2><span class="note">${msgs.length} i tråden</span></header>
@@ -1834,7 +1840,7 @@ function viewOpgaver(){
   <section class="card">
     <header><h2>Skabeloner</h2><span class="note">${(state.taskTemplates||[]).length}</span></header>
     ${(state.taskTemplates||[]).length?(state.taskTemplates||[]).map(t=>`<div class="stat" style="flex-wrap:wrap;gap:8px">
-      <span>${esc(t.title)} <span class="note">${t.owner==='jer'?'Jer':'Kilden'}${t.days_before_event!=null?' · '+t.days_before_event+' dage før':''}${t.event_type?' · '+esc(t.event_type):''}</span></span>
+      <span>${esc(t.title)} <span class="note">${t.owner==='jer'?'Kunden':'Os'}${t.days_before_event!=null?' · '+t.days_before_event+' dage før':''}${t.event_type?' · '+esc(t.event_type):''}</span></span>
       <button class="btn" data-delete-task-template="${t.id}">Slet</button>
     </div>`).join(''):'<div class="empty">Ingen skabeloner endnu.</div>'}
   </section>
@@ -1843,8 +1849,8 @@ function viewOpgaver(){
     <div class="row" style="gap:8px;flex-wrap:wrap;margin-top:4px">
       <input id="ttTitle" class="search" placeholder="Titel, fx Bordplan" style="flex:2;min-width:180px">
       <select id="ttOwner" class="search" style="flex:1;min-width:120px">
-        <option value="jer">Jer (kunden)</option>
-        <option value="kilden">Kilden</option>
+        <option value="jer">Kunden</option>
+        <option value="kilden">Os</option>
       </select>
       <input id="ttDays" type="number" min="0" class="search" placeholder="Dage før arrangement" style="flex:1;min-width:150px">
       <select id="ttEventType" class="search" style="flex:1;min-width:130px">
@@ -1952,7 +1958,7 @@ function viewLokationer(){
   <section class="card">
     <header><h2>Ny lokation</h2></header>
     <div class="row" style="gap:8px">
-      <input id="venName" class="search" placeholder="Navn, fx Kilden" style="flex:1">
+      <input id="venName" class="search" placeholder="Navn, fx Havnelageret" style="flex:1">
       <button class="btn primary" id="venCreate">Opret lokation</button>
     </div>
   </section>`;
