@@ -22,12 +22,13 @@ const guardSrc = extract('function assertCanMutate(){', '/* UI-lag oven på muta
 const readOnlySrc = extract('function applyPreviewReadOnly(){', 'function onEnterSubmit');
 // Range covers everything viewGaester() actually calls at render time (guestEditsAreLocked lives just
 // above it; bulkGuestFiltered/dietSummaryCard/dietTags/DIET_TAG_LABEL/normNameForDupe live below it, up
-// to taskNotesHtml). The CSV-import modal renderer (MODAL_RENDERERS.import) sits in the middle of that
-// range and references the generic modal system (MODAL_RENDERERS/state.modal), which this focused test
-// never exercises — stripped out below so its unresolved reference doesn't break the sandbox eval.
+// to taskNotesHtml). The "Indsæt flere navne"/CSV-import modal renderers (MODAL_RENDERERS.*) sit in the
+// middle of that range and reference the generic modal system (MODAL_RENDERERS/state.modal), which this
+// focused test never exercises — stripped out below so their unresolved references don't break the
+// sandbox eval.
 const guestEditsAreLockedSrc = extract('function guestEditsAreLocked(){', 'function viewGaester(){');
 let viewGaesterSrc = extract('function viewGaester(){', 'function taskNotesHtml');
-viewGaesterSrc = viewGaesterSrc.slice(0, viewGaesterSrc.indexOf('MODAL_RENDERERS.import'))
+viewGaesterSrc = viewGaesterSrc.slice(0, viewGaesterSrc.indexOf('MODAL_RENDERERS.bulkAddNames'))
   + viewGaesterSrc.slice(viewGaesterSrc.indexOf('function bulkGuestFiltered'));
 const taskNotesHtmlSrc = extract('function taskNotesHtml(p){', 'function renderTask');
 const renderTaskSrc = extract('function renderTask(p){', 'function viewPunkter');

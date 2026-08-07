@@ -46,13 +46,14 @@ input,select,textarea{font:inherit;color:inherit}
 .chip.blue{border-color:rgba(20,53,214,.3);color:var(--blue)} .chip.blue .dot{background:var(--blue)}
 
 .statussteps{display:flex;gap:5px;flex-wrap:wrap;margin-top:6px}
-.sstep{font-size:10.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;
+.sstep{appearance:none;-webkit-appearance:none;font-family:inherit;line-height:normal;font-size:10.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;
   padding:4px 9px;border-radius:99px;border:1px solid var(--line);color:var(--ink-40);background:var(--card)}
 .sstep.done{border-color:rgba(62,107,76,.4);color:var(--moss);background:rgba(62,107,76,.08)}
 .sstep.current{border-color:var(--blue);color:#fff;background:var(--blue)}
-.sstep.interactive{cursor:pointer}
+.sstep.interactive{cursor:pointer;font:inherit;letter-spacing:inherit;text-transform:inherit}
 .sstep.interactive:hover{border-color:var(--ink)}
 .sstep.current.interactive:hover{filter:brightness(1.1)}
+.sstep.interactive:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
 
 .card > summary{display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin-bottom:14px;cursor:pointer}
 summary{list-style:none}
@@ -161,6 +162,7 @@ select.status:focus-visible,input:focus-visible,button:focus-visible{outline:2px
 .compose .hint{font-size:12px;color:var(--ink-40);max-width:60%}
 .msg{border-left:3px solid var(--ink);border-radius:0 var(--radius) var(--radius) 0;background:#fff;padding:11px 14px;margin:10px 0}
 .msg.kunde{border-left-color:var(--blue)}
+.msg.internal{background:rgba(168,104,28,.06);border-left-color:var(--amber)}
 .msg .mhead{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:3px}
 .msg .mwho{font-weight:600;font-size:13.5px}
 .msg .mtime{font-size:12px;color:var(--ink-40);font-variant-numeric:tabular-nums;white-space:nowrap}
@@ -197,6 +199,7 @@ footer.legal{margin-top:28px;font-size:12px;color:var(--ink-40);line-height:1.6}
   box-shadow:0 6px 20px rgba(18,21,27,.3);animation:toastin .2s ease both;max-width:100%}
 .toast.error{background:#5C1A1A}
 .toast.ok{background:var(--moss)}
+.toast .btn{background:rgba(255,255,255,.16);border-color:rgba(255,255,255,.35);color:#fff;padding:5px 10px;font-size:12.5px}
 @keyframes toastin{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
 #confirmModal{display:none;position:fixed;inset:0;background:rgba(18,21,27,.45);z-index:65;align-items:center;justify-content:center;padding:20px}
 #confirmModal .box{max-width:380px;width:100%;background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:22px}
@@ -230,7 +233,24 @@ input[type=file].search{padding:6px 8px;font-size:13px;min-width:0}
 /* loading-skærm */
 #bootLoading{position:fixed;inset:0;background:var(--paper);z-index:90;display:flex;align-items:center;justify-content:center}
 
-@media print{body{background:#fff} nav.tabs,.btn,.row.noprint,.rolebar,#superadminBar,#previewBar,.fab,#toastWrap,#bootLoading{display:none!important} .card{border:0;padding:0;margin-bottom:22px}
+/* Mobil bundnavigation: fire faste destinationer (Dag/Oversigt, Opgaver, Beskeder, Mere) i stedet for
+   den vandret-scrollende fanebjælke, som er svær at ramme præcist med tommelfingeren. Kun til stede
+   under 640px — over det er den vandrette fanebjælke selv fin at bruge, og en fast bundbjælke ville
+   bare tage plads væk fra indholdet uden grund. */
+.mobile-bottom-nav{position:fixed;left:0;right:0;bottom:0;z-index:75;background:var(--card);border-top:1px solid var(--line);
+  display:none;box-shadow:0 -4px 14px rgba(18,21,27,.08)}
+.mobile-bottom-nav button{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
+  min-height:56px;border:0;background:none;font:inherit;font-size:11px;font-weight:600;color:var(--ink-40);cursor:pointer;position:relative}
+.mobile-bottom-nav button.active{color:var(--blue)}
+.mobile-bottom-nav button:focus-visible{outline:2px solid var(--blue);outline-offset:-2px}
+.mobile-bottom-nav .mbn-icon{font-size:18px;line-height:1}
+.mobile-bottom-nav .mbn-badge{position:absolute;top:4px;right:calc(50% - 22px);background:var(--amber);color:#fff;border-radius:99px;font-size:10px;font-weight:700;padding:1px 5px;min-width:15px}
+@media(max-width:640px){
+  .mobile-bottom-nav.mbn-active{display:flex}
+  body.has-mobile-nav .wrap{padding-bottom:64px}
+  body.has-mobile-nav .fab{bottom:calc(72px + env(safe-area-inset-bottom))}
+}
+@media print{body{background:#fff} nav.tabs,.btn,.row.noprint,.rolebar,#superadminBar,#previewBar,.fab,#toastWrap,#bootLoading,.mobile-bottom-nav{display:none!important} .card{border:0;padding:0;margin-bottom:22px}
   .tbl input[type=text]{border:0;background:none} .tbl select{border:0;background:none;-webkit-appearance:none;appearance:none}}
 @media (prefers-reduced-motion:no-preference){.card{animation:rise .32s ease both}@keyframes rise{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}}
 
@@ -246,6 +266,7 @@ input[type=file].search{padding:6px 8px;font-size:13px;min-width:0}
   select.search, select.btn, .logfilters select{ min-height:44px }
   .tbl td.c{ padding:4px 10px }
   .chkwrap{ display:inline-flex; align-items:center; justify-content:center; min-width:44px; min-height:44px; cursor:pointer }
+  .sstep.interactive{ min-height:44px; display:inline-flex; align-items:center }
 }
 .chkwrap{ cursor:pointer }
 .bulkbar{position:sticky;bottom:0;background:var(--ink);color:#fff;border-radius:var(--radius);padding:10px 14px;margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;z-index:20}
@@ -254,7 +275,7 @@ input[type=file].search{padding:6px 8px;font-size:13px;min-width:0}
 @media(max-width:600px){
   .wrap{padding:18px 14px 90px}
   .logrow{grid-template-columns:1fr;gap:2px}
-  .fab{right:14px;padding:12px 16px;font-size:13px}
+  .fab{right:14px;padding:12px 16px;font-size:13px;min-height:44px;display:inline-flex;align-items:center}
   .card{padding:14px 14px 16px}
   .item{grid-template-columns:3px 1fr;row-gap:8px}
   .item > .row{grid-column:1/-1;justify-content:flex-start}
@@ -354,6 +375,7 @@ input[type=file].search{padding:6px 8px;font-size:13px;min-width:0}
   <footer class="legal" id="legal"></footer>
 </div>
 
+<nav id="mobileBottomNav" class="mobile-bottom-nav"></nav>
 <button id="fabAddTask" class="fab" style="display:none">+ Opgave</button>
 <div id="taskModal" style="display:none;position:fixed;inset:0;background:rgba(18,21,27,.45);z-index:60;align-items:center;justify-content:center;padding:20px">
   <div style="max-width:420px;width:100%;background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:22px">
@@ -412,7 +434,17 @@ let state = { gaester:[], punkter:[], log:[],
               inboxFilter:JSON.parse(localStorage.getItem('verta_inbox_filter')||'{"who":"alle","kind":"alle"}'),
               inboxSort:localStorage.getItem('verta_inbox_sort')||'prioritet',
               pickerMineOnly:localStorage.getItem('verta_picker_mine')==='1',
-              logCollapseViews:true, calendarRange:'uge', calendarDate:null, docPreview:null };
+              logCollapseViews:true, openLogViewGroups:new Set(), calendarRange:'uge', calendarDate:null, docPreview:null };
+/* Generisk modal-dispatch: hver feature (dublikering, skabeloner, import, godkendelser, massehandling,
+   overdragelse, "Mere"-menuen) registrerer en renderer + evt. binder under sin egen nøgle i disse to
+   tabeller, i stedet for én kæmpe if/else. state.modal={type,...data} er den eneste kilde til hvilken
+   modal der er åben. Erklæret her, tidligt i scriptet — flere features tilføjer deres
+   MODAL_RENDERERS.xxx/MODAL_BINDERS.xxx et godt stykke længere nede i filen, men da det blot er
+   property-tildelinger (ikke funktionsdeklarationer), skal selve objekterne være initialiseret,
+   FØR scriptet når derned, ellers rammer den første tildeling en ReferenceError (TDZ) og hele
+   scriptet stopper med at køre. (Præcis den fejl var der reelt indtil denne rettelse.) */
+const MODAL_RENDERERS = {};
+const MODAL_BINDERS = {};
 /* Rigtig UUID til klient-oprettede rækker (guests.id er en uuid-kolonne — et 'n'+Date.now()-agtigt id ville få hele upsert-batchen til at fejle stille). */
 function newId(){
   if(crypto.randomUUID) return crypto.randomUUID();
@@ -424,16 +456,25 @@ const currentActor = () => state.actor||{navn:'?',side:'kilden'};
 /* =========================================================
    UI-hjælpere: toast + bekræft-modal (erstatter alert/confirm), Enter-taste
    ========================================================= */
-function showToast(msg, kind){
+function showToast(msg, kind, action){
   const wrap=document.getElementById('toastWrap');
   const t=document.createElement('div');
   t.className='toast'+(kind?' '+kind:'');
   /* role="alert" giver implicit aria-live="assertive" for fejl (skal afbryde og læses straks); success/info
      læner sig op ad #toastWrap's egen aria-live="polite" (venter til skærmlæseren er færdig med andet). */
   if(kind==='error') t.setAttribute('role','alert');
-  t.textContent=msg;
+  if(action && action.label){
+    const span=document.createElement('span'); span.textContent=msg;
+    const btn=document.createElement('button'); btn.className='btn'; btn.type='button'; btn.textContent=action.label;
+    btn.style.marginLeft='10px';
+    btn.onclick=()=>{ t.remove(); action.onClick(); };
+    t.appendChild(span); t.appendChild(btn);
+    setTimeout(()=>t.remove(), 8000);
+  } else {
+    t.textContent=msg;
+    setTimeout(()=>t.remove(), 4200);
+  }
   wrap.appendChild(t);
-  setTimeout(()=>t.remove(), 4200);
 }
 function appConfirm(msg){
   return new Promise(resolve=>{
@@ -513,12 +554,17 @@ function pushLog({area,label,from='',to='',cust=false,friendly=''}){
   state.log.unshift(ev);
   mutate(()=>sb.from('activity_log').insert(logToDb(ev)).then(({error})=>error&&console.error('log',error)));
 }
-function pushMessage(text){
+/* "Intern note" genbruger den eksisterende beskedstråd, men indsættes med entry_type='note' i stedet
+   for 'message' — RLS'ens log_read_guest kræver enten entry_type='message' eller customer_visible=true,
+   så en note med customer_visible=false er dermed usynlig for gæsten helt uden skemaændring. Kun staff
+   kan oprette dem (UI-lag), men selv et direkte API-misbrug fra en gæst ville blot skabe en note, gæsten
+   ikke selv kan læse igen — ingen datalækage. */
+function pushMessage(text, internal){
   const a=currentActor();
   const ev={id:'m'+Date.now(), ts:Date.now(), side:a.side, who:a.navn,
-    type:'message', area:'system', text:text.trim(), from:'', to:'', cust:false, friendly:''};
+    type: internal?'note':'message', area:'system', text:text.trim(), from:'', to:'', cust:false, friendly:''};
   state.log.unshift(ev);
-  state.lastRead[a.side]=Date.now();
+  if(!internal) state.lastRead[a.side]=Date.now();
   mutate(()=>sb.from('activity_log').insert(logToDb(ev)).then(({error})=>error&&console.error('msg',error)));
   /* v2: her udløser en Edge Function en mail til den anden part, jf. roadmap */
 }
@@ -648,6 +694,40 @@ function renderTabs(){
   if(active) active.scrollIntoView({inline:'nearest', block:'nearest'});
 }
 
+/* Fast bundnavigation på mobil: de tre hyppigste faner pr. rolle plus "Mere" for resten, i stedet for
+   kun den vandret-scrollende fanebjælke (nav.tabs), som stadig findes og fungerer fint på bredere
+   skærme. "Dag" findes kun for medarbejdere (kunden har ingen "I dag"-fane) — kunden får Oversigt i
+   samme plads i stedet, så bundbjælken altid har fire meningsfulde destinationer. */
+const MOBILE_NAV_PRIMARY = {
+  kilden:[['live','Dag','📋'],['punkter','Opgaver','✓'],['beskeder','Beskeder','💬']],
+  kunde: [['oversigt','Oversigt','🏠'],['punkter','Opgaver','✓'],['beskeder','Beskeder','💬']]
+};
+/* Kontekstafhængig FAB: samme knap, men label/handling følger den aktive fane i stedet for altid at
+   være "+ Opgave" — en gæsteliste-fane har mest brug for at kunne tilføje en gæst med det samme, en
+   opgavefane for en opgave. Faner, hvor ingen af de to giver mening (kalender/dokumenter/log/admin/
+   godkendelser/beskeder — beskeder har sin egen synlige compose-boks), skjuler simpelthen FAB'en. */
+const FAB_CONTEXT = {
+  gaester:{label:'+ Gæst', onClick:()=>{ const btn=document.getElementById('tilfoej'); if(btn) btn.click(); }},
+  punkter:{label:'+ Opgave', onClick:()=>openTaskModal('')},
+  oversigt:{label:'+ Opgave', onClick:()=>openTaskModal('')},
+  live:{label:'+ Opgave', onClick:()=>openTaskModal('')}
+};
+function renderMobileBottomNav(){
+  const nav=document.getElementById('mobileBottomNav');
+  if(!nav) return;
+  const active = state.view==='workspace' && TABS[state.rolle];
+  nav.classList.toggle('mbn-active', !!active);
+  document.body.classList.toggle('has-mobile-nav', !!active);
+  if(!active){ nav.innerHTML=''; return; }
+  const primary=MOBILE_NAV_PRIMARY[state.rolle]||MOBILE_NAV_PRIMARY.kunde;
+  const primaryIds=primary.map(p=>p[0]);
+  const n=unread(state.rolle);
+  const items=primary.map(([id,label,icon])=>
+    `<button type="button" data-mbn="${id}" class="${state.tab===id?'active':''}" aria-current="${state.tab===id?'page':'false'}"><span class="mbn-icon">${icon}</span>${esc(label)}${id==='beskeder'&&n?`<span class="mbn-badge">${n}</span>`:''}</button>`
+  ).join('');
+  const moreActive = !primaryIds.includes(state.tab);
+  nav.innerHTML = items + `<button type="button" data-mbn="more" class="${moreActive?'active':''}" aria-current="${moreActive?'page':'false'}"><span class="mbn-icon">⋯</span>Mere</button>`;
+}
 function roomsLine(){
   const byRoom={};
   (state.phases||[]).forEach(p=>{ if(p.roomName){ (byRoom[p.roomName]=byRoom[p.roomName]||[]).push(p.label); } });
@@ -932,6 +1012,7 @@ function viewGaester(){
     <div class="row noprint" style="margin-bottom:12px">
       <input class="search" id="soeg" placeholder="Søg navn eller kost" value="${esc(state.soeg)}">
       ${locked?'':'<button class="btn primary" id="tilfoej">Tilføj gæst</button>'}
+      ${locked?'':'<button class="btn" id="bulkAddNamesBtn">Indsæt flere navne</button>'}
       ${locked?'':'<button class="btn" id="importGuestsBtn">Importér gæster</button>'}
       <select class="search" id="exportFormat" style="max-width:160px">
         <option value="csv">CSV</option>
@@ -1202,6 +1283,35 @@ function buildImportPreview(rows){
   });
   return {header, mapping, parsed};
 }
+MODAL_RENDERERS.bulkAddNames = function(){
+  return `
+  <h2 style="font-family:'Instrument Serif',serif;font-style:italic;font-size:24px;font-weight:400;margin:0 0 14px">Indsæt flere navne</h2>
+  <p style="font-size:14px;color:var(--ink-60);margin:0 0 12px">Ét navn pr. linje — de tilføjes alle som voksne til reception og middag, klar til at rette bagefter.</p>
+  <textarea id="banNames" class="search" rows="8" style="width:100%;resize:vertical" placeholder="Emily Hansen
+Lars Jensen
+..."></textarea>
+  <div id="banCount" class="note" style="margin-top:6px">0 navne</div>
+  <div class="row" style="margin-top:14px;justify-content:flex-end;gap:8px">
+    <button class="btn" data-modal-close>Annullér</button>
+    <button class="btn primary" id="banAdd">Tilføj</button>
+  </div>`;
+};
+MODAL_BINDERS.bulkAddNames = function(){
+  const ta=document.getElementById('banNames');
+  const countEl=document.getElementById('banCount');
+  const names=()=>ta.value.split('\n').map(s=>s.trim()).filter(Boolean);
+  ta.oninput=()=>{ const n=names().length; countEl.textContent=n+' navn'+(n===1?'':'e'); };
+  ta.focus();
+  document.getElementById('banAdd').onclick=async()=>{
+    const list=names();
+    if(!list.length){ showToast('Skriv mindst ét navn.','error'); return; }
+    await guestMutation(()=>{
+      list.forEach(navn=>state.gaester.push({id:newId(), navn, kat:'voksen', reception:true, middag:true, kost:''}));
+    }, list.length+' gæster tilføjet');
+    closeModal();
+    showToast(list.length+' gæster tilføjet.','ok');
+  };
+};
 MODAL_RENDERERS.import = function(){
   const step=state.modal.step||'pick';
   if(step==='pick'){
@@ -1937,7 +2047,7 @@ function docAendringer(){
   return docHeader()+`
   <section class="card">
     <header><h2>Ændringslog</h2><span class="note">${changes.length}</span></header>
-    ${changes.length?changes.map(e=>`<div class="stat"><span>${esc(tid(e.ts))} · ${esc(e.who)}</span><span>${logLine(e)}</span></div>`).join(''):'<div class="empty">Ingen ændringer registreret endnu.</div>'}
+    ${changes.length?changes.map(e=>`<div class="stat"><span>${esc(tid(e.ts))} · ${esc(e.who)}</span><span class="row" style="gap:8px"><span>${logLine(e)}</span><button class="btn noprint" data-goto-log="${e.ts}">Gå til i loggen</button></span></div>`).join(''):'<div class="empty">Ingen ændringer registreret endnu.</div>'}
   </section>
   ${crHistorik.length?`<section class="card">
     <header><h2>Behandlede ændringsforslag</h2></header>
@@ -1965,7 +2075,7 @@ function ejerLabel(ejer){
 
 function logRowsFiltered(){
   let rows=state.log.filter(e=>
-    (state.logType==='alle'||(state.logType==='aendringer'&&e.type==='change')||(state.logType==='opslag'&&e.type==='view')||(state.logType==='beskeder'&&e.type==='message')) &&
+    (state.logType==='alle'||(state.logType==='aendringer'&&e.type==='change')||(state.logType==='opslag'&&e.type==='view')||(state.logType==='beskeder'&&(e.type==='message'||e.type==='note'))) &&
     (state.logWho==='alle'||e.who===state.logWho) &&
     (state.logArea==='alle'||e.area===state.logArea));
   if(state.logDays==='custom'){
@@ -1980,9 +2090,29 @@ function logRowsFiltered(){
   if(q) rows = rows.filter(e=>(e.who||'').toLowerCase().includes(q)||(e.label||'').toLowerCase().includes(q)||(e.friendly||'').toLowerCase().includes(q)||(e.text||'').toLowerCase().includes(q));
   return rows;
 }
+/* Slår lange stræk af "kiggede ind"-hændelser fra samme person sammen til én linje, så en aktiv
+   gæst/medarbejder ikke drukner de faktiske ændringer i støj. Kun konsekutive view-hændelser fra
+   samme person grupperes — alt andet (ændringer, beskeder) vises altid som enkeltlinjer. */
+function groupLogRows(rows){
+  if(!state.logCollapseViews) return rows.map(e=>({kind:'single', e}));
+  const out=[]; let i=0;
+  while(i<rows.length){
+    const e=rows[i];
+    if(e.type==='view'){
+      let j=i;
+      while(j+1<rows.length && rows[j+1].type==='view' && rows[j+1].who===e.who) j++;
+      const group=rows.slice(i,j+1);
+      if(group.length>1) out.push({kind:'viewgroup', who:e.who, side:e.side, entries:group, key:'lv-'+e.ts});
+      else out.push({kind:'single', e});
+      i=j+1;
+    } else { out.push({kind:'single', e}); i++; }
+  }
+  return out;
+}
 function logLine(e){
   if(e.type==='view') return '<span class="view">kiggede ind</span>';
   if(e.type==='message') return `<span class="tag">Besked</span><span class="msgq">”${esc(e.text||'')}”</span>`;
+  if(e.type==='note') return `<span class="tag">Intern note</span><span class="msgq">”${esc(e.text||'')}”</span>`;
   const desc = e.friendly ? esc(e.friendly) : `${esc(e.label)}${(e.from||e.to)?` <span class="delta">${e.from?esc(e.from):'—'}<span class="arrow">→</span>${esc(e.to)}</span>`:''}`;
   return `<span class="tag">${AREA_TXT[e.area]}</span>${desc}`;
 }
@@ -2050,14 +2180,48 @@ function viewLog(){
         ${state.logSearch?'<button type="button" id="fLogSearchClear" title="Ryd søgning" aria-label="Ryd søgning" style="position:absolute;right:4px;top:50%;transform:translateY(-50%);border:0;background:transparent;color:var(--ink-40);font-size:16px;line-height:1;cursor:pointer;padding:4px 6px">×</button>':''}
       </div>
       <label class="row" style="gap:5px;font-size:12.5px;color:var(--ink-60)"><input type="checkbox" id="fLogTech" ${state.logShowTech?'checked':''}>Vis tekniske detaljer</label>
+      <label class="row" style="gap:5px;font-size:12.5px;color:var(--ink-60)"><input type="checkbox" id="fLogCollapse" ${state.logCollapseViews?'checked':''}>Skjul gentagne opslag</label>
       <button class="btn noprint" id="logExport">Eksportér CSV</button>
     </div>
-    ${rows.length?rows.map(e=>`<div class="logrow ${e.type==='view'?'viewrow':''}">
-      <span class="when">${tid(e.ts)}</span>
-      <span class="who"><span class="dot ${e.side}"></span>${esc(e.who.split(' (')[0])}</span>
-      <span class="what">${logLine(e)}${(state.logShowTech&&e.ip)?` <span class="note" style="font-variant-numeric:tabular-nums">· IP ${esc(e.ip)}</span>`:''}</span>
-    </div>`).join(''):'<div class="empty">Ingen hændelser matcher filteret.</div>'}
+    ${rows.length?groupLogRows(rows).map(item=>item.kind==='single'?logRowHtml(item.e):logViewGroupHtml(item)).join(''):'<div class="empty">Ingen hændelser matcher filteret.</div>'}
   </section>`;
+}
+function logRowHtml(e){
+  return `<div class="logrow ${e.type==='view'?'viewrow':''}" id="logrow-${e.ts}" data-log-ts="${e.ts}">
+    <span class="when">${tid(e.ts)}</span>
+    <span class="who"><span class="dot ${e.side}"></span>${esc(e.who.split(' (')[0])}</span>
+    <span class="what">${logLine(e)}${(state.logShowTech&&e.ip)?` <span class="note" style="font-variant-numeric:tabular-nums">· IP ${esc(e.ip)}</span>`:''}</span>
+  </div>`;
+}
+/* Springer direkte til en given loghændelse fra andre faner (fx Ændringsoversigt-dokumentet) —
+   nulstiller filtrene, der ellers kunne skjule den, folder evt. kiggehænd.-gruppe ud, og scroller/
+   fremhæver linjen. */
+function gotoLogEntry(ts){
+  state.tab='log';
+  state.logType='alle'; state.logWho='alle'; state.logArea='alle'; state.logDays='alle'; state.logSearch='';
+  const e=state.log.find(x=>x.ts===ts);
+  if(e && e.type==='view'){
+    const groups=groupLogRows(logRowsFiltered());
+    const g=groups.find(it=>it.kind==='viewgroup' && it.entries.some(x=>x.ts===ts));
+    if(g) state.openLogViewGroups.add(g.key);
+  }
+  render();
+  setTimeout(()=>{
+    const el=document.getElementById('logrow-'+ts);
+    if(el){ el.scrollIntoView({behavior:'smooth', block:'center'}); flashSaved('#logrow-'+ts); }
+  }, 30);
+}
+function logViewGroupHtml(g){
+  const open=state.openLogViewGroups.has(g.key);
+  const newest=g.entries[0], oldest=g.entries[g.entries.length-1];
+  return `<details data-log-view-group="${g.key}" ${open?'open':''} class="logrow viewrow" style="display:block">
+    <summary style="cursor:pointer;display:flex;gap:10px;align-items:baseline"><span class="fold-chev">▸</span>
+      <span class="when">${tid(newest.ts)}</span>
+      <span class="who"><span class="dot ${g.side}"></span>${esc(g.who.split(' (')[0])}</span>
+      <span class="what"><span class="view">kiggede ind ${g.entries.length} gange</span> <span class="note">(${tid(oldest.ts)} – ${tid(newest.ts)})</span></span>
+    </summary>
+    <div style="margin-top:6px;display:flex;flex-direction:column;gap:4px">${g.entries.map(logRowHtml).join('')}</div>
+  </details>`;
 }
 
 function viewTidslinje(){
@@ -2078,20 +2242,21 @@ function viewTidslinje(){
 }
 
 function viewBeskeder(){
-  const msgs=state.log.filter(e=>e.type==='message').sort((a,b)=>b.ts-a.ts);
-  const modpart = state.rolle==='kilden' ? 'kunden' : (state.orgName||'os');
+  const kilden=state.rolle==='kilden';
+  const msgs=state.log.filter(e=>e.type==='message'||(e.type==='note'&&kilden)).sort((a,b)=>b.ts-a.ts);
+  const modpart = kilden ? 'kunden' : (state.orgName||'os');
   return `
   <section class="card">
     <header><h2>Beskeder</h2><span class="note">${msgs.length} i tråden</span></header>
     <div class="compose">
       <textarea id="msgtext" placeholder="Skriv en besked til ${modpart}…"></textarea>
       <div class="crow">
-        <span class="hint">Ikke en live-chat — svar kommer i åbningstiden.</span>
+        ${kilden?'<label class="row" style="gap:5px;font-size:12.5px;color:var(--ink-60)"><input type="checkbox" id="msgInternal">Intern note (kun os — kunden ser den aldrig)</label>':'<span class="hint">Ikke en live-chat — svar kommer i åbningstiden.</span>'}
         <button class="btn primary" id="sendmsg">Send besked</button>
       </div>
     </div>
-    ${msgs.length?msgs.map(m=>`<div class="msg ${m.side}">
-      <div class="mhead"><span class="mwho">${esc(m.who)}</span><span class="row" style="gap:8px"><span class="mtime">${tid(m.ts)}</span>${state.rolle==='kilden'?`<button class="btn" data-msg-to-task="${esc((m.text||'').slice(0,80))}" style="font-size:11px;padding:2px 7px">+ Opgave</button>`:''}</span></div>
+    ${msgs.length?msgs.map(m=>`<div class="msg ${m.side} ${m.type==='note'?'internal':''}">
+      <div class="mhead"><span class="mwho">${esc(m.who)}${m.type==='note'?' <span class="chip" style="margin-left:4px"><span class="dot"></span>Intern note</span>':''}</span><span class="row" style="gap:8px"><span class="mtime">${tid(m.ts)}</span>${kilden?`<button class="btn" data-msg-to-task="${esc((m.text||'').slice(0,80))}" style="font-size:11px;padding:2px 7px">+ Opgave</button>`:''}</span></div>
       <div class="mtext">${esc(m.text||'')}</div>
     </div>`).join(''):'<div class="empty">Ingen beskeder endnu. Skriv den første ovenfor.</div>'}
   </section>`;
@@ -2100,13 +2265,23 @@ function viewBeskeder(){
 /* =========================================================
    6. RENDER + HÆNDELSER
    ========================================================= */
-/* Generisk modal-dispatch: hver feature (dublikering, skabeloner, import, godkendelser, massehandling,
-   overdragelse) registrerer en renderer + evt. binder under sin egen nøgle i disse to tabeller, i stedet
-   for én kæmpe if/else. state.modal={type,...data} er den eneste kilde til hvilken modal der er åben. */
-const MODAL_RENDERERS = {};
-const MODAL_BINDERS = {};
 function openModal(type, data){ state.modal=Object.assign({type}, data||{}); render(); }
 function closeModal(){ state.modal=null; render(); }
+/* "Mere"-arket i den mobile bundnavigation: resten af rollens faner (dem der ikke har fået deres eget
+   fast plads i bunden), som en simpel liste i den eksisterende generiske modal. */
+MODAL_RENDERERS.moreMenu = function(){
+  const primaryIds=(MOBILE_NAV_PRIMARY[state.rolle]||MOBILE_NAV_PRIMARY.kunde).map(p=>p[0]);
+  const rest=TABS[state.rolle].filter(([id])=>!primaryIds.includes(id));
+  return `
+  <h2 style="font-family:'Instrument Serif',serif;font-style:italic;font-size:24px;font-weight:400;margin:0 0 14px">Mere</h2>
+  <div style="display:flex;flex-direction:column;gap:6px">
+    ${rest.map(([id,label])=>`<button type="button" class="btn" data-mbn-goto="${id}" style="width:100%;justify-content:flex-start">${esc(label)}${id==='beskeder'&&unread(state.rolle)?` (${unread(state.rolle)})`:''}</button>`).join('')}
+  </div>
+  <div class="row" style="margin-top:14px;justify-content:flex-end"><button class="btn" data-modal-close>Luk</button></div>`;
+};
+MODAL_BINDERS.moreMenu = function(){
+  document.querySelectorAll('[data-mbn-goto]').forEach(el=>el.onclick=()=>{ state.tab=el.dataset.mbnGoto; closeModal(); });
+};
 function renderBigModal(){
   const host=document.getElementById('bigModal');
   const box=document.getElementById('bigModalBox');
@@ -2125,13 +2300,19 @@ function render(){
 }
 function renderInner(){
   document.getElementById('bootLoading').style.display = 'none';
+  renderMobileBottomNav();
   renderSuperadminBar();
   document.getElementById('previewBar').style.display = state.previewMode ? 'block' : 'none';
   document.getElementById('logout').style.display = '';
   document.getElementById('setPasswordBtn').style.display = '';
   document.getElementById('backToList').style.display = (state.rolle==='kilden' && (state.events||[]).length>1 && state.view==='workspace') ? '' : 'none';
   document.getElementById('switchEvent').style.display = (state.rolle==='kunde' && (state.guestEvents||[]).length>1 && state.view==='workspace') ? '' : 'none';
-  document.getElementById('fabAddTask').style.display = (state.rolle==='kilden' && state.view==='workspace') ? 'block' : 'none';
+  {
+    const fab=document.getElementById('fabAddTask');
+    const ctx = (state.rolle==='kilden' && state.view==='workspace' && !state.previewMode) ? FAB_CONTEXT[state.tab] : null;
+    fab.style.display = ctx ? 'block' : 'none';
+    if(ctx){ fab.textContent=ctx.label; fab.onclick=ctx.onClick; }
+  }
 
   if(state.view==='picker' || state.view==='users' || state.view==='venues' || state.view==='katalog' || state.view==='opgaver' || state.view==='eventskabeloner' || state.view==='superadmin' || state.view==='guestPicker'){
     document.title = 'Verta';
@@ -2350,7 +2531,11 @@ function bind(){
     const del=tr.querySelector('[data-slet]');
     if(del) del.onclick=async()=>{
       if(!(await appConfirm('Fjern '+(g.navn||'gæsten')+' fra gæstelisten?'))) return;
-      guestMutation(()=>state.gaester=state.gaester.filter(x=>x.id!==g.id),'Gæst fjernet · '+g.navn);
+      const fjernet={...g};
+      await guestMutation(()=>state.gaester=state.gaester.filter(x=>x.id!==g.id),'Gæst fjernet · '+g.navn);
+      showToast(fjernet.navn+' er fjernet.', 'ok', {label:'Fortryd', onClick:()=>{
+        guestMutation(()=>state.gaester.push({...fjernet, id:newId()}), 'Gæst gendannet · '+fjernet.navn);
+      }});
     };
   });
   document.querySelectorAll('[data-gsel]').forEach(el=>el.onchange=()=>{
@@ -2364,6 +2549,7 @@ function bind(){
     render();
   };
   const importGuestsBtn=document.getElementById('importGuestsBtn'); if(importGuestsBtn) importGuestsBtn.onclick=()=>openModal('import',{step:'pick'});
+  const bulkAddNamesBtn=document.getElementById('bulkAddNamesBtn'); if(bulkAddNamesBtn) bulkAddNamesBtn.onclick=()=>openModal('bulkAddNames',{});
   const gfKat=document.getElementById('gfKat'); if(gfKat) gfKat.onchange=()=>{ state.guestBulkFilter=Object.assign({},state.guestBulkFilter,{kat:gfKat.value}); render(); };
   const gfReception=document.getElementById('gfReception'); if(gfReception) gfReception.onchange=()=>{ state.guestBulkFilter=Object.assign({},state.guestBulkFilter,{reception:gfReception.value}); render(); };
   const gfMiddag=document.getElementById('gfMiddag'); if(gfMiddag) gfMiddag.onchange=()=>{ state.guestBulkFilter=Object.assign({},state.guestBulkFilter,{middag:gfMiddag.value}); render(); };
@@ -2495,6 +2681,12 @@ function bind(){
   }
   const fLSClear=document.getElementById('fLogSearchClear'); if(fLSClear) fLSClear.onclick=()=>{ state.logSearch=''; render(); document.getElementById('fLogSearch').focus(); };
   const fTech=document.getElementById('fLogTech'); if(fTech) fTech.onchange=()=>{state.logShowTech=fTech.checked;render();};
+  const fCollapse=document.getElementById('fLogCollapse'); if(fCollapse) fCollapse.onchange=()=>{state.logCollapseViews=fCollapse.checked;render();};
+  document.querySelectorAll('[data-log-view-group]').forEach(el=>el.ontoggle=()=>{
+    if(el.open) state.openLogViewGroups.add(el.dataset.logViewGroup);
+    else state.openLogViewGroups.delete(el.dataset.logViewGroup);
+  });
+  document.querySelectorAll('[data-goto-log]').forEach(el=>el.onclick=()=>gotoLogEntry(Number(el.dataset.gotoLog)));
   const logExport=document.getElementById('logExport');
   if(logExport) logExport.onclick=()=>{
     if(logExport.disabled) return;
@@ -2511,8 +2703,14 @@ function bind(){
     }
   };
 
+  document.querySelectorAll('[data-mbn]').forEach(el=>el.onclick=()=>{
+    const id=el.dataset.mbn;
+    if(id==='more') openModal('moreMenu',{});
+    else { state.tab=id; state.soeg=''; render(); }
+  });
+
   const sm=document.getElementById('sendmsg');
-  if(sm) sm.onclick=()=>{const ta=document.getElementById('msgtext');const t=ta.value.trim();if(!t)return;pushMessage(t);render();};
+  if(sm) sm.onclick=()=>{const ta=document.getElementById('msgtext');const t=ta.value.trim();if(!t)return;const intEl=document.getElementById('msgInternal');pushMessage(t, !!(intEl&&intEl.checked));render();};
   document.querySelectorAll('[data-msg-to-task]').forEach(el=>el.onclick=()=>openTaskModal(el.dataset.msgToTask));
 
   const ca=document.getElementById('coordAdd');
@@ -3057,9 +3255,10 @@ const CAT_EVENT_TYPES = ['bryllup','firmafest','konference','teambuilding','ande
 const EVENT_STATUSES = [['kladde','Kladde'],['tilbud','Tilbud'],['bekræftet','Bekræftet'],['afviklet','Afviklet']];
 function statusStepsHtml(status, eventId, interactive){
   const idx = EVENT_STATUSES.findIndex(([v])=>v===status);
+  const tag = interactive ? 'button' : 'span';
   return `<div class="statussteps">${EVENT_STATUSES.map(([v,label],i)=>
-    `<span class="sstep ${interactive?'interactive':''} ${i<idx?'done':i===idx?'current':''}"
-      ${interactive?`data-set-status="${eventId}|${v}"`:''}>${label}</span>`).join('')}</div>`;
+    `<${tag} class="sstep ${interactive?'interactive':''} ${i<idx?'done':i===idx?'current':''}"
+      ${interactive?`type="button" data-set-status="${eventId}|${v}" aria-current="${i===idx?'step':'false'}"`:''}>${label}</${tag}>`).join('')}</div>`;
 }
 async function loadOrgCatalog(){
   const {data}=await sb.from('catalog_items').select('*, catalog_item_rooms(room_id)').eq('org_id',state.orgId).order('category').order('sort_order');
@@ -3377,7 +3576,11 @@ async function setEventStatus(id, status){
   const toIdx=EVENT_STATUSES.findIndex(([v])=>v===status);
   if(toIdx<fromIdx){
     const label=(EVENT_STATUSES.find(([v])=>v===status)||[])[1]||status;
-    if(!(await appConfirm('Sæt status tilbage til "'+label+'"? Det er et skridt tilbage i processen.'))) return;
+    const guestLockChange = ['bekræftet','afviklet'].includes(from) && !['bekræftet','afviklet'].includes(status);
+    const forklaring = guestLockChange
+      ? ' Gæsten får igen direkte redigeringsadgang til gæstelisten — allerede indsendte ændringsforslag berøres ikke.'
+      : '';
+    if(!(await appConfirm('Sæt status tilbage til "'+label+'"? Det er et skridt tilbage i processen.'+forklaring))) return;
   }
   const {error}=await mutate(()=>sb.from('events').update({status}).eq('id',id));
   if(error){ showToast('Kunne ikke ændre status: '+error.message,'error'); return; }
