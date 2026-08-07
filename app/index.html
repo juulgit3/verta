@@ -60,7 +60,17 @@ summary::-webkit-details-marker{display:none}
 .fold-chev{display:inline-block;font-size:10px;color:var(--ink-40);transition:transform .15s ease;margin-right:6px}
 details[open] > summary .fold-chev,details[open] .fold-chev{transform:rotate(90deg)}
 
-nav.tabs{display:flex;gap:2px;margin:26px 0 20px;border-bottom:1px solid var(--line);overflow-x:auto}
+nav.tabs{display:flex;gap:2px;margin:26px 0 20px;border-bottom:1px solid var(--line);overflow-x:auto;
+  background:
+    linear-gradient(to right, var(--paper) 50%, rgba(234,237,230,0)),
+    linear-gradient(to left, var(--paper) 50%, rgba(234,237,230,0)) 100% 0,
+    radial-gradient(farthest-side at 0 50%, rgba(18,21,27,.16), rgba(18,21,27,0)),
+    radial-gradient(farthest-side at 100% 50%, rgba(18,21,27,.16), rgba(18,21,27,0)) 100% 0;
+  background-repeat:no-repeat; background-color:var(--paper);
+  background-size:24px 100%, 24px 100%, 10px 100%, 10px 100%;
+  background-position:0 0, 100% 0, 0 0, 100% 0;
+  background-attachment:local, local, scroll, scroll;
+}
 nav.tabs button{background:none;border:0;padding:10px 14px;cursor:pointer;font-weight:600;font-size:14px;color:var(--ink-60);border-bottom:2px solid transparent;white-space:nowrap;margin-bottom:-1px}
 nav.tabs button:hover{color:var(--ink)}
 nav.tabs button[aria-selected="true"]{color:var(--blue);border-bottom-color:var(--blue)}
@@ -102,8 +112,9 @@ select.status:focus-visible,input:focus-visible,button:focus-visible{outline:2px
 .tbl input[type=text]:focus{outline:0;border-bottom:1px solid var(--blue)}
 .tbl select{border:0;background:transparent;padding:2px}
 .tbl td.c{text-align:center;width:70px}
-.tbl .del{border:0;background:none;color:var(--ink-40);cursor:pointer;font-size:16px;line-height:1}
+.tbl .del{border:0;background:none;color:var(--ink-40);cursor:pointer;font-size:16px;line-height:1;min-width:32px;min-height:32px}
 .tbl .del:hover{color:var(--amber)}
+.tbl th:first-child,.tbl td:first-child{position:sticky;left:0;background:var(--card);z-index:1}
 .scroll{overflow-x:auto}
 
 .btn{border:1px solid var(--line);background:#fff;border-radius:var(--radius);padding:7px 13px;font-size:13px;font-weight:600;cursor:pointer;transition:transform .1s ease,filter .15s ease,border-color .15s ease}
@@ -215,7 +226,8 @@ input[type=file].search{padding:6px 8px;font-size:13px;min-width:0}
 /* loading-skærm */
 #bootLoading{position:fixed;inset:0;background:var(--paper);z-index:90;display:flex;align-items:center;justify-content:center}
 
-@media print{body{background:#fff} nav.tabs,.btn,.row.noprint,.rolebar,#superadminBar,.fab,#toastWrap,#bootLoading{display:none!important} .card{border:0;padding:0;margin-bottom:22px}}
+@media print{body{background:#fff} nav.tabs,.btn,.row.noprint,.rolebar,#superadminBar,#previewBar,.fab,#toastWrap,#bootLoading{display:none!important} .card{border:0;padding:0;margin-bottom:22px}
+  .tbl input[type=text]{border:0;background:none} .tbl select{border:0;background:none;-webkit-appearance:none;appearance:none}}
 @media (prefers-reduced-motion:no-preference){.card{animation:rise .32s ease both}@keyframes rise{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}}
 
 @media(max-width:600px){
@@ -230,6 +242,9 @@ input[type=file].search{padding:6px 8px;font-size:13px;min-width:0}
   .consnav{flex-wrap:wrap;border-radius:var(--radius)}
   .formgrid{grid-template-columns:1fr}
   .formgrid .field{grid-column:1/-1!important}
+  nav.tabs button{padding:12px 14px;min-height:44px}
+  .tbl .del{min-width:44px;min-height:44px;font-size:20px}
+  .tbl th,.tbl td{padding:8px 10px}
 }
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -534,7 +549,7 @@ async function commitGuestField(guestId, f, el){
 const esc = s => String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 
 const TABS = {
-  kilden:[['oversigt','Oversigt'],['gaester','Gæster'],['punkter','Aftalepunkter'],['koekken','Køkkenseddel'],['log','Log'],['admin','Admin'],['beskeder','Beskeder']],
+  kilden:[['live','I dag'],['oversigt','Oversigt'],['gaester','Gæster'],['punkter','Aftalepunkter'],['koekken','Køkkenseddel'],['log','Log'],['admin','Admin'],['beskeder','Beskeder']],
   kunde: [['oversigt','Oversigt'],['gaester','Gæster'],['punkter','Aftalepunkter'],['tidslinje','Tidslinje'],['beskeder','Beskeder']]
 };
 
@@ -543,6 +558,8 @@ function renderTabs(){
   el.innerHTML = TABS[state.rolle].map(([id,label])=>
     `<button role="tab" data-tab="${id}" aria-selected="${state.tab===id}">${label}${id==='beskeder'&&n?`<span class="tabbadge">${n}</span>`:''}</button>`).join('');
   el.querySelectorAll('button').forEach(b=>b.onclick=()=>{state.tab=b.dataset.tab;state.soeg='';render();});
+  const active=el.querySelector('button[aria-selected="true"]');
+  if(active) active.scrollIntoView({inline:'nearest', block:'nearest'});
 }
 
 function roomsLine(){
@@ -649,7 +666,7 @@ function viewOversigt(){
     <div class="note" style="display:block;margin-top:6px;font-size:12px">Linket logger gæsten direkte ind på dette arrangement. Del det kun med kunden.</div>
     ` : `
     <div class="row" style="gap:8px;flex-wrap:wrap">
-      <input class="search" id="guestLinkName" placeholder="Navn (fx Emily &amp; Lars)" style="flex:1 1 160px">
+      <input class="search" id="guestLinkName" placeholder="Navn (fx Sofie &amp; Anton)" style="flex:1 1 160px">
       <input class="search" id="guestLinkEmail" placeholder="Mail" type="email" style="flex:1 1 160px">
       <button class="btn primary" id="guestLinkGen" ${state.guestLinkBusy?'disabled':''}>${state.guestLinkBusy?'Genererer…':'Generér link'}</button>
     </div>
@@ -738,7 +755,13 @@ function viewGaester(){
     <div class="row noprint" style="margin-bottom:12px">
       <input class="search" id="soeg" placeholder="Søg navn eller kost" value="${esc(state.soeg)}">
       <button class="btn primary" id="tilfoej">Tilføj gæst</button>
-      <button class="btn" id="eksport">Eksportér JSON</button>
+      <select class="search" id="exportFormat" style="max-width:160px">
+        <option value="csv">CSV</option>
+        <option value="xlsx">Excel</option>
+        <option value="json">JSON (teknisk)</option>
+        <option value="print">Udskriv/PDF</option>
+      </select>
+      <button class="btn" id="eksport">Eksportér</button>
     </div>
     <div class="scroll"><table class="tbl">
       <thead><tr><th>Navn</th><th>Kategori</th><th class="c">Reception</th><th class="c">Middag</th><th>Særlig kost</th><th></th></tr></thead>
@@ -837,6 +860,59 @@ function viewPunkter(){
   return createKort + groups;
 }
 
+/* Action-first "på dagen"-visning til mobil — ikke desktop-kortene stablet lodret, men et enkelt overblik over
+   det, der er relevant lige nu: næste fase, udestående opgaver, og en hurtig vej til at markere ting undervejs. */
+function viewLive(){
+  const todayStr=new Date().toISOString().slice(0,10);
+  const erIDag = state.eventDate===todayStr;
+  const now=new Date();
+  const nowLabel=now.toLocaleTimeString('da-DK',{hour:'2-digit',minute:'2-digit'});
+  const phasesWithTime=(state.phases||[]).filter(p=>p.start).map(p=>({...p, startDate:new Date(todayStr+'T'+p.start+':00')}));
+  const next = erIDag ? phasesWithTime.filter(p=>p.startDate>now).sort((a,b)=>a.startDate-b.startDate)[0] : null;
+  const current = erIDag ? phasesWithTime.filter(p=>p.startDate<=now).sort((a,b)=>b.startDate-a.startDate)[0] : null;
+  const minsTil = next ? Math.round((next.startDate-now)/60000) : null;
+  const owner=(state.eventStaff||[]).find(s=>s.id===state.ownerStaffId);
+  const open=aabnePunkter().sort((a,b)=>(a.frist||'9999').localeCompare(b.frist||'9999'));
+  if(!erIDag){
+    const d=dageTil(state.eventDate);
+    return `
+    <section class="card">
+      <header><h2>I dag</h2></header>
+      <div class="empty">${d>0?('Arrangementet er om '+d+' dage — denne visning bliver aktiv på selve dagen.'):(d<0?'Arrangementet er afviklet.':'')}</div>
+    </section>
+    <section class="card">
+      <header><h2>Udestående lige nu</h2><span class="note">${open.length}</span></header>
+      ${open.length?open.slice(0,5).map(p=>`<div class="stat"><span>${esc(p.titel)}</span><span class="note">${ejerLabel(p.ejer)}</span></div>`).join(''):'<div class="empty">Intet udestående.</div>'}
+    </section>`;
+  }
+  return `
+  <section class="card" style="border-left:3px solid var(--blue)">
+    <header><h2>${esc(state.eventTitle||'Arrangementet')} er i dag</h2><span class="note">${nowLabel}</span></header>
+    ${current?`<div class="stat"><span>Nu</span><b>${esc(current.label)}${current.roomName?' · '+esc(current.roomName):''}</b></div>`:''}
+    ${next?`<div class="stat"><span>Næste</span><b>${esc(next.label)}${next.roomName?' · '+esc(next.roomName):''} om ${minsTil} min.</b></div>`:'<div class="empty">Ingen flere faser tilbage i dag.</div>'}
+    <div class="stat"><span>Ansvarlig</span><b>${owner?esc(owner.name):'—'}</b></div>
+  </section>
+  <section class="card">
+    <header><h2>Udestående opgaver</h2><span class="note">${open.length}</span></header>
+    ${open.length?open.map(p=>`<div class="item" data-pid="${p.id}">
+      <span class="stripe ${p.ejer}"></span>
+      <div><div class="name">${esc(p.titel)}</div><div class="meta">${ejerLabel(p.ejer)}${p.note?' · '+esc(p.note):''}</div></div>
+      <button class="btn primary" data-live-done="${p.id}">✓ Udført</button>
+    </div>`).join(''):'<div class="empty">Alt er klaret. Intet udestående.</div>'}
+  </section>
+  <section class="card">
+    <header><h2>Registrér problem</h2><span class="note">sendes som besked</span></header>
+    <div class="row" style="gap:8px;flex-wrap:wrap">
+      <input class="search" id="liveProblem" placeholder="Fx: Projektor virker ikke i Konferencesalen" style="flex:1;min-width:200px">
+      <button class="btn" id="liveProblemSend">Registrér</button>
+    </div>
+  </section>
+  <section class="card">
+    <header><h2>Kontakt og beskeder</h2></header>
+    <div class="stat"><span>Ejer af arrangementet</span><b>${owner?esc(owner.name):'—'}</b></div>
+    <button class="btn primary" data-goto-tab="beskeder" style="margin-top:10px">Åbn beskeder →</button>
+  </section>`;
+}
 function viewKoekken(){
   const a=antal(), kost=state.gaester.filter(g=>g.kost.trim()), samlet={};
   kost.forEach(g=>{(samlet[g.kost.trim()]=samlet[g.kost.trim()]||[]).push(g.navn);});
@@ -886,6 +962,27 @@ function logLine(e){
   if(e.type==='message') return `<span class="tag">Besked</span><span class="msgq">”${esc(e.text||'')}”</span>`;
   const desc = e.friendly ? esc(e.friendly) : `${esc(e.label)}${(e.from||e.to)?` <span class="delta">${e.from?esc(e.from):'—'}<span class="arrow">→</span>${esc(e.to)}</span>`:''}`;
   return `<span class="tag">${AREA_TXT[e.area]}</span>${desc}`;
+}
+function guestExportSlug(){ return (state.eventTitle||'arrangement').toLowerCase().replace(/[^a-z0-9æøå]+/gi,'-').replace(/^-+|-+$/g,'')+'-'+(state.eventDate||''); }
+function exportGuestsJson(){
+  const blob=new Blob([JSON.stringify({eventTitle:state.eventTitle, eventDate:state.eventDate, offerTotal:state.offerTotal, gaester:state.gaester, punkter:state.punkter, log:state.log},null,2)],{type:'application/json'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=guestExportSlug()+'.json'; a.click();
+}
+/* CSV (Danmark-venligt, semikolon-separeret) og en Excel-kompatibel .xls (HTML-tabel med Excels eget MIME-type — kræver ikke et xlsx-bibliotek). */
+function exportGuestsTable(kind){
+  const head=['Navn','Kategori','Reception','Middag','Særlig kost'];
+  const rows=state.gaester.map(g=>[g.navn, g.kat, g.reception?'Ja':'Nej', g.middag?'Ja':'Nej', g.kost||'']);
+  if(kind==='csv'){
+    const q=v=>'"'+String(v==null?'':v).replace(/"/g,'""')+'"';
+    const csv=[head,...rows].map(r=>r.map(q).join(';')).join('\r\n');
+    const blob=new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8'});
+    const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=guestExportSlug()+'.csv'; a.click();
+  } else {
+    const table='<table><tr>'+head.map(h=>`<th>${esc(h)}</th>`).join('')+'</tr>'+
+      rows.map(r=>'<tr>'+r.map(c=>`<td>${esc(c)}</td>`).join('')+'</tr>').join('')+'</table>';
+    const blob=new Blob(['\ufeff'+table],{type:'application/vnd.ms-excel;charset=utf-8'});
+    const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=guestExportSlug()+'.xls'; a.click();
+  }
 }
 function exportLogCsv(rows){
   const head=['Tidspunkt','Person','Side','Type','Område','Hændelse','Fra','Til','Besked'];
@@ -979,7 +1076,7 @@ function render(){
     document.getElementById('whoami').textContent = state.actor?('Logget ind som '+state.actor.navn):'';
     document.getElementById('orgName').textContent = state.view==='superadmin' ? '' : (state.orgName||'');
     document.getElementById('eventLoc').innerHTML='';
-    document.getElementById('heroTitle').textContent = state.view==='superadmin' ? 'Kontrolrum' : (state.view==='users' ? 'Brugere' : (state.view==='venues' ? 'Lokationer' : (state.view==='katalog' ? 'Katalog' : (state.view==='opgaver' ? 'Opgaver' : 'Arrangementer'))));
+    document.getElementById('heroTitle').textContent = state.view==='superadmin' ? 'Kontrolrum' : (state.view==='users' ? 'Brugere' : (state.view==='venues' ? 'Lokationer' : (state.view==='katalog' ? 'Katalog' : (state.view==='opgaver' ? 'Opgaveskabeloner' : 'Arrangementer'))));
     document.getElementById('heroChips').innerHTML='';
     document.getElementById('tabs').innerHTML='';
     const v=document.getElementById('view');
@@ -1101,7 +1198,7 @@ function render(){
   if(state.tab==='beskeder') state.lastRead[state.rolle]=Date.now();
   document.getElementById('whoami').textContent='Logget ind som '+currentActor().navn;
   heroChips(); renderTabs();
-  const map={oversigt:viewOversigt,gaester:viewGaester,punkter:viewPunkter,koekken:viewKoekken,log:viewLog,admin:viewAdmin,tidslinje:viewTidslinje,beskeder:viewBeskeder};
+  const map={live:viewLive,oversigt:viewOversigt,gaester:viewGaester,punkter:viewPunkter,koekken:viewKoekken,log:viewLog,admin:viewAdmin,tidslinje:viewTidslinje,beskeder:viewBeskeder};
   if(!map[state.tab]) state.tab='oversigt';
   document.getElementById('view').innerHTML=map[state.tab]();
   document.getElementById('view').classList.toggle('preview-locked', state.previewMode);
@@ -1129,9 +1226,11 @@ function bind(){
 
   const eks=document.getElementById('eksport');
   if(eks) eks.onclick=()=>{
-    const blob=new Blob([JSON.stringify({eventTitle:state.eventTitle, eventDate:state.eventDate, offerTotal:state.offerTotal, gaester:state.gaester, punkter:state.punkter, log:state.log},null,2)],{type:'application/json'});
-    const slug=(state.eventTitle||'arrangement').toLowerCase().replace(/[^a-z0-9æøå]+/gi,'-').replace(/^-+|-+$/g,'');
-    const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=slug+'-'+(state.eventDate||'')+'.json';a.click();
+    const fmt=(document.getElementById('exportFormat')||{}).value||'csv';
+    if(fmt==='print'){ window.print(); return; }
+    if(fmt==='json') exportGuestsJson();
+    else if(fmt==='xlsx') exportGuestsTable('xls');
+    else exportGuestsTable('csv');
   };
 
   const pr=document.getElementById('print'); if(pr) pr.onclick=()=>window.print();
@@ -1150,7 +1249,10 @@ function bind(){
       }
     });
     const del=tr.querySelector('[data-slet]');
-    if(del) del.onclick=()=>guestMutation(()=>state.gaester=state.gaester.filter(x=>x.id!==g.id),'Gæst fjernet · '+g.navn);
+    if(del) del.onclick=async()=>{
+      if(!(await appConfirm('Fjern '+(g.navn||'gæsten')+' fra gæstelisten?'))) return;
+      guestMutation(()=>state.gaester=state.gaester.filter(x=>x.id!==g.id),'Gæst fjernet · '+g.navn);
+    };
   });
 
   document.querySelectorAll('[data-pid]').forEach(el=>{
@@ -1161,6 +1263,20 @@ function bind(){
   document.querySelectorAll('[data-punkt-delete]').forEach(el=>el.onclick=()=>deletePunkt(el.dataset.punktDelete));
   document.querySelectorAll('[data-punkt-done]').forEach(el=>el.onclick=()=>updatePunktStatus(el.dataset.punktDone,'aftalt'));
   document.querySelectorAll('[data-punkt-undo]').forEach(el=>el.onclick=()=>updatePunktStatus(el.dataset.punktUndo,'mangler'));
+  document.querySelectorAll('[data-live-done]').forEach(el=>el.onclick=()=>updatePunktStatus(el.dataset.liveDone,'aftalt'));
+  const liveSend=document.getElementById('liveProblemSend');
+  if(liveSend){
+    liveSend.onclick=()=>{
+      const inp=document.getElementById('liveProblem');
+      const txt=inp.value.trim();
+      if(!txt) return;
+      pushMessage('⚠️ Problem: '+txt);
+      inp.value='';
+      render();
+      showToast('Registreret og sendt som besked.','ok');
+    };
+    onEnterSubmit(document.getElementById('liveProblem'), ()=>liveSend.click());
+  }
   document.querySelectorAll('[data-done-group]').forEach(el=>el.ontoggle=()=>{
     if(el.open) state.openDoneGroups.add(el.dataset.doneGroup);
     else state.openDoneGroups.delete(el.dataset.doneGroup);
@@ -2099,37 +2215,38 @@ function consoleNav(active){
     <button data-nav="picker" aria-pressed="${active==='picker'}">Arrangementer</button>
     <button data-nav="venues" aria-pressed="${active==='venues'}">Lokationer</button>
     <button data-nav="katalog" aria-pressed="${active==='katalog'}">Katalog</button>
-    <button data-nav="opgaver" aria-pressed="${active==='opgaver'}">Opgaver</button>
+    <button data-nav="opgaver" aria-pressed="${active==='opgaver'}">Opgaveskabeloner</button>
     <button data-nav="users" aria-pressed="${active==='users'}">Brugere</button>
   </nav>`;
 }
 function viewOpgaver(){
   return `${consoleNav('opgaver')}
-  <div style="margin:20px 0 10px"><span class="eyebrow">Standardopgaver for ${esc(state.orgName||'organisationen')}</span></div>
+  <div style="margin:20px 0 10px"><span class="eyebrow">Opgaveskabeloner for ${esc(state.orgName||'organisationen')}</span></div>
   <section class="card">
     <header><h2>Skabeloner</h2><span class="note">${(state.taskTemplates||[]).length}</span></header>
+    <div class="note" style="margin-bottom:12px">Skabeloner kan automatisk tilføjes til nye arrangementer og beregner fristen i forhold til arrangementsdatoen — de er ikke selve aftalepunkterne (dem finder du inde på hvert arrangement, under fanen "Aftalepunkter").</div>
     ${(state.taskTemplates||[]).length?(state.taskTemplates||[]).map(t=>`<div class="stat" style="flex-wrap:wrap;gap:8px">
-      <span>${esc(t.title)} <span class="note">${t.owner==='jer'?'Kunden':'Os'}${t.days_before_event!=null?' · '+t.days_before_event+' dage før':''}${t.event_type?' · '+esc(t.event_type):''}</span></span>
+      <span>${esc(t.title)} <span class="note">${t.owner==='jer'?'Kunden':'Os'}${t.days_before_event!=null?' · '+t.days_before_event+' dage før arrangementet':''}${t.event_type?' · '+esc(t.event_type):''}</span></span>
       <button class="btn" data-delete-task-template="${t.id}">Slet</button>
     </div>`).join(''):'<div class="empty">Ingen skabeloner endnu.</div>'}
   </section>
   <section class="card">
     <header><h2>Ny skabelon</h2></header>
-    <div class="row" style="gap:8px;flex-wrap:wrap;margin-top:4px">
-      <input id="ttTitle" class="search" placeholder="Titel, fx Bordplan" style="flex:2;min-width:180px">
-      <select id="ttOwner" class="search" style="flex:1;min-width:120px">
+    <div class="formgrid">
+      <div class="field" style="grid-column:span 2"><label for="ttTitle">Titel</label><input id="ttTitle" class="search" placeholder="Fx Bordplan"></div>
+      <div class="field"><label for="ttOwner">Ansvarlig</label><select id="ttOwner" class="search">
         <option value="jer">Kunden</option>
         <option value="kilden">Os</option>
-      </select>
-      <input id="ttDays" type="number" min="0" class="search" placeholder="Dage før arrangement" style="flex:1;min-width:150px">
-      <select id="ttEventType" class="search" style="flex:1;min-width:130px">
-        <option value="">Alle arrangementstyper</option>
+      </select></div>
+      <div class="field"><label for="ttDays">Dage før arrangement</label><input id="ttDays" type="number" min="0" class="search" placeholder="Fx 14"></div>
+      <div class="field"><label for="ttEventType">Arrangementstype</label><select id="ttEventType" class="search">
+        <option value="">Alle typer</option>
         ${CAT_EVENT_TYPES.map(t=>`<option value="${t}">${t}</option>`).join('')}
-      </select>
-      <input id="ttNote" class="search" placeholder="Note (valgfri)" style="flex:2;min-width:160px">
+      </select></div>
+      <div class="field full"><label for="ttNote">Note</label><input id="ttNote" class="search" placeholder="Valgfri"></div>
       <button class="btn primary" id="ttCreate">Opret skabelon</button>
     </div>
-    <div class="note" style="margin-top:10px">Bruges som en valgfri "standardpakke", der kan tilføjes automatisk, når et nyt arrangement oprettes.</div>
+    <div class="note" style="margin-top:10px">"Dage før arrangement" er en relativ frist (fx 14 dage før) i stedet for en fast dato — så samme skabelon kan bruges på tværs af arrangementer med forskellige datoer.</div>
   </section>`;
 }
 function viewKatalog(){
@@ -2166,22 +2283,26 @@ function viewKatalog(){
   </section>
   <section class="card">
     <header><h2>Ny katalogvare</h2></header>
-    <div class="row" style="gap:8px;flex-wrap:wrap;margin-top:4px">
-      <input id="ciName" class="search" placeholder="Navn, fx Bryllupspakke" style="flex:2;min-width:180px">
-      <select id="ciCategory" class="search" style="flex:1;min-width:110px">
+    <div class="formgrid">
+      <div class="field" style="grid-column:span 2"><label for="ciName">Navn</label><input id="ciName" class="search" placeholder="Fx Bryllupspakke"></div>
+      <div class="field"><label for="ciCategory">Kategori</label><select id="ciCategory" class="search">
         ${CAT_CATEGORIES.map(c=>`<option value="${c}">${c}</option>`).join('')}
-      </select>
-      <input id="ciPrice" type="number" class="search" placeholder="Pris, kr" style="flex:1;min-width:100px">
-      <select id="ciBasis" class="search" style="flex:1;min-width:120px">
-        <option value="middag">pr. person (middag)</option>
-        <option value="reception">pr. person (reception)</option>
-        <option value="fast">fast beløb</option>
-      </select>
-      <select id="ciEventType" class="search" style="flex:1;min-width:130px">
-        <option value="">Alle arrangementstyper</option>
+      </select></div>
+      <div class="field"><label for="ciPrice">Pris, kr</label><input id="ciPrice" type="number" class="search" placeholder="Fx 495"></div>
+      <div class="field"><label for="ciBasis">Prismodel</label><select id="ciBasis" class="search">
+        <option value="middag">Pr. person (middag)</option>
+        <option value="reception">Pr. person (reception)</option>
+        <option value="fast">Fast beløb</option>
+      </select></div>
+      <div class="field"><label for="ciEventType">Arrangementstype</label><select id="ciEventType" class="search">
+        <option value="">Alle typer</option>
         ${CAT_EVENT_TYPES.map(t=>`<option value="${t}">${t}</option>`).join('')}
-      </select>
-      <label class="row" style="gap:4px;font-size:13px"><input type="checkbox" id="ciChildHalf">Børn halv pris</label>
+      </select></div>
+      <label class="row" style="gap:6px;font-size:13px;align-self:end;padding-bottom:8px"><input type="checkbox" id="ciChildHalf">Børn halv pris</label>
+    </div>
+    <div class="note" style="margin-top:10px;line-height:1.6">
+      Pr. person (middag) beregnes ud fra gæster markeret til middag. Pr. person (reception) beregnes ud fra gæster markeret til reception. Fast beløb lægges kun til én gang, uanset antal gæster.<br>
+      Intet valgt lokale herunder betyder, at varen kan bruges i alle lokaler.
     </div>
     <details style="margin-top:10px">
       <summary class="note"><span class="fold-chev">▸</span>Lokaler (${(state.orgRooms||[]).length}) — intet valgt = alle</summary>
@@ -2309,16 +2430,16 @@ function viewPicker(){
   </section>` : `
   <section class="card">
     <header><h2>Nyt arrangement</h2></header>
-    <div class="row" style="gap:8px;flex-wrap:wrap;margin-top:4px">
-      <input id="neTitle" class="search" placeholder="Titel, fx Emily &amp; Lars" style="flex:2;min-width:180px">
-      <select id="neVenue" class="search" style="flex:1;min-width:140px">
-        <option value="">Lokation…</option>
+    <div class="formgrid">
+      <div class="field" style="grid-column:span 2"><label for="neTitle">Titel</label><input id="neTitle" class="search" placeholder="Fx Sofie &amp; Anton"></div>
+      <div class="field"><label for="neVenue">Lokation</label><select id="neVenue" class="search">
+        <option value="">Vælg…</option>
         ${(state.venues||[]).map(v=>`<option value="${v.id}">${esc(v.name)}</option>`).join('')}
-      </select>
-      <input id="neDate" type="date" class="search" style="flex:1;min-width:140px">
-      <select id="neType" class="search" style="flex:1;min-width:130px">
+      </select></div>
+      <div class="field"><label for="neDate">Dato</label><input id="neDate" type="date" class="search"></div>
+      <div class="field"><label for="neType">Arrangementstype</label><select id="neType" class="search">
         ${CAT_EVENT_TYPES.map(t=>`<option value="${t}">${t}</option>`).join('')}
-      </select>
+      </select></div>
       <button class="btn primary" id="neCreate">Opret arrangement</button>
     </div>
     <label class="row" style="gap:6px;font-size:13px;margin-top:8px"><input type="checkbox" id="neTasks" checked>Tilføj standardopgaver</label>
