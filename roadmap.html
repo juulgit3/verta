@@ -20,7 +20,6 @@ body{background:var(--paper);color:var(--ink);font-family:'Familjen Grotesk',sys
 .wrap{max-width:820px;margin:0 auto;padding:24px 18px 96px}
 .mark{font-family:'Instrument Serif',serif;font-style:italic;font-size:26px;color:var(--blue);letter-spacing:-.01em}
 .brand{display:flex;flex-direction:column;line-height:1.02}
-.brand .org{font-size:12px;font-weight:600;color:var(--ink-60);letter-spacing:.02em;margin-top:1px}
 h1{font-family:'Instrument Serif',serif;font-style:italic;font-size:clamp(36px,8vw,56px);line-height:.98;letter-spacing:-.02em;font-weight:400;margin:24px 0 6px}
 p.lead{color:var(--ink-60);font-size:15px;margin:0 0 32px;max-width:60ch}
 .eyebrow{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-40);font-weight:600;display:flex;align-items:center;gap:8px}
@@ -43,13 +42,18 @@ footer{margin-top:40px;font-size:12px;color:var(--ink-40)}
 </head>
 <body>
 <div class="wrap">
-  <div class="brand"><span class="mark">Verta</span><span class="org">Madkastellet</span></div>
+  <div class="brand"><span class="mark">Verta</span></div>
   <h1>Roadmap</h1>
   <p class="lead">Idéer og planer for Verta, samlet ét sted. Ingen menupunkt fører hertil — siden findes kun på /roadmap. Holdes løbende opdateret, når nyt bliver drøftet.</p>
 
   <details class="col" open>
     <summary class="eyebrow"><span class="fold-chev">▸</span><span class="dot idea"></span>Idéer<span class="foldcount"></span></summary>
-    <div class="empty">Ingen åbne idéer lige nu — alt drøftet indtil videre er enten udført eller planlagt nedenfor.</div>
+    <div class="card"><div class="t">Automatiske påmindelser ved nærtstående frister</div><div class="d">
+      Idé — bevidst IKKE bygget endnu. Beslægtet med, men forskellig fra, "Notifikationsmail ved vigtige hændelser" nedenfor: en notifikation reagerer på noget der SKETE (ny besked, nyt aftalepunkt); en påmindelse reagerer på noget der nærmer sig i tiden, uden at nogen har handlet (en opgavefrist, en godkendelses <code>due_at</code>, en kladde der ikke er sat op endnu). "Kræver handling" og de foldbare fristvisninger i Aftalepunkter/Godkendelser dækker allerede dette PASSIVT, når man selv har appen åben — en påmindelse ville gøre det AKTIVT (en mail eller lignende, uden at man selv skal huske at kigge forbi).<br><br>
+      <b>Principskitse (ikke bygget):</b> en daglig kørsel (fx pg_cron eller et scheduled Database Webhook) der finder opgaver/godkendelser med frist inden for et fast vindue (fx 3 dage) og endnu ikke er markeret udført/afgjort, og udløser samme notifikations-infrastruktur som "Notifikationsmail" nedenfor — ingen ny Edge Function, blot en ny udløser oven på den.<br><br>
+      <b>Samme forudsætninger som notifikationsmail:</b> kræver samtykke (samme opt-in-felt), samme anti-støj-princip (én samlet påmindelse, ikke én pr. forfalden opgave), og skal besluttes sammen med resten af notifikations-arbejdet — ikke bygges isoleret først.<br><br>
+      <b>Bevidst ikke besluttet endnu:</b> om påmindelsen skal gå til kunden, til koordinatoren, eller begge (afhænger af hvis frist det er); om den skal være mail, en badge i selve appen, eller begge dele.
+    </div></div>
   </details>
 
   <details class="col" open>
