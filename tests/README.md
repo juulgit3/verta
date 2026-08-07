@@ -33,6 +33,23 @@ npm test
   dobbeltklik, og viser en fejl-toast ved exception i stedet for at fejle tavst.
 - `test_csv_export.js` — CSV-filens faktiske INDHOLD: BOM, semikolon, danske tegn, korrekt escaping af
   anførselstegn/semikolon/ægte linjeskift i felter, korrekt antal rækker/kolonner.
+- `test_modal_dispatch_order.js` — regressionstest for en reel, kritisk fejl fundet under denne
+  omgangs browserverifikation: `MODAL_RENDERERS.xxx`/`MODAL_BINDERS.xxx`-tildelinger endte tekstligt
+  FØR deres egen `const`-erklæring, hvilket er en ReferenceError (temporal dead zone), der stoppede
+  HELE `<script>`-blokken fra at køre på ethvert sidehit. Testen scanner kildekoden strukturelt for
+  denne fejlklasse OG kører hele scriptet i en rigtig jsdom-DOM for at bevise, at det rent faktisk
+  starter uden at kaste en fejl (bekræftet at ramme præcis den oprindelige fejlbesked, da fejlen blev
+  genskabt midlertidigt under udvikling af denne test).
+- `test_csv_import.js` — gæsteimport: delimiter-sniffing (komma/semikolon), anførselstegn/BOM,
+  kolonnegætning uafhængigt af sprog/rækkefølge, kategori-/bool-normalisering, dublet-detektion
+  (navn, case/whitespace-uafhængigt), gyldige/ugyldige rækker, kost-tag-normalisering.
+- `test_change_request_pricing.js` — prisberegning (`computeEventTotal`) for tilbudslinjer på
+  reception/middag-grundlag inkl. børnehalvpris og fast beløb, prisdelta-visning på ændringsforslag
+  (`changeRequestSummary`, fortegn), og den tids-baserede (ikke felt-baserede) regel for hvornår en
+  gæst mister direkte skriveadgang til gæstelisten (`guestEditsAreLocked`).
+- `test_log_grouping.js` — loggruppering af gentagne "kiggede ind"-hændelser: kun konsekutive
+  hændelser fra samme person grupperes, en rigtig ændring/besked midt i en stribe bryder grupperingen,
+  forskellige personers kigge-hændelser blandes aldrig, og hele funktionen kan slås fra.
 
 ## Kendte begrænsninger
 
@@ -40,6 +57,13 @@ Miljøet, disse tests blev udviklet i, havde ikke netværksadgang fra en browser
 projekt (kun via de dedikerede MCP-værktøjer) — derfor er der ingen ende-til-ende browsertest, der
 logger ind og klikker sig igennem den rigtige app mod den rigtige database. I stedet er hver test
 forankret i den faktiske kildekode og — hvor det er relevant — suppleret med direkte SQL-verifikation
-af RLS/databasetilstand (se changelog/final rapport for de konkrete before/after-værdier). Berørings-
-fladestørrelser (44px) er til gengæld verificeret med en rigtig Chromium-instans (Playwright) ved
-390px viewportbredde, da det ikke kræver netværksadgang til Supabase.
+af RLS/databasetilstand (se changelog/final rapport for de konkrete before/after-værdier).
+
+Ting der IKKE kræver Supabase-netværksadgang, ER til gengæld verificeret i en rigtig Chromium-instans
+(Playwright, med en stubbet `supabase.createClient()` der aldrig rammer netværket): berøringsflade-
+størrelser (44px) og selve appens evne til at boote og rendere ved 390px viewportbredde. Sidstnævnte
+var det, der fangede `test_modal_dispatch_order.js`s bagvedliggende fejl i første omgang — en reel
+tavs regression, som ingen af de øvrige (rent kildekode-baserede) tests kunne opdage, fordi ingen af
+dem rent faktisk kører hele scriptet fra ende til anden i en DOM. Playwright-scriptet selv er ikke
+en del af denne mappe (kørt ad hoc mod en midlertidig lokal kopi af appen), men den samme kontrol er
+nu permanent dækket af `test_modal_dispatch_order.js`s jsdom-baserede boot-test.
