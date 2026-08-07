@@ -159,6 +159,9 @@ select.status:focus-visible,input:focus-visible,button:focus-visible{outline:2px
 footer.legal{margin-top:28px;font-size:12px;color:var(--ink-40);line-height:1.6}
 
 #superadminBar{background:var(--ink);border-bottom:3px solid var(--amber)}
+#previewBar{background:var(--ink);border-bottom:3px solid var(--blue);position:sticky;top:0;z-index:45}
+#previewBar .sabar-label{color:var(--blue)}
+.preview-locked{pointer-events:none;user-select:none}
 .sabar-inner{max-width:960px;margin:0 auto;padding:9px 18px;display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap}
 .sabar-label{font-size:12.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--amber)}
 .sabar-label #sabarOrg{color:rgba(234,237,230,.65);font-weight:600;text-transform:none;letter-spacing:0}
@@ -197,6 +200,7 @@ input[type=file].search{padding:6px 8px;font-size:13px;min-width:0}
 
 /* gemt-feedback på inline-redigering */
 .flash-saved{background:rgba(62,107,76,.16)!important;transition:background .7s ease}
+.field-saving{opacity:.6;border-color:var(--amber)!important}
 
 /* opgave-noter og filer */
 .tasknote{background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:13.5px}
@@ -250,6 +254,12 @@ input[type=file].search{padding:6px 8px;font-size:13px;min-width:0}
       <button class="btn sabar-btn" id="sabarGuestToggle" style="display:none">Vis som gæst</button>
       <button class="btn sabar-btn" id="sabarHome">Kontrolrum</button>
     </span>
+  </div>
+</div>
+<div id="previewBar" style="display:none">
+  <div class="sabar-inner">
+    <span class="sabar-label">👁 Forhåndsvisning som kunde<span class="note" style="color:rgba(234,237,230,.65);font-weight:600;text-transform:none;letter-spacing:0"> · ændringer er deaktiveret</span></span>
+    <button class="btn sabar-btn" id="previewExit">Tilbage til medarbejdervisning</button>
   </div>
 </div>
 <div class="wrap">
@@ -343,14 +353,22 @@ const sb = window.supabase.createClient(SUPA.url, SUPA.anon);
 
 let state = { gaester:[], punkter:[], log:[],
               tab:'oversigt', soeg:'', rolle:'kilden', logType:'alle', logWho:'alle', logArea:'alle',
+              logDays:'14', logFrom:'', logTo:'', logSearch:'', logShowTech:false,
               lastRead:{kilden:0, kunde:0}, phases:[], venueRooms:[], staffList:[], invitesList:[], venuesFull:[],
               eventCatalog:[], orgCatalog:[], openRoomPickers:new Set(),
               openPickerGroups:new Set(['kladde','tilbud','bekræftet']),
-              isSuperadmin:false, allOrgs:[], guestLink:'', guestLinkBusy:false,
+              isSuperadmin:false, allOrgs:[], guestLink:'', guestLinkEventId:null, guestLinkBusy:false,
               guestWelcome:false, contactName:'', orgOnboardingDismissed:false, orgCatalogCount:0, orgStaffCount:0,
               taskTemplates:[], agendaNotes:{}, openTaskNotes:new Set(), openDoneGroups:new Set(),
-              superadminActor:null, impersonating:null, roster:[] };
-function save(){ cloudSaveGuestsAgenda(); }
+              superadminActor:null, impersonating:null, roster:[],
+              previewMode:false, previewPriorRolle:null,
+              eventExceptions:{}, eventNextDue:{}, pickerSort:'dato', pickerSearch:'', pickerFilterStatus:'alle' };
+/* Rigtig UUID til klient-oprettede rækker (guests.id er en uuid-kolonne — et 'n'+Date.now()-agtigt id ville få hele upsert-batchen til at fejle stille). */
+function newId(){
+  if(crypto.randomUUID) return crypto.randomUUID();
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g,c=>{const r=Math.random()*16|0;return (c==='x'?r:(r&0x3|0x8)).toString(16);});
+}
+function save(){ return cloudSaveGuestsAgenda(); }
 const currentActor = () => state.actor||{navn:'?',side:'kilden'};
 
 /* =========================================================
@@ -441,15 +459,73 @@ function prisLinjer(){
 const total = () => prisLinjer().reduce((s,l)=>s+l.belob,0);
 const aabnePunkter = () => state.punkter.filter(p=>p.status!=='aftalt');
 
-/* mutation-wrapper: logger + fanger antalsændring */
-function guestMutation(apply, staffLabel){
+/* mutation-wrapper: opdaterer optimistisk, men ruller tilbage og viser en fejl, hvis Supabase afviser ændringen.
+   Genhenter den autoritative gæsteliste efter et bekræftet gem, så alle visninger altid stemmer overens med databasen. */
+function restoreGuestFocus(sel){
+  if(!sel) return;
+  const el=document.querySelector(`tr[data-id="${sel.id}"] [data-f="${sel.f}"]`);
+  if(el) el.focus();
+}
+async function guestMutation(apply, staffLabel){
+  const active=document.activeElement;
+  const focusSel = (active && active.dataset && active.dataset.f && active.closest('tr'))
+    ? {id:active.closest('tr').dataset.id, f:active.dataset.f} : null;
+  const snapshot = state.gaester.map(g=>({...g}));
   const b=antal(); apply(); const a=antal();
-  pushLog({area:'gaester', label:staffLabel});
-  if(a.middag.total!==b.middag.total)
-    pushLog({area:'gaester',label:'Deltagerantal (middag)',from:b.middag.total,to:a.middag.total,cust:true,friendly:'Deltagerantal til middag opdateret til '+a.middag.total});
-  else if(a.reception.total!==b.reception.total)
-    pushLog({area:'gaester',label:'Deltagerantal (reception)',from:b.reception.total,to:a.reception.total,cust:true,friendly:'Deltagerantal til reception opdateret til '+a.reception.total});
-  save(); render();
+  render();
+  restoreGuestFocus(focusSel);
+  try{
+    await save();
+    pushLog({area:'gaester', label:staffLabel});
+    if(a.middag.total!==b.middag.total)
+      pushLog({area:'gaester',label:'Deltagerantal (middag)',from:b.middag.total,to:a.middag.total,cust:true,friendly:'Deltagerantal til middag opdateret til '+a.middag.total});
+    else if(a.reception.total!==b.reception.total)
+      pushLog({area:'gaester',label:'Deltagerantal (reception)',from:b.reception.total,to:a.reception.total,cust:true,friendly:'Deltagerantal til reception opdateret til '+a.reception.total});
+    await reloadGaester();
+    render();
+    restoreGuestFocus(focusSel);
+  }catch(err){
+    state.gaester=snapshot;
+    render();
+    restoreGuestFocus(focusSel);
+    showToast('Kunne ikke gemme ændringen: '+(err.message||'ukendt fejl'),'error');
+  }
+}
+/* Tekstfelter (navn, kost) gemmer debounced uden at gen-rendere hele tabellen — undgår at brugeren mister
+   fokus/markørposition midt i indtastning. Værdien er allerede opdateret lokalt via oninput; her afventes
+   blot det faktiske gem, og feltet ruller tilbage til sidst kendte gode værdi, hvis Supabase afviser det. */
+const guestFieldTimers = {};
+const pendingGuestEdits = {};
+function scheduleGuestFieldSave(g, f, el){
+  const key=g.id+'|'+f;
+  pendingGuestEdits[key]={value:g[f]};
+  clearTimeout(guestFieldTimers[key]);
+  guestFieldTimers[key]=setTimeout(()=>commitGuestField(g.id,f,el), 550);
+}
+async function commitGuestField(guestId, f, el){
+  const key=guestId+'|'+f;
+  clearTimeout(guestFieldTimers[key]);
+  const g=state.gaester.find(x=>x.id===guestId);
+  if(!g){ delete pendingGuestEdits[key]; return; }
+  const before = el.dataset.lastGood;
+  const value = g[f];
+  if(value===before){ delete pendingGuestEdits[key]; return; }
+  el.classList.add('field-saving');
+  try{
+    await save();
+    if(f==='kost') pushLog({area:'gaester',label:'Særlig kost · '+g.navn,from:before||'—',to:value||'—',cust:true,friendly:'Særlig kost opdateret for '+(g.navn||'en gæst')+(value?' ('+value+')':'')});
+    else pushLog({area:'gaester',label:'Navn ændret',from:before||'—',to:value||'—'});
+    delete pendingGuestEdits[key];
+    if(document.body.contains(el)) el.dataset.lastGood = value;
+    el.classList.remove('field-saving');
+    flashSaved(`tr[data-id="${guestId}"] [data-f="${f}"]`);
+  }catch(err){
+    el.classList.remove('field-saving');
+    delete pendingGuestEdits[key];
+    g[f]=before;
+    if(document.body.contains(el)) el.value=before;
+    showToast('Kunne ikke gemme '+(f==='kost'?'kostbehov':'navn')+': '+(err.message||'ukendt fejl'),'error');
+  }
 }
 
 /* =========================================================
@@ -564,7 +640,7 @@ function viewOversigt(){
   const deleKort = (state.rolle==='kilden') ? `
   <section class="card">
     <header><h2>Del med gæsten</h2><span class="note">magisk login-link</span></header>
-    ${state.guestLink ? `
+    ${(state.guestLink && state.guestLinkEventId===state.eventId) ? `
     <div class="stat" style="flex-wrap:wrap;gap:8px">
       <span class="note" style="word-break:break-all;flex:1 1 260px">${esc(state.guestLink)}</span>
       <button class="btn" id="guestLinkCopy">Kopiér</button>
@@ -578,6 +654,10 @@ function viewOversigt(){
       <button class="btn primary" id="guestLinkGen" ${state.guestLinkBusy?'disabled':''}>${state.guestLinkBusy?'Genererer…':'Generér link'}</button>
     </div>
     `}
+    <div class="row" style="margin-top:10px">
+      <button class="btn" id="previewAsCustomer">Forhåndsvis som kunde</button>
+      <span class="note">Se arrangementet, som kunden ser det — uden at oprette en gæst eller sende en mail.</span>
+    </div>
   </section>` : '';
   const lokaleKort = (state.rolle==='kilden') ? `
   <section class="card">
@@ -737,8 +817,9 @@ function viewPunkter(){
       <button class="btn primary" id="pkOpret">Opret</button>
     </div>
   </section>` : '';
-  const kildenTitel = kilden ? 'Vores ansvar' : `Ansvar hos ${state.orgName||'os'}`;
-  const groups = [['jer','Jeres ansvar'],['kilden',kildenTitel]].map(([ejer,titel])=>{
+  const jerTitel = kilden ? 'Kundens ansvar' : 'Jeres ansvar';
+  const kildenTitel = kilden ? 'Vores ansvar' : `${state.orgName||'Os'}s ansvar`;
+  const groups = [['jer',jerTitel],['kilden',kildenTitel]].map(([ejer,titel])=>{
     const all = state.punkter.filter(p=>p.ejer===ejer);
     const open = all.filter(p=>p.status!=='aftalt').sort((a,b)=>(a.frist||'9999').localeCompare(b.frist||'9999'));
     const done = all.filter(p=>p.status==='aftalt').sort((a,b)=>(b.frist||'').localeCompare(a.frist||''));
@@ -783,12 +864,40 @@ function ejerLabel(ejer){
   return state.rolle==='kilden' ? 'Os' : (state.orgName||'Os');
 }
 
-function viewLog(){
-  const whoList=[...new Set(state.log.map(e=>e.who))];
+function logRowsFiltered(){
   let rows=state.log.filter(e=>
     (state.logType==='alle'||(state.logType==='aendringer'&&e.type==='change')||(state.logType==='opslag'&&e.type==='view')||(state.logType==='beskeder'&&e.type==='message')) &&
     (state.logWho==='alle'||e.who===state.logWho) &&
     (state.logArea==='alle'||e.area===state.logArea));
+  if(state.logDays==='custom'){
+    const from = state.logFrom ? new Date(state.logFrom+'T00:00:00').getTime() : null;
+    const to = state.logTo ? new Date(state.logTo+'T23:59:59').getTime() : null;
+    rows = rows.filter(e=>(!from||e.ts>=from)&&(!to||e.ts<=to));
+  } else if(state.logDays!=='alle'){
+    const cutoff = Date.now() - Number(state.logDays)*DAG;
+    rows = rows.filter(e=>e.ts>=cutoff);
+  }
+  const q=state.logSearch.trim().toLowerCase();
+  if(q) rows = rows.filter(e=>(e.who||'').toLowerCase().includes(q)||(e.label||'').toLowerCase().includes(q)||(e.friendly||'').toLowerCase().includes(q)||(e.text||'').toLowerCase().includes(q));
+  return rows;
+}
+function logLine(e){
+  if(e.type==='view') return '<span class="view">kiggede ind</span>';
+  if(e.type==='message') return `<span class="tag">Besked</span><span class="msgq">”${esc(e.text||'')}”</span>`;
+  const desc = e.friendly ? esc(e.friendly) : `${esc(e.label)}${(e.from||e.to)?` <span class="delta">${e.from?esc(e.from):'—'}<span class="arrow">→</span>${esc(e.to)}</span>`:''}`;
+  return `<span class="tag">${AREA_TXT[e.area]}</span>${desc}`;
+}
+function exportLogCsv(rows){
+  const head=['Tidspunkt','Person','Side','Type','Område','Hændelse','Fra','Til','Besked'];
+  const body=rows.map(e=>[tid(e.ts), e.who, e.side, e.type, e.area, e.friendly||e.label||'', e.from||'', e.to||'', e.text||'']);
+  const q=v=>'"'+String(v==null?'':v).replace(/"/g,'""')+'"';
+  const csv=[head,...body].map(r=>r.map(q).join(';')).join('\r\n');
+  const blob=new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='aktivitetslog-'+(state.eventTitle||'arrangement')+'.csv'; a.click();
+}
+function viewLog(){
+  const whoList=[...new Set(state.log.map(e=>e.who))];
+  const rows=logRowsFiltered();
   return `
   <section class="card">
     <header><h2>Aktivitetslog</h2><span class="note">${rows.length} af ${state.log.length} hændelser</span></header>
@@ -796,14 +905,22 @@ function viewLog(){
       <select id="fType"><option value="alle">Alle typer</option><option value="aendringer" ${state.logType==='aendringer'?'selected':''}>Kun ændringer</option><option value="opslag" ${state.logType==='opslag'?'selected':''}>Kun opslag</option><option value="beskeder" ${state.logType==='beskeder'?'selected':''}>Kun beskeder</option></select>
       <select id="fWho"><option value="alle">Alle personer</option>${whoList.map(w=>`<option value="${esc(w)}" ${state.logWho===w?'selected':''}>${esc(w)}</option>`).join('')}</select>
       <select id="fArea"><option value="alle">Alle områder</option>${Object.entries(AREA_TXT).map(([k,v])=>`<option value="${k}" ${state.logArea===k?'selected':''}>${v}</option>`).join('')}</select>
+      <select id="fDays">
+        <option value="7" ${state.logDays==='7'?'selected':''}>Sidste 7 dage</option>
+        <option value="14" ${state.logDays==='14'?'selected':''}>Sidste 14 dage</option>
+        <option value="30" ${state.logDays==='30'?'selected':''}>Sidste 30 dage</option>
+        <option value="alle" ${state.logDays==='alle'?'selected':''}>Alle datoer</option>
+        <option value="custom" ${state.logDays==='custom'?'selected':''}>Brugerdefineret</option>
+      </select>
+      ${state.logDays==='custom'?`<input type="date" id="fLogFrom" class="search" value="${esc(state.logFrom)}"><input type="date" id="fLogTo" class="search" value="${esc(state.logTo)}">`:''}
+      <input class="search" id="fLogSearch" placeholder="Søg i log…" value="${esc(state.logSearch)}" style="flex:1;min-width:160px">
+      <label class="row" style="gap:5px;font-size:12.5px;color:var(--ink-60)"><input type="checkbox" id="fLogTech" ${state.logShowTech?'checked':''}>Vis tekniske detaljer</label>
+      <button class="btn noprint" id="logExport">Eksportér CSV</button>
     </div>
     ${rows.length?rows.map(e=>`<div class="logrow ${e.type==='view'?'viewrow':''}">
       <span class="when">${tid(e.ts)}</span>
       <span class="who"><span class="dot ${e.side}"></span>${esc(e.who.split(' (')[0])}</span>
-      <span class="what">${
-        e.type==='view' ? '<span class="view">kiggede ind</span>' :
-        e.type==='message' ? `<span class="tag">Besked</span><span class="msgq">”${esc(e.text||'')}”</span>` :
-        `<span class="tag">${AREA_TXT[e.area]}</span>${esc(e.label)}${(e.from||e.to)?` <span class="delta">${e.from?esc(e.from):'—'}<span class="arrow">→</span>${esc(e.to)}</span>`:''}`}${e.ip?` <span class="note" style="font-variant-numeric:tabular-nums">· ${esc(e.ip)}</span>`:''}</span>
+      <span class="what">${logLine(e)}${(state.logShowTech&&e.ip)?` <span class="note" style="font-variant-numeric:tabular-nums">· IP ${esc(e.ip)}</span>`:''}</span>
     </div>`).join(''):'<div class="empty">Ingen hændelser matcher filteret.</div>'}
   </section>`;
 }
@@ -851,6 +968,7 @@ function viewBeskeder(){
 function render(){
   document.getElementById('bootLoading').style.display = 'none';
   renderSuperadminBar();
+  document.getElementById('previewBar').style.display = state.previewMode ? 'block' : 'none';
   document.getElementById('logout').style.display = '';
   document.getElementById('setPasswordBtn').style.display = '';
   document.getElementById('backToList').style.display = (state.rolle==='kilden' && (state.events||[]).length>1 && state.view==='workspace') ? '' : 'none';
@@ -957,6 +1075,10 @@ function render(){
         if(el.open) state.openPickerGroups.add(el.dataset.pickerGroup);
         else state.openPickerGroups.delete(el.dataset.pickerGroup);
       });
+      const pSearch=document.getElementById('pickerSearch');
+      if(pSearch){ pSearch.oninput=()=>{state.pickerSearch=pSearch.value;const p=pSearch.selectionStart;render();const n=document.getElementById('pickerSearch');if(n){n.focus();n.setSelectionRange(p,p);}}; }
+      const pSort=document.getElementById('pickerSort'); if(pSort) pSort.onchange=()=>{state.pickerSort=pSort.value;render();};
+      const pFilter=document.getElementById('pickerFilterStatus'); if(pFilter) pFilter.onchange=()=>{state.pickerFilterStatus=pFilter.value;render();};
     }
     v.querySelectorAll('[data-nav]').forEach(el=>el.onclick=async()=>{
       state.view=el.dataset.nav;
@@ -982,9 +1104,10 @@ function render(){
   const map={oversigt:viewOversigt,gaester:viewGaester,punkter:viewPunkter,koekken:viewKoekken,log:viewLog,admin:viewAdmin,tidslinje:viewTidslinje,beskeder:viewBeskeder};
   if(!map[state.tab]) state.tab='oversigt';
   document.getElementById('view').innerHTML=map[state.tab]();
+  document.getElementById('view').classList.toggle('preview-locked', state.previewMode);
   document.getElementById('legal').textContent = state.rolle==='kilden'
     ? 'Medarbejdervisning. Fuld log med opslag og ændringer.'
-    : 'Brudeparrets visning via magic link. Tidslinjen viser kun ændringer — ikke hvem der har kigget hvornår.';
+    : 'Kundevisning via magisk link. Tidslinjen viser kun ændringer — ikke hvem der har kigget hvornår.';
   bind();
 }
 
@@ -997,7 +1120,12 @@ function bind(){
   if(soeg) soeg.oninput=e=>{state.soeg=e.target.value;const p=e.target.selectionStart;render();const n=document.getElementById('soeg');n.focus();n.setSelectionRange(p,p);};
 
   const add=document.getElementById('tilfoej');
-  if(add) add.onclick=()=>guestMutation(()=>state.gaester.push({id:'n'+Date.now(),navn:'Ny gæst',kat:'voksen',reception:true,middag:true,kost:''}),'Gæst tilføjet');
+  if(add) add.onclick=async()=>{
+    if(add.disabled) return;
+    add.disabled=true;
+    await guestMutation(()=>state.gaester.push({id:newId(),navn:'Ny gæst',kat:'voksen',reception:true,middag:true,kost:''}),'Gæst tilføjet');
+    add.disabled=false;
+  };
 
   const eks=document.getElementById('eksport');
   if(eks) eks.onclick=()=>{
@@ -1014,13 +1142,11 @@ function bind(){
       const f=el.dataset.f;
       if(el.type==='checkbox') el.onchange=()=>guestMutation(()=>g[f]=el.checked, (f==='middag'?'Middag':'Reception')+(el.checked?' tilføjet':' fjernet')+' · '+g.navn);
       else if(el.tagName==='SELECT') el.onchange=()=>guestMutation(()=>g[f]=el.value, 'Kategori ændret · '+g.navn);
-      else { const before=g[f]; el.oninput=()=>g[f]=el.value; onEnterBlur(el);
-        el.onblur=()=>{ if(g[f]!==before){
-          if(f==='kost') pushLog({area:'gaester',label:'Særlig kost · '+g.navn,from:before||'—',to:g[f]||'—',cust:true,friendly:'Særlig kost opdateret for '+(g.navn||'en gæst')+(g[f]?' ('+g[f]+')':'')});
-          else pushLog({area:'gaester',label:'Navn ændret',from:before||'—',to:g[f]||'—'});
-          save(); render();
-          flashSaved(`tr[data-id="${g.id}"] [data-f="${f}"]`);
-        }};
+      else {
+        el.dataset.lastGood = g[f] ?? '';
+        onEnterBlur(el);
+        el.oninput=()=>{ g[f]=el.value; scheduleGuestFieldSave(g,f,el); };
+        el.onblur=()=>{ commitGuestField(g,f,el); };
       }
     });
     const del=tr.querySelector('[data-slet]');
@@ -1073,6 +1199,12 @@ function bind(){
   const fT=document.getElementById('fType'); if(fT) fT.onchange=()=>{state.logType=fT.value;render();};
   const fW=document.getElementById('fWho');  if(fW) fW.onchange=()=>{state.logWho=fW.value;render();};
   const fA=document.getElementById('fArea'); if(fA) fA.onchange=()=>{state.logArea=fA.value;render();};
+  const fD=document.getElementById('fDays'); if(fD) fD.onchange=()=>{state.logDays=fD.value;render();};
+  const fLF=document.getElementById('fLogFrom'); if(fLF) fLF.onchange=()=>{state.logFrom=fLF.value;render();};
+  const fLT=document.getElementById('fLogTo'); if(fLT) fLT.onchange=()=>{state.logTo=fLT.value;render();};
+  const fLS=document.getElementById('fLogSearch'); if(fLS){ fLS.oninput=()=>{state.logSearch=fLS.value;const p=fLS.selectionStart;render();const n=document.getElementById('fLogSearch');n.focus();n.setSelectionRange(p,p);}; }
+  const fTech=document.getElementById('fLogTech'); if(fTech) fTech.onchange=()=>{state.logShowTech=fTech.checked;render();};
+  const logExport=document.getElementById('logExport'); if(logExport) logExport.onclick=()=>exportLogCsv(logRowsFiltered());
 
   const sm=document.getElementById('sendmsg');
   if(sm) sm.onclick=()=>{const ta=document.getElementById('msgtext');const t=ta.value.trim();if(!t)return;pushMessage(t);render();};
@@ -1105,7 +1237,11 @@ function bind(){
     onEnterSubmit(document.getElementById('guestLinkEmail'), ()=>glGen.click());
   }
   const glCopy=document.getElementById('guestLinkCopy'); if(glCopy) glCopy.onclick=copyGuestLink;
-  const glNew=document.getElementById('guestLinkNew'); if(glNew) glNew.onclick=()=>{ state.guestLink=''; render(); };
+  const glNew=document.getElementById('guestLinkNew'); if(glNew) glNew.onclick=()=>{ state.guestLink=''; state.guestLinkEventId=null; render(); };
+  const pac=document.getElementById('previewAsCustomer');
+  if(pac) pac.onclick=()=>{
+    state.previewPriorRolle=state.rolle; state.rolle='kunde'; state.previewMode=true; render();
+  };
 
   (state.phases||[]).forEach(p=>{
     const btn=document.querySelector(`[data-phase-save="${p.id}"]`);
@@ -1210,13 +1346,27 @@ const pFromDb = r => ({id:r.id, titel:r.title, ejer:r.owner, status:r.status, fr
 const logFromDb = r => ({id:r.id, ts:new Date(r.ts).getTime(), side:r.actor_side, who:r.actor_name, type:r.entry_type, area:r.area, label:r.label, from:r.from_val, to:r.to_val, cust:r.customer_visible, friendly:r.friendly, text:r.message_text, ip:r.ip_address||''});
 const logToDb   = e => ({event_id:state.eventId, ts:new Date(e.ts).toISOString(), actor_name:e.who, actor_side:e.side, entry_type:e.type, area:e.area, label:e.label||'', from_val:e.from||'', to_val:e.to||'', customer_visible:!!e.cust, friendly:e.friendly||'', message_text:e.text||''});
 
+/* Supabase er den autoritative kilde: fejl her må ALDRIG blive tavse — kalderen skal kunne rulle tilbage og vise en fejl. */
 async function cloudSaveGuestsAgenda(){
-  try{
-    await sb.from('guests').upsert(state.gaester.map(gToDb));
-    const goneG=[...state._dbG].filter(id=>!state.gaester.find(g=>g.id===id));
-    if(goneG.length) await sb.from('guests').delete().in('id',goneG);
-    state._dbG=new Set(state.gaester.map(g=>g.id));
-  }catch(e){ console.error('cloud save', e); }
+  const {error:upErr} = await sb.from('guests').upsert(state.gaester.map(gToDb));
+  if(upErr) throw upErr;
+  const goneG=[...state._dbG].filter(id=>!state.gaester.find(g=>g.id===id));
+  if(goneG.length){
+    const {error:delErr} = await sb.from('guests').delete().in('id',goneG);
+    if(delErr) throw delErr;
+  }
+  state._dbG=new Set(state.gaester.map(g=>g.id));
+}
+async function reloadGaester(){
+  const {data:gs}=await sb.from('guests').select('*').eq('event_id',state.eventId).order('sort_order');
+  state.gaester=(gs||[]).map(gFromDb);
+  /* Genanvend endnu ikke gemte tekstfelt-redigeringer (fx en anden rækkes checkbox-tryk må ikke slette det, du er i gang med at skrive) */
+  for(const key in pendingGuestEdits){
+    const [gid,f]=key.split('|');
+    const g=state.gaester.find(x=>x.id===gid);
+    if(g) g[f]=pendingGuestEdits[key].value;
+  }
+  state._dbG=new Set(state.gaester.map(g=>g.id));
 }
 
 async function cloudBoot(user){
@@ -1250,7 +1400,10 @@ async function cloudBoot(user){
     if(state.events.length===1) openEvent(state.events[0].id); else showPicker();
     return;
   }
-  const {data:acc}=await sb.from('event_access').select('id,event_id,display_name,first_visited_at').eq('user_id',user.id);
+  /* Sorteret efter nyeste adgang: appen antager i dag én gæst = ét arrangement (jf. gæstelinkets design), men
+     hvis en person nogensinde skulle have adgang til mere end ét, må valget aldrig være udefineret/tilfældigt —
+     den senest tildelte adgang vinder, i stedet for hvilken række Postgres tilfældigvis returnerer først. */
+  const {data:acc}=await sb.from('event_access').select('id,event_id,display_name,first_visited_at').eq('user_id',user.id).order('created_at',{ascending:false});
   if(acc&&acc.length){
     state.rolle='kunde'; state.actor={navn:acc[0].display_name, side:'kunde'};
     state.guestWelcome=!acc[0].first_visited_at;
@@ -1372,6 +1525,9 @@ function viewSuperadminHome(){
 
 async function openEvent(id){
   state.eventId=id;
+  /* Event-specifik UI-state må aldrig lække mellem arrangementer (fx et gæstelink genereret på et andet arrangement). */
+  state.guestLink=''; state.guestLinkEventId=null; state.guestLinkBusy=false;
+  if(state.previewMode){ state.rolle=state.previewPriorRolle||'kilden'; state.previewMode=false; state.previewPriorRolle=null; }
   const [{data:ev},{data:gs},{data:ps},{data:lg}]=await Promise.all([
     sb.from('events').select('*,venues(name),organisations(name)').eq('id',id).maybeSingle(),
     sb.from('guests').select('*').eq('event_id',id).order('sort_order'),
@@ -1403,8 +1559,7 @@ function subscribeRealtime(id){
       state.log=(lg||[]).map(logFromDb); render();
     })
     .on('postgres_changes', {event:'*', schema:'public', table:'guests', filter:'event_id=eq.'+id}, async()=>{
-      const {data:gs}=await sb.from('guests').select('*').eq('event_id',id).order('sort_order');
-      state.gaester=(gs||[]).map(gFromDb); state._dbG=new Set(state.gaester.map(g=>g.id)); render();
+      await reloadGaester(); render();
     })
     .on('postgres_changes', {event:'*', schema:'public', table:'agenda_items', filter:'event_id=eq.'+id}, async()=>{
       await reloadPunkter(); render();
@@ -1441,6 +1596,7 @@ async function inviteStaff(){
   btn.disabled=false; btn.textContent=orig;
   if(error){ showToast('Kunne ikke invitere: '+error.message,'error'); return; }
   await loadUsers(); render();
+  showToast('Invitation sendt til '+name+'.','ok');
 }
 async function cancelInvite(id){
   const {error}=await sb.from('invites').delete().eq('id',id);
@@ -1590,6 +1746,7 @@ async function createCatalogItem(){
   }
   btn.disabled=false; btn.textContent=orig;
   await loadOrgCatalog(); render();
+  showToast('Katalogvare oprettet.','ok');
 }
 async function deleteCatalogItem(id){
   if(!(await appConfirm('Slet katalogvaren? Kan ikke fortrydes.'))) return;
@@ -1607,6 +1764,74 @@ async function removeCatalogFromEvent(itemId){
   const {error}=await sb.from('event_catalog_items').delete().eq('event_id',state.eventId).eq('catalog_item_id',itemId);
   if(error){ showToast('Kunne ikke fjerne: '+error.message,'error'); return; }
   await loadCatalog(state.eventId); render();
+}
+/* Samme prisregler som antal()/prisLinjer(), men til brug på tværs af mange arrangementer på én gang
+   (arrangementsoversigtens "kræver handling"-sektion) — børn tæller halvt hvis child_half, babyer altid gratis. */
+function computeEventTotal(guestRows, catalogRows){
+  const counts={reception:{voksne:0,boern:0}, middag:{voksne:0,boern:0}};
+  (guestRows||[]).forEach(g=>{
+    if(g.category==='baby') return;
+    const kat = g.category==='barn' ? 'boern' : 'voksne';
+    if(g.reception) counts.reception[kat]++;
+    if(g.dinner) counts.middag[kat]++;
+  });
+  let total=0;
+  (catalogRows||[]).forEach(c=>{
+    if(!c) return;
+    if(c.basis==='fast'){ total+=c.price_kr||0; return; }
+    const b=counts[c.basis]; if(!b) return;
+    total += b.voksne*(c.price_kr||0) + (c.child_half ? b.boern*(c.price_kr||0)/2 : b.boern*(c.price_kr||0));
+  });
+  return total;
+}
+/* Henter, på tværs af alle arrangementer i org'en, det der skal til for at afgøre om et arrangement
+   "kræver handling" lige nu: overskredne/nærtstående opgavefrister, manglende lokale, manglende gæstelink,
+   og om det beregnede beløb afviger fra tilbuddet. Bevidst afgrænset til data, der kan hentes billigt i bulk —
+   se "Kendte begrænsninger" i changelog for hvad der ikke er dækket (kundebeskeder kræver en server-side
+   "sidst læst"-markør, som ikke findes i skemaet i dag). */
+async function loadPickerExceptions(){
+  const ids=(state.events||[]).map(e=>e.id);
+  state.eventExceptions={};
+  if(!ids.length) return;
+  const [{data:tasks},{data:rooms},{data:access},{data:guests},{data:catLinks}] = await Promise.all([
+    sb.from('agenda_items').select('event_id,status,due_date').in('event_id',ids),
+    sb.from('event_rooms').select('event_id,room_id,start_time,end_time').in('event_id',ids),
+    sb.from('event_access').select('event_id').in('event_id',ids),
+    sb.from('guests').select('event_id,category,reception,dinner').in('event_id',ids),
+    sb.from('event_catalog_items').select('event_id,catalog_items(price_kr,basis,child_half)').in('event_id',ids)
+  ]);
+  const byEvent = (rows,key) => { const m={}; (rows||[]).forEach(r=>{ (m[r.event_id]=m[r.event_id]||[]).push(key?r[key]:r); }); return m; };
+  const tasksByEvent=byEvent(tasks), roomsByEvent=byEvent(rooms), accessByEvent=byEvent(access), guestsByEvent=byEvent(guests), catByEvent=byEvent(catLinks);
+  const today=new Date().toISOString().slice(0,10);
+  const in7=addDays(today,7);
+  const out={}; const nextDue={};
+  (state.events||[]).forEach(ev=>{
+    const reasons=[];
+    const openTasks=(tasksByEvent[ev.id]||[]).filter(t=>t.status!=='aftalt' && t.due_date);
+    if(openTasks.length) nextDue[ev.id]=openTasks.map(t=>t.due_date).sort()[0];
+    const overdue=openTasks.filter(t=>t.due_date<today);
+    const soon=openTasks.filter(t=>t.due_date>=today && t.due_date<=in7);
+    if(overdue.length) reasons.push({txt:overdue.length+' opgave'+(overdue.length>1?'r':'')+' er overskredet', urgent:true});
+    else if(soon.length) reasons.push({txt:soon.length+' opgave'+(soon.length>1?'r':'')+' har frist inden for 7 dage', urgent:false});
+    if(ev.status==='tilbud'||ev.status==='bekræftet'){
+      const rr=roomsByEvent[ev.id]||[];
+      if(!rr.length || rr.some(r=>!r.room_id||!r.start_time||!r.end_time)) reasons.push({txt:'Lokale eller tidspunkt mangler', urgent:false});
+      if(!(accessByEvent[ev.id]||[]).length) reasons.push({txt:'Gæstelink er ikke oprettet endnu', urgent:false});
+    }
+    if(ev.status==='kladde'){
+      const d=dageTil(ev.event_date);
+      if(d>=0 && d<=30) reasons.push({txt:'Arrangementet nærmer sig, men er stadig en kladde', urgent:d<=7});
+    }
+    const catRows=(catByEvent[ev.id]||[]).map(c=>c.catalog_items).filter(Boolean);
+    if(catRows.length){
+      const beregnet=computeEventTotal(guestsByEvent[ev.id], catRows);
+      const diff=beregnet-(ev.offer_total_kr||0);
+      if(Math.abs(diff)>=50) reasons.push({txt:'Pris er '+kr(Math.abs(diff))+(diff>0?' over':' under')+' tilbuddet', urgent:false});
+    }
+    if(reasons.length) out[ev.id]=reasons;
+  });
+  state.eventExceptions=out;
+  state.eventNextDue=nextDue;
 }
 async function loadRooms(id){
   const {data:er}=await sb.from('event_rooms').select('id, label, room_id, start_time, end_time, sort_order, rooms(name)').eq('event_id',id).order('sort_order');
@@ -1630,6 +1855,7 @@ async function updatePhase(id, label, roomId, startTime, endTime){
   if(error){ showToast('Kunne ikke gemme fase: '+error.message, 'error'); await loadRooms(state.eventId); render(); return; }
   pushLog({area:'system', label:'Fase · '+label.trim(), from:'', to:(state.venueRooms.find(r=>r.id===roomId)||{}).name||'—', cust:false});
   await loadRooms(state.eventId); render();
+  flashSaved(`[data-phase-save="${id}"]`);
 }
 async function removePhase(id){
   const p=(state.phases||[]).find(x=>x.id===id);
@@ -1665,10 +1891,12 @@ async function setEventStatus(id, status){
   const {error}=await sb.from('events').update({status}).eq('id',id);
   if(error){ showToast('Kunne ikke ændre status: '+error.message,'error'); return; }
   state.status=status;
-  pushLog({area:'system', label:'Status', from, to:status, cust:true, friendly:'Status ændret til '+status});
+  const statusTxt=(EVENT_STATUSES.find(([v])=>v===status)||[])[1]||status;
+  pushLog({area:'system', label:'Status', from, to:status, cust:true, friendly:'Status ændret til '+statusTxt});
   const {data:evs}=await sb.from('events').select('id,title,event_date,status,offer_total_kr,event_type,venues(name)').eq('org_id',state.orgId).order('event_date',{ascending:false});
   state.events=evs||[];
   render();
+  showToast('Status ændret til '+statusTxt,'ok');
 }
 async function updateEventDetails(){
   const title=document.getElementById('edTitle').value.trim();
@@ -1680,13 +1908,13 @@ async function updateEventDetails(){
   const btn=document.getElementById('edSave'), orig=btn.textContent;
   btn.disabled=true; btn.textContent='Gemmer…';
   const {error}=await sb.from('events').update({title, venue_id:venueId, event_date:date, offer_total_kr:price, event_type:eventType}).eq('id',state.eventId);
-  btn.disabled=false; btn.textContent=orig;
-  if(error){ showToast('Kunne ikke gemme: '+error.message,'error'); return; }
+  if(error){ btn.disabled=false; btn.textContent=orig; showToast('Kunne ikke gemme: '+error.message,'error'); return; }
   const {data:ev}=await sb.from('events').select('*,venues(name)').eq('id',state.eventId).maybeSingle();
   if(ev){ state.offerTotal=ev.offer_total_kr; state.eventDate=ev.event_date; state.eventTitle=ev.title; state.venueName=ev.venues?ev.venues.name:''; state.venueId=ev.venue_id; state.eventType=ev.event_type; }
   await loadRooms(state.eventId);
   pushLog({area:'system', label:'Arrangementdetaljer', cust:true, friendly:'Arrangementdetaljer opdateret'});
   render();
+  flashSaved('#edSave');
 }
 function addDays(dateStr, delta){
   const d=new Date(dateStr+'T00:00:00');
@@ -1705,6 +1933,7 @@ async function updatePunktStatus(id, status){
   p.status=status;
   pushLog({area:'punkter', label:p.titel, from, to:status, cust:true, friendly:p.titel+' er nu '+STATUS_LABEL[status]});
   render();
+  flashSaved(`[data-pid="${id}"]`);
 }
 async function createPunkt(titel, ejer, frist, note, file){
   if(!titel.trim()){ showToast('Skriv en titel.','error'); return; }
@@ -1714,6 +1943,7 @@ async function createPunkt(titel, ejer, frist, note, file){
   await reloadPunkter();
   if((note||'').trim() || file) await addAgendaNote(data.id, note, file);
   else render();
+  showToast('Opgave oprettet.','ok');
 }
 async function deletePunkt(id){
   if(!(await appConfirm('Slet opgaven? Kan ikke fortrydes.'))) return;
@@ -1781,6 +2011,7 @@ async function createTaskTemplate(){
   btn.disabled=false; btn.textContent=orig;
   if(error){ showToast('Kunne ikke oprette: '+error.message,'error'); return; }
   await loadTaskTemplates(); render();
+  showToast('Skabelon oprettet.','ok');
 }
 async function deleteTaskTemplate(id){
   if(!(await appConfirm('Slet skabelonen? Kan ikke fortrydes.'))) return;
@@ -1790,14 +2021,17 @@ async function deleteTaskTemplate(id){
 }
 async function generateGuestLink(name, email){
   if(!name || !email){ showToast('Udfyld både navn og mail.','error'); return; }
+  const eventIdAtStart = state.eventId;
   state.guestLinkBusy=true; render();
   try{
-    const {data, error}=await sb.functions.invoke('invite-guest', {body:{eventId:state.eventId, email, displayName:name}});
+    const {data, error}=await sb.functions.invoke('invite-guest', {body:{eventId:eventIdAtStart, email, displayName:name}});
     if(error || !data || !data.link){
       showToast('Kunne ikke oprette link: '+(error?.message || data?.error || 'ukendt fejl'),'error');
       return;
     }
+    /* Stemples med det arrangement, linket faktisk blev genereret til — ikke det, der måtte være åbent, når svaret kommer tilbage. */
     state.guestLink=data.link;
+    state.guestLinkEventId=eventIdAtStart;
     pushLog({area:'system', label:'Gæstelink', cust:false, friendly:'Magisk link genereret til '+name+' ('+email+')'});
   }catch(e){
     showToast('Kunne ikke oprette link: '+e.message,'error');
@@ -1806,7 +2040,7 @@ async function generateGuestLink(name, email){
   }
 }
 function copyGuestLink(){
-  if(!state.guestLink) return;
+  if(!state.guestLink || state.guestLinkEventId!==state.eventId) return;
   navigator.clipboard.writeText(state.guestLink).then(()=>{
     const btn=document.getElementById('guestLinkCopy');
     if(btn){ const old=btn.textContent; btn.textContent='Kopieret!'; setTimeout(()=>btn.textContent=old,1500); }
@@ -1823,15 +2057,16 @@ async function createEvent(){
   btn.disabled=true; btn.textContent='Opretter…';
   const {error}=await sb.from('events')
     .insert({title, venue_id:venueId, org_id:state.orgId, event_date:date, offer_total_kr:0, status:'kladde', event_type:eventType});
-  btn.disabled=false; btn.textContent=orig;
-  if(error){ showToast('Kunne ikke oprette: '+error.message,'error'); return; }
+  if(error){ btn.disabled=false; btn.textContent=orig; showToast('Kunne ikke oprette: '+error.message,'error'); return; }
+  /* Knappen forbliver deaktiveret/"Opretter…", indtil vi enten navigerer ind i det nye arrangement eller
+     falder tilbage til oversigten — ellers ser formularen momentant ud til at være klar til et nyt (dobbelt-)tryk. */
   const {data:evs}=await sb.from('events').select('id,title,event_date,status,offer_total_kr,event_type,venues(name)').eq('org_id',state.orgId).order('event_date',{ascending:false});
   state.events=evs||[];
   const created=(state.events||[]).find(e=>e.title===title && e.event_date===date);
   if(created){
     if(useTasks) await applyTaskTemplates(created.id, date, eventType);
-    openEvent(created.id);
-  } else render();
+    await openEvent(created.id);
+  } else { btn.disabled=false; btn.textContent=orig; render(); }
 }
 function logCloudView(){
   const a=currentActor();
@@ -1843,7 +2078,11 @@ function logCloudView(){
 function showGate(msg){ document.getElementById('bootLoading').style.display='none'; const g=document.getElementById('gate'); g.style.display='flex'; document.querySelector('.wrap').style.visibility='hidden'; if(msg) document.getElementById('gateMsg').textContent=msg; }
 function showApp(){ document.getElementById('gate').style.display='none'; document.querySelector('.wrap').style.visibility='visible'; }
 function showNoAccess(){ showGate('Du er logget ind som '+state.userEmail+', men har endnu ikke adgang til et arrangement. Bed admin om at koble dig på.'); }
-function showPicker(){ unsubscribeRealtime(); state.eventId=null; state.view='picker'; showApp(); render(); }
+function showPicker(){
+  unsubscribeRealtime(); state.eventId=null; state.previewMode=false; if(state.previewPriorRolle) state.rolle=state.previewPriorRolle; state.previewPriorRolle=null; state.view='picker';
+  showApp(); render();
+  loadPickerExceptions().then(render);
+}
 function goHome(){
   if(!state.actor) return;
   if(state.isSuperadmin && !state.orgId){
@@ -1993,15 +2232,75 @@ function viewLokationer(){
     </div>
   </section>`;
 }
+function eventStatusChip(status){
+  const label=(EVENT_STATUSES.find(([v])=>v===status)||[])[1]||status;
+  const cls = status==='bekræftet'?'ok':status==='tilbud'?'blue':status==='kladde'?'warn':'';
+  return `<span class="chip ${cls}"><span class="dot"></span>${label}</span>`;
+}
+function actionRequiredSection(){
+  const ids=Object.keys(state.eventExceptions||{});
+  if(!ids.length) return '';
+  const events=(state.events||[]).filter(e=>state.eventExceptions[e.id]&&state.eventExceptions[e.id].length);
+  if(!events.length) return '';
+  const sorted=[...events].sort((a,b)=>{
+    const au=state.eventExceptions[a.id].some(r=>r.urgent)?0:1, bu=state.eventExceptions[b.id].some(r=>r.urgent)?0:1;
+    if(au!==bu) return au-bu;
+    return (a.event_date||'').localeCompare(b.event_date||'');
+  });
+  return `<section class="card" style="border-left:3px solid var(--amber)">
+    <header><h2>Kræver handling</h2><span class="note">${sorted.length} arrangement${sorted.length>1?'er':''}</span></header>
+    ${sorted.map(e=>{
+      const reasons=state.eventExceptions[e.id];
+      const d=dageTil(e.event_date);
+      return `<div class="item" data-open="${e.id}" style="cursor:pointer;flex-wrap:wrap">
+        <span class="stripe ${reasons.some(r=>r.urgent)?'kilden':'jer'}"></span>
+        <div style="flex:1;min-width:200px">
+          <div class="name">${esc(e.title)}</div>
+          <div class="meta">${datoKort(e.event_date)} · ${d>=0?('om '+d+' dage'):(Math.abs(d)+' dage siden')}${e.venues?' · '+esc(e.venues.name):''}</div>
+          <div style="margin-top:6px">${reasons.map(r=>`<span class="chip ${r.urgent?'warn':''}" style="margin:0 6px 4px 0"><span class="dot"></span>${esc(r.txt)}</span>`).join('')}</div>
+        </div>
+        <button class="btn primary" data-open="${e.id}">Åbn →</button>
+      </div>`;
+    }).join('')}
+  </section>`;
+}
 function viewPicker(){
+  const q=state.pickerSearch.trim().toLowerCase();
+  let filtered=(state.events||[]).filter(e=>{
+    if(state.pickerFilterStatus!=='alle' && e.status!==state.pickerFilterStatus) return false;
+    if(!q) return true;
+    return e.title.toLowerCase().includes(q) || ((e.venues&&e.venues.name)||'').toLowerCase().includes(q) || (e.event_type||'').toLowerCase().includes(q);
+  });
+  const sortFns = {
+    dato: (a,b)=>(a.event_date||'').localeCompare(b.event_date||''),
+    titel: (a,b)=>a.title.localeCompare(b.title,'da'),
+    frist: (a,b)=>(state.eventNextDue[a.id]||'9999-99-99').localeCompare(state.eventNextDue[b.id]||'9999-99-99')
+  };
+  filtered=[...filtered].sort(sortFns[state.pickerSort]||sortFns.dato);
   const grp={}; EVENT_STATUSES.forEach(([v])=>grp[v]=[]);
-  state.events.forEach(e=>{ (grp[e.status]||(grp[e.status]=[])).push(e); });
+  filtered.forEach(e=>{ (grp[e.status]||(grp[e.status]=[])).push(e); });
   const sec=(key,titel,liste)=>liste.length?`<details class="card" data-picker-group="${key}" ${state.openPickerGroups.has(key)?'open':''}>
     <summary><h2><span class="fold-chev">▸</span>${titel}</h2><span class="note">(${liste.length})</span></summary>
-    ${liste.map(e=>`<div class="item" data-open="${e.id}" style="cursor:pointer">
+    ${liste.map(e=>{
+      const reasons=state.eventExceptions[e.id]||[];
+      return `<div class="item" data-open="${e.id}" style="cursor:pointer">
       <span class="stripe ${e.status!=='afviklet'?'jer':''}"></span>
-      <div><div class="name">${esc(e.title)}</div><div class="meta">${e.event_type?e.event_type+' · ':''}${e.venues?esc(e.venues.name):''} · ${datoKort(e.event_date)}</div>${statusStepsHtml(e.status,e.id,false)}</div>
-      <span class="chip"><span class="dot"></span>${e.offer_total_kr?kr(e.offer_total_kr):'—'}</span></div>`).join('')}</details>`:'';
+      <div><div class="name">${esc(e.title)}</div><div class="meta">${e.event_type?e.event_type+' · ':''}${e.venues?esc(e.venues.name):'ingen lokation'} · ${datoKort(e.event_date)}</div>${reasons.length?`<div class="meta" style="color:var(--amber);margin-top:2px">${esc(reasons[0].txt)}</div>`:''}</div>
+      <span class="row" style="gap:6px">${eventStatusChip(e.status)}<span class="chip"><span class="dot"></span>${e.offer_total_kr?kr(e.offer_total_kr):'Intet tilbud'}</span></span></div>`;
+    }).join('')}</details>`:'';
+  const filterBar = (state.events||[]).length ? `
+  <div class="row noprint" style="margin:14px 0 2px;gap:8px;flex-wrap:wrap">
+    <input class="search" id="pickerSearch" placeholder="Søg arrangement, type eller lokation" value="${esc(state.pickerSearch)}" style="flex:2;min-width:200px">
+    <select id="pickerSort">
+      <option value="dato" ${state.pickerSort==='dato'?'selected':''}>Sortér: dato</option>
+      <option value="titel" ${state.pickerSort==='titel'?'selected':''}>Sortér: titel</option>
+      <option value="frist" ${state.pickerSort==='frist'?'selected':''}>Sortér: næste frist</option>
+    </select>
+    <select id="pickerFilterStatus">
+      <option value="alle" ${state.pickerFilterStatus==='alle'?'selected':''}>Alle statusser</option>
+      ${EVENT_STATUSES.map(([v,l])=>`<option value="${v}" ${state.pickerFilterStatus===v?'selected':''}>${l}</option>`).join('')}
+    </select>
+  </div>` : '';
   const nyKort = (state.venues||[]).length===0 ? `
   <section class="card">
     <header><h2>Nyt arrangement</h2></header>
@@ -2041,8 +2340,11 @@ function viewPicker(){
     <div style="margin:20px 0 10px"><span class="eyebrow">${state.isAdmin?'Admin · alle arrangementer':'Dine arrangementer'}</span></div>
     ${setupKort}
     ${nyKort}
+    ${actionRequiredSection()}
+    ${filterBar}
     ${EVENT_STATUSES.map(([v,l])=>sec(v,l,grp[v])).join('')}
-    ${state.events.length?'':'<div class="empty">Ingen arrangementer endnu.</div>'}`;
+    ${state.events.length?'':'<div class="empty">Ingen arrangementer endnu.</div>'}
+    ${(state.events.length && !filtered.length)?'<div class="empty">Ingen arrangementer matcher søgning/filter.</div>':''}`;
 }
 function viewBrugere(){
   return `${consoleNav('users')}
@@ -2139,6 +2441,9 @@ function viewBrugere(){
   onEnterSubmit(document.getElementById('pwConfirm'), ()=>pwSave.click());
 
   document.getElementById('logout').onclick=async()=>{ await sb.auth.signOut(); location.reload(); };
+  document.getElementById('previewExit').onclick=()=>{
+    state.rolle=state.previewPriorRolle||'kilden'; state.previewMode=false; state.previewPriorRolle=null; render();
+  };
   document.getElementById('backToList').onclick=()=>{ showPicker(); };
   const {data:{session}}=await sb.auth.getSession();
   if(session) cloudBoot(session.user); else showGate();
