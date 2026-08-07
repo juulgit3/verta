@@ -172,7 +172,11 @@ footer.legal{margin-top:28px;font-size:12px;color:var(--ink-40);line-height:1.6}
 #superadminBar{background:var(--ink);border-bottom:3px solid var(--amber)}
 #previewBar{background:var(--ink);border-bottom:3px solid var(--blue);position:sticky;top:0;z-index:45}
 #previewBar .sabar-label{color:var(--blue)}
-.preview-locked{pointer-events:none;user-select:none}
+/* Kun visuel: den faktiske spærre er applyPreviewReadOnly() (readonly/disabled/fjernede knapper på de konkrete
+   skrivende felter) + mutate()-spærren ved selve databasekaldet. Ingen blanket pointer-events:none her længere —
+   det blokerede tidligere ALT i visningen, inkl. søgning og fold-ud, som skal forblive brugbart i forhåndsvisning. */
+.preview-locked input[readonly],.preview-locked textarea[readonly]{background:var(--paper);color:var(--ink-60);cursor:default}
+.preview-locked select:disabled,.preview-locked input:disabled{opacity:.55;cursor:not-allowed}
 .sabar-inner{max-width:960px;margin:0 auto;padding:9px 18px;display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap}
 .sabar-label{font-size:12.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--amber)}
 .sabar-label #sabarOrg{color:rgba(234,237,230,.65);font-weight:600;text-transform:none;letter-spacing:0}
@@ -230,6 +234,20 @@ input[type=file].search{padding:6px 8px;font-size:13px;min-width:0}
   .tbl input[type=text]{border:0;background:none} .tbl select{border:0;background:none;-webkit-appearance:none;appearance:none}}
 @media (prefers-reduced-motion:no-preference){.card{animation:rise .32s ease both}@keyframes rise{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}}
 
+/* 44×44px minimum berøringsflade (WCAG 2.5.5 / Apple HIG) op til og med tablet-bredde. Det visuelle
+   ikon/tekst må gerne forblive lille — det er selve klik-/tap-fladen, der skal op på 44px, ikke
+   nødvendigvis skriftstørrelsen. Bevidst ikke en blanket "button,input{min-height:44px}"-regel, da det
+   ville forstørre almindelige tekstfelter (.search) unødigt — kun de konkrete kontroltyper, som
+   regressionstesten navngav (Kodeord-knappen, logo-knappen) samt knapper/faner/afkrydsningsfelter generelt. */
+@media(max-width:768px){
+  .btn, .brand, nav.tabs button, .consnav button, [role="button"]{ min-height:44px }
+  .btn, .consnav button, [role="button"]{ display:inline-flex; align-items:center; justify-content:center; padding:10px 14px }
+  .brand{ justify-content:center; padding:2px 0 }
+  select.search, select.btn, .logfilters select{ min-height:44px }
+  .tbl td.c{ padding:4px 10px }
+  .chkwrap{ display:inline-flex; align-items:center; justify-content:center; min-width:44px; min-height:44px; cursor:pointer }
+}
+.chkwrap{ cursor:pointer }
 @media(max-width:600px){
   .wrap{padding:18px 14px 90px}
   .logrow{grid-template-columns:1fr;gap:2px}
@@ -251,7 +269,7 @@ input[type=file].search{padding:6px 8px;font-size:13px;min-width:0}
 </head>
 <body>
 <div id="bootLoading"><span class="mark">Verta</span></div>
-<div id="toastWrap"></div>
+<div id="toastWrap" aria-live="polite" aria-atomic="true"></div>
 <div id="confirmModal">
   <div class="box">
     <p id="confirmMsg"></p>
@@ -287,6 +305,7 @@ input[type=file].search{padding:6px 8px;font-size:13px;min-width:0}
     <div class="rolebar">
       <span class="whoami" id="whoami"></span>
       <button class="btn" id="backToList" style="display:none">‹ Arrangementer</button>
+      <button class="btn" id="switchEvent" style="display:none">Skift arrangement</button>
       <button class="btn" id="setPasswordBtn" style="display:none">Kodeord</button>
       <button class="btn" id="logout" style="display:none">Log ud</button>
     </div>
@@ -377,7 +396,8 @@ let state = { gaester:[], punkter:[], log:[],
               taskTemplates:[], agendaNotes:{}, openTaskNotes:new Set(), openDoneGroups:new Set(),
               superadminActor:null, impersonating:null, roster:[],
               previewMode:false, previewPriorRolle:null,
-              eventExceptions:{}, eventNextDue:{}, pickerSort:'dato', pickerSearch:'', pickerFilterStatus:'alle' };
+              eventExceptions:{}, eventNextDue:{}, pickerSort:'dato', pickerSearch:'', pickerFilterStatus:'alle',
+              pickerExceptionsLoading:false, pickerExceptionsError:false };
 /* Rigtig UUID til klient-oprettede rækker (guests.id er en uuid-kolonne — et 'n'+Date.now()-agtigt id ville få hele upsert-batchen til at fejle stille). */
 function newId(){
   if(crypto.randomUUID) return crypto.randomUUID();
@@ -393,6 +413,9 @@ function showToast(msg, kind){
   const wrap=document.getElementById('toastWrap');
   const t=document.createElement('div');
   t.className='toast'+(kind?' '+kind:'');
+  /* role="alert" giver implicit aria-live="assertive" for fejl (skal afbryde og læses straks); success/info
+     læner sig op ad #toastWrap's egen aria-live="polite" (venter til skærmlæseren er færdig med andet). */
+  if(kind==='error') t.setAttribute('role','alert');
   t.textContent=msg;
   wrap.appendChild(t);
   setTimeout(()=>t.remove(), 4200);
@@ -407,6 +430,48 @@ function appConfirm(msg){
     ok.onclick=()=>cleanup(true);
     cancel.onclick=()=>cleanup(false);
   });
+}
+/* ==== Central preview-spærre =====================================================
+   ALLE skrivende Supabase-kald (insert/update/upsert/delete/storage-upload/edge-function-
+   invoke, der opretter adgang) SKAL pakkes i mutate(() => ...). Den er den eneste autoritative
+   spærre: den ligger ved selve databasekaldet, ikke kun i en DOM-eventhandler, så en overset
+   knap/felt aldrig kan skrive, selv hvis dens egen UI-deaktivering skulle mangle eller fejle.
+   Tanken (og fejlen, den retter): et debounced tekstfelt-gem gik tidligere direkte til
+   cloudSaveGuestsAgenda() uden om nogen preview-check overhovedet.
+   thunk kaldes KUN, hvis vi rent faktisk må skrive — i preview bliver Supabase-forespørgslen
+   derfor aldrig konstrueret/afsendt, ikke bare "annulleret" efter afsendelse. Returformen
+   matcher Supabases egen {data,error}, så al eksisterende fejlhåndtering (som allerede
+   tjekker `if(error)`) fanger spærringen uden ekstra kode ved hvert kaldested. */
+function assertCanMutate(){
+  return !state.previewMode;
+}
+async function mutate(thunk){
+  if(!assertCanMutate()){
+    return {data:null, error:{message:'Ændringer er deaktiveret i kunde-forhåndsvisning.', code:'PREVIEW_READONLY'}};
+  }
+  return await thunk();
+}
+/* UI-lag oven på mutate(): rent visuelt/UX — gør de kendte skrivende felter i kunde-visningen
+   synligt låste (readonly/disabled/fjernet), så forhåndsvisningen ikke inviterer til forsøg på
+   at skrive. Selve spærren er stadig mutate() ovenfor; denne funktion kan aldrig være den eneste
+   linje, der forhindrer et skriv. Kører efter hvert render() i preview-mode. Målrettet mod de
+   konkrete felter/knapper, der findes i kunde-visningens faner (gæster, punkter, beskeder) —
+   IKKE en blanket input-regel, da det ville låse søgefelter og eksport-vælgere, der skal forblive
+   brugbare (rene læse-interaktioner). */
+function applyPreviewReadOnly(){
+  if(!state.previewMode) return;
+  const root=document.getElementById('view');
+  if(!root) return;
+  root.querySelectorAll('[data-f="navn"], [data-f="kost"]').forEach(el=>{ el.readOnly=true; });
+  root.querySelectorAll('[data-f="kat"], [data-f="reception"], [data-f="middag"]').forEach(el=>{ el.disabled=true; });
+  const tilfoej=document.getElementById('tilfoej'); if(tilfoej) tilfoej.remove();
+  root.querySelectorAll('[data-slet]').forEach(el=>el.remove());
+  root.querySelectorAll('[data-punkt-done], [data-punkt-undo]').forEach(el=>{ el.disabled=true; });
+  root.querySelectorAll('[data-note-text]').forEach(el=>{ el.readOnly=true; });
+  root.querySelectorAll('[data-note-file]').forEach(el=>{ el.disabled=true; });
+  root.querySelectorAll('[data-note-send]').forEach(el=>{ el.disabled=true; });
+  const msgtext=document.getElementById('msgtext'); if(msgtext) msgtext.readOnly=true;
+  const sendmsg=document.getElementById('sendmsg'); if(sendmsg) sendmsg.disabled=true;
 }
 function onEnterSubmit(el, fn){
   if(!el) return;
@@ -431,7 +496,7 @@ function pushLog({area,label,from='',to='',cust=false,friendly=''}){
   const ev={id:'e'+Date.now()+Math.random().toString(36).slice(2,5), ts:Date.now(),
     side:a.side, who:a.navn, type:'change', area, label, from:String(from), to:String(to), cust, friendly, text:''};
   state.log.unshift(ev);
-  sb.from('activity_log').insert(logToDb(ev)).then(({error})=>error&&console.error('log',error));
+  mutate(()=>sb.from('activity_log').insert(logToDb(ev)).then(({error})=>error&&console.error('log',error)));
 }
 function pushMessage(text){
   const a=currentActor();
@@ -439,7 +504,7 @@ function pushMessage(text){
     type:'message', area:'system', text:text.trim(), from:'', to:'', cust:false, friendly:''};
   state.log.unshift(ev);
   state.lastRead[a.side]=Date.now();
-  sb.from('activity_log').insert(logToDb(ev)).then(({error})=>error&&console.error('msg',error));
+  mutate(()=>sb.from('activity_log').insert(logToDb(ev)).then(({error})=>error&&console.error('msg',error)));
   /* v2: her udløser en Edge Function en mail til den anden part, jf. roadmap */
 }
 const unread = rolle => { const last=state.lastRead[rolle]||0;
@@ -449,7 +514,7 @@ const unread = rolle => { const last=state.lastRead[rolle]||0;
    4. BEREGNINGER
    ========================================================= */
 const kr = n => n.toLocaleString('da-DK')+' kr.';
-function dageTil(iso){ return Math.ceil((new Date(iso+'T00:00:00')-new Date())/DAG); }
+function dageTil(iso){ return Math.ceil((new Date(iso+'T00:00:00')-nowDate())/DAG); }
 function datoKort(iso){ return new Date(iso+'T00:00:00').toLocaleDateString('da-DK',{day:'numeric',month:'short'}); }
 
 function antal(){
@@ -668,6 +733,11 @@ function viewOversigt(){
     <div class="row" style="gap:8px;flex-wrap:wrap">
       <input class="search" id="guestLinkName" placeholder="Navn (fx Sofie &amp; Anton)" style="flex:1 1 160px">
       <input class="search" id="guestLinkEmail" placeholder="Mail" type="email" style="flex:1 1 160px">
+      <select class="search" id="guestLinkExpiry" style="max-width:150px">
+        <option value="">Udløber aldrig</option>
+        <option value="7">Udløber om 7 dage</option>
+        <option value="30">Udløber om 30 dage</option>
+      </select>
       <button class="btn primary" id="guestLinkGen" ${state.guestLinkBusy?'disabled':''}>${state.guestLinkBusy?'Genererer…':'Generér link'}</button>
     </div>
     `}
@@ -675,6 +745,14 @@ function viewOversigt(){
       <button class="btn" id="previewAsCustomer">Forhåndsvis som kunde</button>
       <span class="note">Se arrangementet, som kunden ser det — uden at oprette en gæst eller sende en mail.</span>
     </div>
+    ${(state.eventGuestAccesses||[]).length?`
+    <div style="margin-top:14px;border-top:1px solid var(--line);padding-top:12px">
+      <div class="note" style="margin-bottom:6px">Aktive gæsteadgange</div>
+      ${state.eventGuestAccesses.map(a=>`<div class="stat" style="flex-wrap:wrap;gap:8px">
+        <div><b>${esc(a.display_name)}</b><br><span class="note">${esc(a.email||'—')} · oprettet ${datoKort(a.created_at.slice(0,10))}${a.last_seen_at?' · sidst set '+datoKort(a.last_seen_at.slice(0,10)):''}${a.expires_at?' · udløber '+datoKort(a.expires_at.slice(0,10)):''}</span></div>
+        <button class="btn" data-revoke-access="${a.id}">Tilbagekald</button>
+      </div>`).join('')}
+    </div>` : ''}
   </section>` : '';
   const lokaleKort = (state.rolle==='kilden') ? `
   <section class="card">
@@ -757,7 +835,7 @@ function viewGaester(){
       <button class="btn primary" id="tilfoej">Tilføj gæst</button>
       <select class="search" id="exportFormat" style="max-width:160px">
         <option value="csv">CSV</option>
-        <option value="xlsx">Excel</option>
+        <option value="xlsx">Excel (.xls)</option>
         <option value="json">JSON (teknisk)</option>
         <option value="print">Udskriv/PDF</option>
       </select>
@@ -768,8 +846,8 @@ function viewGaester(){
       <tbody>${rows.map(g=>`<tr data-id="${g.id}">
         <td><input type="text" data-f="navn" value="${esc(g.navn)}"></td>
         <td><select data-f="kat">${['voksen','barn','baby'].map(k=>`<option value="${k}" ${g.kat===k?'selected':''}>${k}</option>`).join('')}</select></td>
-        <td class="c"><input type="checkbox" data-f="reception" ${g.reception?'checked':''}></td>
-        <td class="c"><input type="checkbox" data-f="middag" ${g.middag?'checked':''}></td>
+        <td class="c"><label class="chkwrap"><input type="checkbox" data-f="reception" ${g.reception?'checked':''}></label></td>
+        <td class="c"><label class="chkwrap"><input type="checkbox" data-f="middag" ${g.middag?'checked':''}></label></td>
         <td><input type="text" data-f="kost" value="${esc(g.kost)}" placeholder="—"></td>
         <td class="c"><button class="del" data-slet="${g.id}" title="Slet">×</button></td>
       </tr>`).join('')}</tbody>
@@ -862,10 +940,14 @@ function viewPunkter(){
 
 /* Action-first "på dagen"-visning til mobil — ikke desktop-kortene stablet lodret, men et enkelt overblik over
    det, der er relevant lige nu: næste fase, udestående opgaver, og en hurtig vej til at markere ting undervejs. */
+/* Testbar "nu": state.debugNow (ISO-streng eller ms) er normalt usat, og nowDate() falder da tilbage til
+   den rigtige systemtid. Sæt den midlertidigt (fx via konsollen: state.debugNow='2026-09-04T14:30'; render())
+   for at teste "I dag"-visningen på selve arrangementsdagen uden at vente på den rigtige dato/klokkeslæt. */
+function nowDate(){ return state.debugNow ? new Date(state.debugNow) : new Date(); }
 function viewLive(){
-  const todayStr=new Date().toISOString().slice(0,10);
+  const now=nowDate();
+  const todayStr=now.toISOString().slice(0,10);
   const erIDag = state.eventDate===todayStr;
-  const now=new Date();
   const nowLabel=now.toLocaleTimeString('da-DK',{hour:'2-digit',minute:'2-digit'});
   const phasesWithTime=(state.phases||[]).filter(p=>p.start).map(p=>({...p, startDate:new Date(todayStr+'T'+p.start+':00')}));
   const next = erIDag ? phasesWithTime.filter(p=>p.startDate>now).sort((a,b)=>a.startDate-b.startDate)[0] : null;
@@ -963,10 +1045,22 @@ function logLine(e){
   const desc = e.friendly ? esc(e.friendly) : `${esc(e.label)}${(e.from||e.to)?` <span class="delta">${e.from?esc(e.from):'—'}<span class="arrow">→</span>${esc(e.to)}</span>`:''}`;
   return `<span class="tag">${AREA_TXT[e.area]}</span>${desc}`;
 }
+/* Detached <a>.click() virker ikke pålideligt i alle browsere/kontekster — elementet skal sidde i DOM'et,
+   når klikket udløses. append→click→remove, plus en forsinket revokeObjectURL (ikke med det samme, da
+   nogle browsere starter selve download'en asynkront, efter click() allerede er returneret). */
+function downloadBlob(blob, filename){
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url; a.download=filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url), 1000);
+}
 function guestExportSlug(){ return (state.eventTitle||'arrangement').toLowerCase().replace(/[^a-z0-9æøå]+/gi,'-').replace(/^-+|-+$/g,'')+'-'+(state.eventDate||''); }
 function exportGuestsJson(){
   const blob=new Blob([JSON.stringify({eventTitle:state.eventTitle, eventDate:state.eventDate, offerTotal:state.offerTotal, gaester:state.gaester, punkter:state.punkter, log:state.log},null,2)],{type:'application/json'});
-  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=guestExportSlug()+'.json'; a.click();
+  downloadBlob(blob, guestExportSlug()+'.json');
 }
 /* CSV (Danmark-venligt, semikolon-separeret) og en Excel-kompatibel .xls (HTML-tabel med Excels eget MIME-type — kræver ikke et xlsx-bibliotek). */
 function exportGuestsTable(kind){
@@ -976,12 +1070,12 @@ function exportGuestsTable(kind){
     const q=v=>'"'+String(v==null?'':v).replace(/"/g,'""')+'"';
     const csv=[head,...rows].map(r=>r.map(q).join(';')).join('\r\n');
     const blob=new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8'});
-    const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=guestExportSlug()+'.csv'; a.click();
+    downloadBlob(blob, guestExportSlug()+'.csv');
   } else {
     const table='<table><tr>'+head.map(h=>`<th>${esc(h)}</th>`).join('')+'</tr>'+
       rows.map(r=>'<tr>'+r.map(c=>`<td>${esc(c)}</td>`).join('')+'</tr>').join('')+'</table>';
     const blob=new Blob(['\ufeff'+table],{type:'application/vnd.ms-excel;charset=utf-8'});
-    const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=guestExportSlug()+'.xls'; a.click();
+    downloadBlob(blob, guestExportSlug()+'.xls');
   }
 }
 function exportLogCsv(rows){
@@ -990,7 +1084,7 @@ function exportLogCsv(rows){
   const q=v=>'"'+String(v==null?'':v).replace(/"/g,'""')+'"';
   const csv=[head,...body].map(r=>r.map(q).join(';')).join('\r\n');
   const blob=new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8'});
-  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='aktivitetslog-'+(state.eventTitle||'arrangement')+'.csv'; a.click();
+  downloadBlob(blob, 'aktivitetslog-'+(state.eventTitle||'arrangement')+'.csv');
 }
 function viewLog(){
   const whoList=[...new Set(state.log.map(e=>e.who))];
@@ -1010,7 +1104,10 @@ function viewLog(){
         <option value="custom" ${state.logDays==='custom'?'selected':''}>Brugerdefineret</option>
       </select>
       ${state.logDays==='custom'?`<input type="date" id="fLogFrom" class="search" value="${esc(state.logFrom)}"><input type="date" id="fLogTo" class="search" value="${esc(state.logTo)}">`:''}
-      <input class="search" id="fLogSearch" placeholder="Søg i log…" value="${esc(state.logSearch)}" style="flex:1;min-width:160px">
+      <div style="position:relative;flex:1;min-width:160px">
+        <input class="search" id="fLogSearch" placeholder="Søg i log…" value="${esc(state.logSearch)}" style="width:100%${state.logSearch?';padding-right:26px':''}">
+        ${state.logSearch?'<button type="button" id="fLogSearchClear" title="Ryd søgning" aria-label="Ryd søgning" style="position:absolute;right:4px;top:50%;transform:translateY(-50%);border:0;background:transparent;color:var(--ink-40);font-size:16px;line-height:1;cursor:pointer;padding:4px 6px">×</button>':''}
+      </div>
       <label class="row" style="gap:5px;font-size:12.5px;color:var(--ink-60)"><input type="checkbox" id="fLogTech" ${state.logShowTech?'checked':''}>Vis tekniske detaljer</label>
       <button class="btn noprint" id="logExport">Eksportér CSV</button>
     </div>
@@ -1069,18 +1166,22 @@ function render(){
   document.getElementById('logout').style.display = '';
   document.getElementById('setPasswordBtn').style.display = '';
   document.getElementById('backToList').style.display = (state.rolle==='kilden' && (state.events||[]).length>1 && state.view==='workspace') ? '' : 'none';
+  document.getElementById('switchEvent').style.display = (state.rolle==='kunde' && (state.guestEvents||[]).length>1 && state.view==='workspace') ? '' : 'none';
   document.getElementById('fabAddTask').style.display = (state.rolle==='kilden' && state.view==='workspace') ? 'block' : 'none';
 
-  if(state.view==='picker' || state.view==='users' || state.view==='venues' || state.view==='katalog' || state.view==='opgaver' || state.view==='superadmin'){
+  if(state.view==='picker' || state.view==='users' || state.view==='venues' || state.view==='katalog' || state.view==='opgaver' || state.view==='superadmin' || state.view==='guestPicker'){
     document.title = 'Verta';
     document.getElementById('whoami').textContent = state.actor?('Logget ind som '+state.actor.navn):'';
     document.getElementById('orgName').textContent = state.view==='superadmin' ? '' : (state.orgName||'');
     document.getElementById('eventLoc').innerHTML='';
-    document.getElementById('heroTitle').textContent = state.view==='superadmin' ? 'Kontrolrum' : (state.view==='users' ? 'Brugere' : (state.view==='venues' ? 'Lokationer' : (state.view==='katalog' ? 'Katalog' : (state.view==='opgaver' ? 'Opgaveskabeloner' : 'Arrangementer'))));
+    document.getElementById('heroTitle').textContent = state.view==='superadmin' ? 'Kontrolrum' : (state.view==='users' ? 'Brugere' : (state.view==='venues' ? 'Lokationer' : (state.view==='katalog' ? 'Katalog' : (state.view==='opgaver' ? 'Opgaveskabeloner' : (state.view==='guestPicker' ? 'Vælg arrangement' : 'Arrangementer')))));
     document.getElementById('heroChips').innerHTML='';
     document.getElementById('tabs').innerHTML='';
     const v=document.getElementById('view');
-    if(state.view==='superadmin'){
+    if(state.view==='guestPicker'){
+      v.innerHTML=viewGuestPicker();
+      v.querySelectorAll('[data-open-guest]').forEach(el=>el.onclick=()=>openGuestEvent(el.dataset.openGuest));
+    } else if(state.view==='superadmin'){
       v.innerHTML=viewSuperadminHome();
       v.querySelectorAll('[data-enter-org]').forEach(el=>el.onclick=()=>enterOrgAsSuperadmin(el.dataset.enterOrg));
       const dc=document.getElementById('doCreate'); if(dc){ dc.onclick=createDemoOrg; onEnterSubmit(document.getElementById('doName'), ()=>dc.click()); }
@@ -1165,7 +1266,7 @@ function render(){
       v.querySelectorAll('[data-open]').forEach(el=>el.onclick=()=>openEvent(el.dataset.open));
       const nc=document.getElementById('neCreate'); if(nc){ nc.onclick=createEvent; onEnterSubmit(document.getElementById('neTitle'), ()=>nc.click()); }
       const sd=document.getElementById('setupDismiss'); if(sd) sd.onclick=async()=>{
-        await sb.from('organisations').update({onboarding_dismissed:true}).eq('id',state.orgId);
+        await mutate(()=>sb.from('organisations').update({onboarding_dismissed:true}).eq('id',state.orgId));
         state.orgOnboardingDismissed=true; render();
       };
       v.querySelectorAll('[data-picker-group]').forEach(el=>el.ontoggle=()=>{
@@ -1176,6 +1277,10 @@ function render(){
       if(pSearch){ pSearch.oninput=()=>{state.pickerSearch=pSearch.value;const p=pSearch.selectionStart;render();const n=document.getElementById('pickerSearch');if(n){n.focus();n.setSelectionRange(p,p);}}; }
       const pSort=document.getElementById('pickerSort'); if(pSort) pSort.onchange=()=>{state.pickerSort=pSort.value;render();};
       const pFilter=document.getElementById('pickerFilterStatus'); if(pFilter) pFilter.onchange=()=>{state.pickerFilterStatus=pFilter.value;render();};
+      const exRetry=document.getElementById('exceptionsRetry'); if(exRetry) exRetry.onclick=()=>{
+        state.pickerExceptionsError=false; state.pickerExceptionsLoading=true; render();
+        loadPickerExceptions().catch(()=>{ state.pickerExceptionsError=true; }).finally(()=>{ state.pickerExceptionsLoading=false; render(); });
+      };
     }
     v.querySelectorAll('[data-nav]').forEach(el=>el.onclick=async()=>{
       state.view=el.dataset.nav;
@@ -1199,13 +1304,19 @@ function render(){
   document.getElementById('whoami').textContent='Logget ind som '+currentActor().navn;
   heroChips(); renderTabs();
   const map={live:viewLive,oversigt:viewOversigt,gaester:viewGaester,punkter:viewPunkter,koekken:viewKoekken,log:viewLog,admin:viewAdmin,tidslinje:viewTidslinje,beskeder:viewBeskeder};
-  if(!map[state.tab]) state.tab='oversigt';
+  /* "I dag"/Køkkenseddel/Log/Admin er kilden-only faner. Uden dette tjek kan et skifte til "Forhåndsvis
+     som kunde" (som ændrer state.rolle, men ikke state.tab) lade en tidligere valgt kilden-fane blive
+     stående og rendere sit staff-only indhold under kundens rolle — fx "I dag"s "✓ Udført"/"Registrér
+     problem"-knapper, som gæsten aldrig må se, slet ikke skrivbare, i forhåndsvisning. */
+  const allowedTabs=TABS[state.rolle].map(t=>t[0]);
+  if(!map[state.tab] || !allowedTabs.includes(state.tab)) state.tab='oversigt';
   document.getElementById('view').innerHTML=map[state.tab]();
   document.getElementById('view').classList.toggle('preview-locked', state.previewMode);
   document.getElementById('legal').textContent = state.rolle==='kilden'
     ? 'Medarbejdervisning. Fuld log med opslag og ændringer.'
     : 'Kundevisning via magisk link. Tidslinjen viser kun ændringer — ikke hvem der har kigget hvornår.';
   bind();
+  applyPreviewReadOnly();
 }
 
 function bind(){
@@ -1226,11 +1337,22 @@ function bind(){
 
   const eks=document.getElementById('eksport');
   if(eks) eks.onclick=()=>{
+    if(eks.disabled) return; /* værn mod dobbelt-klik */
     const fmt=(document.getElementById('exportFormat')||{}).value||'csv';
     if(fmt==='print'){ window.print(); return; }
-    if(fmt==='json') exportGuestsJson();
-    else if(fmt==='xlsx') exportGuestsTable('xls');
-    else exportGuestsTable('csv');
+    const orig=eks.textContent;
+    eks.disabled=true; eks.textContent='Forbereder fil…';
+    try{
+      if(fmt==='json') exportGuestsJson();
+      else if(fmt==='xlsx') exportGuestsTable('xls');
+      else exportGuestsTable('csv');
+      eks.textContent='Download startet ✓';
+    }catch(e){
+      showToast('Kunne ikke eksportere: '+(e.message||'ukendt fejl'),'error');
+      eks.textContent=orig;
+    }finally{
+      setTimeout(()=>{ eks.disabled=false; eks.textContent=orig; }, 1400);
+    }
   };
 
   const pr=document.getElementById('print'); if(pr) pr.onclick=()=>window.print();
@@ -1318,9 +1440,31 @@ function bind(){
   const fD=document.getElementById('fDays'); if(fD) fD.onchange=()=>{state.logDays=fD.value;render();};
   const fLF=document.getElementById('fLogFrom'); if(fLF) fLF.onchange=()=>{state.logFrom=fLF.value;render();};
   const fLT=document.getElementById('fLogTo'); if(fLT) fLT.onchange=()=>{state.logTo=fLT.value;render();};
-  const fLS=document.getElementById('fLogSearch'); if(fLS){ fLS.oninput=()=>{state.logSearch=fLS.value;const p=fLS.selectionStart;render();const n=document.getElementById('fLogSearch');n.focus();n.setSelectionRange(p,p);}; }
+  const fLS=document.getElementById('fLogSearch');
+  if(fLS){
+    /* Ingen truthy-genvej her: state.logSearch skal ALTID afspejle feltets rå værdi, inkl. tom streng
+       (en tom søgning er gyldig tilstand, ikke "behold det gamle filter") — ellers kan backspace/Ryd/Escape
+       aldrig få listen tilbage til fuld visning. */
+    fLS.oninput=()=>{state.logSearch=fLS.value;const p=fLS.selectionStart;render();const n=document.getElementById('fLogSearch');n.focus();n.setSelectionRange(p,p);};
+    fLS.onkeydown=e=>{ if(e.key==='Escape'){ e.preventDefault(); if(state.logSearch){ state.logSearch=''; render(); document.getElementById('fLogSearch').focus(); } } };
+  }
+  const fLSClear=document.getElementById('fLogSearchClear'); if(fLSClear) fLSClear.onclick=()=>{ state.logSearch=''; render(); document.getElementById('fLogSearch').focus(); };
   const fTech=document.getElementById('fLogTech'); if(fTech) fTech.onchange=()=>{state.logShowTech=fTech.checked;render();};
-  const logExport=document.getElementById('logExport'); if(logExport) logExport.onclick=()=>exportLogCsv(logRowsFiltered());
+  const logExport=document.getElementById('logExport');
+  if(logExport) logExport.onclick=()=>{
+    if(logExport.disabled) return;
+    const orig=logExport.textContent;
+    logExport.disabled=true; logExport.textContent='Forbereder fil…';
+    try{
+      exportLogCsv(logRowsFiltered());
+      logExport.textContent='Download startet ✓';
+    }catch(e){
+      showToast('Kunne ikke eksportere: '+(e.message||'ukendt fejl'),'error');
+      logExport.textContent=orig;
+    }finally{
+      setTimeout(()=>{ logExport.disabled=false; logExport.textContent=orig; }, 1400);
+    }
+  };
 
   const sm=document.getElementById('sendmsg');
   if(sm) sm.onclick=()=>{const ta=document.getElementById('msgtext');const t=ta.value.trim();if(!t)return;pushMessage(t);render();};
@@ -1347,13 +1491,16 @@ function bind(){
     glGen.onclick=()=>{
       const name=document.getElementById('guestLinkName').value.trim();
       const email=document.getElementById('guestLinkEmail').value.trim();
-      generateGuestLink(name, email);
+      const expiryEl=document.getElementById('guestLinkExpiry');
+      const expiresInDays=expiryEl&&expiryEl.value?parseInt(expiryEl.value,10):null;
+      generateGuestLink(name, email, expiresInDays);
     };
     onEnterSubmit(document.getElementById('guestLinkName'), ()=>glGen.click());
     onEnterSubmit(document.getElementById('guestLinkEmail'), ()=>glGen.click());
   }
   const glCopy=document.getElementById('guestLinkCopy'); if(glCopy) glCopy.onclick=copyGuestLink;
   const glNew=document.getElementById('guestLinkNew'); if(glNew) glNew.onclick=()=>{ state.guestLink=''; state.guestLinkEventId=null; render(); };
+  document.querySelectorAll('[data-revoke-access]').forEach(el=>el.onclick=()=>revokeGuestAccess(el.dataset.revokeAccess));
   const pac=document.getElementById('previewAsCustomer');
   if(pac) pac.onclick=()=>{
     state.previewPriorRolle=state.rolle; state.rolle='kunde'; state.previewMode=true; render();
@@ -1464,11 +1611,11 @@ const logToDb   = e => ({event_id:state.eventId, ts:new Date(e.ts).toISOString()
 
 /* Supabase er den autoritative kilde: fejl her må ALDRIG blive tavse — kalderen skal kunne rulle tilbage og vise en fejl. */
 async function cloudSaveGuestsAgenda(){
-  const {error:upErr} = await sb.from('guests').upsert(state.gaester.map(gToDb));
+  const {error:upErr} = await mutate(()=>sb.from('guests').upsert(state.gaester.map(gToDb)));
   if(upErr) throw upErr;
   const goneG=[...state._dbG].filter(id=>!state.gaester.find(g=>g.id===id));
   if(goneG.length){
-    const {error:delErr} = await sb.from('guests').delete().in('id',goneG);
+    const {error:delErr} = await mutate(()=>sb.from('guests').delete().in('id',goneG));
     if(delErr) throw delErr;
   }
   state._dbG=new Set(state.gaester.map(g=>g.id));
@@ -1516,17 +1663,73 @@ async function cloudBoot(user){
     if(state.events.length===1) openEvent(state.events[0].id); else showPicker();
     return;
   }
-  /* Sorteret efter nyeste adgang: appen antager i dag én gæst = ét arrangement (jf. gæstelinkets design), men
-     hvis en person nogensinde skulle have adgang til mere end ét, må valget aldrig være udefineret/tilfældigt —
-     den senest tildelte adgang vinder, i stedet for hvilken række Postgres tilfældigvis returnerer først. */
-  const {data:acc}=await sb.from('event_access').select('id,event_id,display_name,first_visited_at').eq('user_id',user.id).order('created_at',{ascending:false});
-  if(acc&&acc.length){
-    state.rolle='kunde'; state.actor={navn:acc[0].display_name, side:'kunde'};
-    state.guestWelcome=!acc[0].first_visited_at;
-    if(!acc[0].first_visited_at) sb.from('event_access').update({first_visited_at:new Date().toISOString()}).eq('id',acc[0].id).then(()=>{});
-    openEvent(acc[0].event_id); return;
+  /* En gæst kan legitimt have adgang til flere arrangementer (event_access.unique er på parret
+     event_id+user_id, ikke på user_id alene) — "nyeste adgang vinder" var derfor aldrig en adgangs-
+     lækage, men en ren routing-fejl: et NYT link genereret til arrangement B flyttede stiltiende en
+     kunde, der sad inde i arrangement A, over på B ved næste genindlæsning. Løsning, i prioriteret
+     rækkefølge — aldrig .order(...).limit(1)-gætteri:
+     1) ?event=<id> i URL'en (sat af invite-guest's redirectTo — se den funktion) siger eksplicit,
+        hvilket arrangement DETTE link/denne session hører til.
+     2) Et tidligere valg i denne browser (sessionStorage) — overlever genindlæsning uden at kræve
+        linket igen.
+     3) Kun a præcis én adgang → ingen tvetydighed, åbn den.
+     4) Ellers (flere adgange, ingen kontekst) → vis en vælger begrænset til brugerens EGNE adgange.
+     Serveren/RLS afgør stadig den faktiske adgang i alle tilfælde — URL og sessionStorage er kun hints,
+     aldrig en tillid i sig selv (et forfalsket ?event=<fremmed-id> matcher blot ingen række herunder). */
+  const {data:acc}=await sb.from('event_access').select('id,event_id,display_name,email,first_visited_at').eq('user_id',user.id);
+  if(!acc||!acc.length){ showNoAccess(); return; }
+
+  state.guestAccesses=acc;
+  if(acc.length>1){
+    const {data:evs}=await sb.from('events').select('id,title,event_date,venues(name)').in('id',acc.map(a=>a.event_id));
+    state.guestEvents=(evs||[]).map(ev=>({id:ev.id, title:ev.title, date:ev.event_date, venue:ev.venues?ev.venues.name:''}));
   }
-  showNoAccess();
+
+  const urlEventId=new URLSearchParams(location.search).get('event');
+  const storedEventId=sessionStorage.getItem('verta_active_event');
+  let row = (urlEventId && acc.find(a=>a.event_id===urlEventId))
+    || (storedEventId && acc.find(a=>a.event_id===storedEventId))
+    || (acc.length===1 ? acc[0] : null);
+
+  if(!row){
+    state.view='guestPicker';
+    showApp(); render();
+    return;
+  }
+
+  state.rolle='kunde'; state.actor={navn:row.display_name, side:'kunde'};
+  state.guestWelcome=!row.first_visited_at;
+  sessionStorage.setItem('verta_active_event', row.event_id);
+  const stamp={last_seen_at:new Date().toISOString()};
+  if(!row.first_visited_at) stamp.first_visited_at=stamp.last_seen_at;
+  mutate(()=>sb.from('event_access').update(stamp).eq('id',row.id).then(()=>{}));
+  openEvent(row.event_id);
+}
+function openGuestEvent(eventId){
+  state.rolle='kunde';
+  const row=(state.guestAccesses||[]).find(a=>a.event_id===eventId);
+  state.actor={navn:row?row.display_name:'', side:'kunde'};
+  state.guestWelcome=!!(row&&!row.first_visited_at);
+  sessionStorage.setItem('verta_active_event', eventId);
+  if(row){
+    const stamp={last_seen_at:new Date().toISOString()};
+    if(!row.first_visited_at) stamp.first_visited_at=stamp.last_seen_at;
+    mutate(()=>sb.from('event_access').update(stamp).eq('id',row.id).then(()=>{}));
+  }
+  openEvent(eventId);
+}
+function viewGuestPicker(){
+  const evs=(state.guestEvents||[]).slice().sort((a,b)=>(a.date||'').localeCompare(b.date||''));
+  return `
+  <div style="margin:26px 0 10px"><span class="eyebrow">Vælg arrangement</span>
+    <h1 style="font-family:'Instrument Serif',serif;font-style:italic;font-size:clamp(30px,7vw,46px);margin:4px 0 0">I har adgang til flere</h1>
+  </div>
+  <section class="card">
+    ${evs.map(ev=>`<div class="item" data-open-guest="${ev.id}" style="cursor:pointer">
+      <span class="stripe jer"></span>
+      <div><div class="name">${esc(ev.title||'Arrangement')}</div><div class="meta">${esc(ev.venue||'')}${ev.date?' · '+datoKort(ev.date):''}</div></div>
+      <span class="chip"><span class="dot"></span>Åbn →</span></div>`).join('')}
+  </section>`;
 }
 
 /* =========================================================
@@ -1567,11 +1770,11 @@ async function createRealCustomer(){
   if(!orgName||!adminName||!adminEmail){ showToast('Udfyld alle tre felter.','error'); return; }
   const btn=document.getElementById('ncCreate'), orig=btn.textContent;
   btn.disabled=true; btn.textContent='Opretter…';
-  const {error}=await sb.from('organisations').insert({name:orgName});
+  const {error}=await mutate(()=>sb.from('organisations').insert({name:orgName}));
   if(error){ btn.disabled=false; btn.textContent=orig; showToast('Kunne ikke oprette: '+error.message,'error'); return; }
   const {data:org}=await sb.from('organisations').select('id').eq('name',orgName).order('created_at',{ascending:false}).limit(1).maybeSingle();
   if(org){
-    const {error:invErr}=await sb.from('invites').insert({org_id:org.id, name:adminName, email:adminEmail, role:'admin'});
+    const {error:invErr}=await mutate(()=>sb.from('invites').insert({org_id:org.id, name:adminName, email:adminEmail, role:'admin'}));
     if(invErr){ btn.disabled=false; btn.textContent=orig; showToast('Organisationen blev oprettet, men invitationen fejlede: '+invErr.message,'error'); await loadSuperadminHome(); render(); return; }
   }
   btn.disabled=false; btn.textContent=orig;
@@ -1585,7 +1788,7 @@ async function createDemoOrg(){
   if(!name){ showToast('Skriv et navn.','error'); return; }
   const btn=document.getElementById('doCreate'), orig=btn.textContent;
   btn.disabled=true; btn.textContent='Opretter…';
-  const {error}=await sb.from('organisations').insert({name});
+  const {error}=await mutate(()=>sb.from('organisations').insert({name}));
   if(error){ btn.disabled=false; btn.textContent=orig; showToast('Kunne ikke oprette: '+error.message,'error'); return; }
   const {data:org}=await sb.from('organisations').select('id').eq('name',name).order('created_at',{ascending:false}).limit(1).maybeSingle();
   if(seed && org) await seedDemoOrg(org.id);
@@ -1593,20 +1796,20 @@ async function createDemoOrg(){
   await loadSuperadminHome(); render();
 }
 async function seedDemoOrg(orgId){
-  await sb.from('venues').insert({org_id:orgId, name:'Havnelageret', address:'Eksempelvej 1, 0000 Eksempelby'});
+  await mutate(()=>sb.from('venues').insert({org_id:orgId, name:'Havnelageret', address:'Eksempelvej 1, 0000 Eksempelby'}));
   const {data:venue}=await sb.from('venues').select('id').eq('org_id',orgId).eq('name','Havnelageret')
     .order('created_at',{ascending:false}).limit(1).maybeSingle();
   if(!venue) return;
-  await sb.from('rooms').insert([
+  await mutate(()=>sb.from('rooms').insert([
     {venue_id:venue.id, name:'Hovedsalen', capacity_max:120, sort_order:1},
     {venue_id:venue.id, name:'Terrassen', capacity_max:60, sort_order:2}
-  ]);
-  await sb.from('catalog_items').insert([
+  ]));
+  await mutate(()=>sb.from('catalog_items').insert([
     {org_id:orgId, name:'Standardmenu, 3 retter', category:'menu', price_kr:695, basis:'middag', child_half:true, sort_order:1},
     {org_id:orgId, name:'Ankomstdrinks', category:'reception', price_kr:95, basis:'reception', child_half:true, sort_order:2}
-  ]);
-  await sb.from('events').insert({title:'Sofie & Anton', venue_id:venue.id, org_id:orgId,
-    event_date:'2027-06-12', offer_total_kr:0, status:'tilbud', event_type:'bryllup'});
+  ]));
+  await mutate(()=>sb.from('events').insert({title:'Sofie & Anton', venue_id:venue.id, org_id:orgId,
+    event_date:'2027-06-12', offer_total_kr:0, status:'tilbud', event_type:'bryllup'}));
 }
 function viewSuperadminHome(){
   return `
@@ -1643,6 +1846,8 @@ async function openEvent(id){
   state.eventId=id;
   /* Event-specifik UI-state må aldrig lække mellem arrangementer (fx et gæstelink genereret på et andet arrangement). */
   state.guestLink=''; state.guestLinkEventId=null; state.guestLinkBusy=false;
+  /* Ikke-følsomt: server/RLS afgør stadig den faktiske adgang. Kun til at gøre linket delbart/genindlæseligt. */
+  try{ const u=new URL(location.href); u.searchParams.set('event', id); history.replaceState(null,'',u); }catch(e){}
   if(state.previewMode){ state.rolle=state.previewPriorRolle||'kilden'; state.previewMode=false; state.previewPriorRolle=null; }
   const [{data:ev},{data:gs},{data:ps},{data:lg}]=await Promise.all([
     sb.from('events').select('*,venues(name),organisations(name)').eq('id',id).maybeSingle(),
@@ -1656,7 +1861,7 @@ async function openEvent(id){
   state.log=(lg||[]).map(logFromDb);
   state._dbG=new Set(state.gaester.map(g=>g.id));
   await Promise.all([loadRooms(id), loadCatalog(id), loadAgendaNotes(id)]);
-  if(state.rolle==='kilden'){ await Promise.all([loadEventStaff(), loadOrgCatalog()]); logCloudView(); }
+  if(state.rolle==='kilden'){ await Promise.all([loadEventStaff(), loadOrgCatalog(), loadEventGuestAccesses(id)]); logCloudView(); }
   else { const {data:contact}=await sb.rpc('get_event_contact',{target_event:id}); state.contactName=contact||''; logCloudView(); }
   state.view='workspace'; state.tab='oversigt';
   showApp(); render();
@@ -1708,25 +1913,25 @@ async function inviteStaff(){
   if(!name||!email){ showToast('Udfyld navn og mail.','error'); return; }
   const btn=document.getElementById('invSend'), orig=btn.textContent;
   btn.disabled=true; btn.textContent='Inviterer…';
-  const {error}=await sb.from('invites').insert({org_id:state.orgId, name, email, role});
+  const {error}=await mutate(()=>sb.from('invites').insert({org_id:state.orgId, name, email, role}));
   btn.disabled=false; btn.textContent=orig;
   if(error){ showToast('Kunne ikke invitere: '+error.message,'error'); return; }
   await loadUsers(); render();
   showToast('Invitation sendt til '+name+'.','ok');
 }
 async function cancelInvite(id){
-  const {error}=await sb.from('invites').delete().eq('id',id);
+  const {error}=await mutate(()=>sb.from('invites').delete().eq('id',id));
   if(error){ showToast('Kunne ikke fortryde invitation: '+error.message,'error'); return; }
   await loadUsers(); render();
 }
 async function changeStaffRole(id, role){
-  const {error}=await sb.from('staff').update({role}).eq('id',id);
+  const {error}=await mutate(()=>sb.from('staff').update({role}).eq('id',id));
   if(error){ showToast('Kunne ikke ændre rolle: '+error.message,'error'); }
   await loadUsers(); render();
 }
 async function removeStaff(id){
   if(!(await appConfirm('Fjern denne medarbejder? Handlingen kan ikke fortrydes.'))) return;
-  const {error}=await sb.from('staff').delete().eq('id',id);
+  const {error}=await mutate(()=>sb.from('staff').delete().eq('id',id));
   if(error){ showToast('Kunne ikke fjerne medarbejder: '+error.message,'error'); return; }
   await loadUsers(); render();
 }
@@ -1741,53 +1946,53 @@ async function createVenue(){
   if(!name){ showToast('Skriv et navn.','error'); return; }
   const btn=document.getElementById('venCreate'), orig=btn.textContent;
   btn.disabled=true; btn.textContent='Opretter…';
-  const {error}=await sb.from('venues').insert({org_id:state.orgId, name});
+  const {error}=await mutate(()=>sb.from('venues').insert({org_id:state.orgId, name}));
   btn.disabled=false; btn.textContent=orig;
   if(error){ showToast('Kunne ikke oprette lokation: '+error.message,'error'); return; }
   await loadVenuesFull(); render();
 }
 async function renameVenue(id, name){
   if(!name.trim()) return;
-  const {error}=await sb.from('venues').update({name:name.trim()}).eq('id',id);
+  const {error}=await mutate(()=>sb.from('venues').update({name:name.trim()}).eq('id',id));
   if(error) showToast('Kunne ikke omdøbe lokation: '+error.message,'error');
   await loadVenuesFull(); render();
   if(!error) flashSaved(`[data-venue-name="${id}"]`);
 }
 async function updateVenueAddress(id, address){
-  const {error}=await sb.from('venues').update({address:address.trim()||null}).eq('id',id);
+  const {error}=await mutate(()=>sb.from('venues').update({address:address.trim()||null}).eq('id',id));
   if(error) showToast('Kunne ikke gemme adresse: '+error.message,'error');
   await loadVenuesFull(); render();
   if(!error) flashSaved(`[data-venue-address="${id}"]`);
 }
 async function deleteVenue(id){
   if(!(await appConfirm('Slet lokationen? Alle lokaler under den slettes også. Kan ikke fortrydes.'))) return;
-  const {error}=await sb.from('venues').delete().eq('id',id);
+  const {error}=await mutate(()=>sb.from('venues').delete().eq('id',id));
   if(error){ showToast('Kunne ikke slette lokation: '+error.message,'error'); return; }
   await loadVenuesFull(); render();
 }
 async function addRoom(venueId, name){
   if(!name||!name.trim()) return;
-  const {error}=await sb.from('rooms').insert({venue_id:venueId, name:name.trim(), sort_order:99});
+  const {error}=await mutate(()=>sb.from('rooms').insert({venue_id:venueId, name:name.trim(), sort_order:99}));
   if(error){ showToast('Kunne ikke tilføje lokale: '+error.message,'error'); return; }
   await loadVenuesFull(); render();
 }
 async function renameRoom(id, name){
   if(!name.trim()) return;
-  const {error}=await sb.from('rooms').update({name:name.trim()}).eq('id',id);
+  const {error}=await mutate(()=>sb.from('rooms').update({name:name.trim()}).eq('id',id));
   if(error) showToast('Kunne ikke omdøbe lokale: '+error.message,'error');
   await loadVenuesFull(); render();
   if(!error) flashSaved(`[data-room-name="${id}"]`);
 }
 async function updateRoomCapacity(id, value){
   const n=parseInt(value,10);
-  const {error}=await sb.from('rooms').update({capacity_max:isNaN(n)?null:n}).eq('id',id);
+  const {error}=await mutate(()=>sb.from('rooms').update({capacity_max:isNaN(n)?null:n}).eq('id',id));
   if(error) showToast('Kunne ikke gemme kapacitet: '+error.message,'error');
   await loadVenuesFull(); render();
   if(!error) flashSaved(`[data-room-capacity="${id}"]`);
 }
 async function deleteRoom(id){
   if(!(await appConfirm('Slet lokalet? Kan ikke fortrydes.'))) return;
-  const {error}=await sb.from('rooms').delete().eq('id',id);
+  const {error}=await mutate(()=>sb.from('rooms').delete().eq('id',id));
   if(error){ showToast('Kunne ikke slette lokale: '+error.message,'error'); return; }
   await loadVenuesFull(); render();
 }
@@ -1809,24 +2014,24 @@ async function loadOrgCatalog(){
 }
 async function addCatalogItemRoom(itemId, roomId){
   if(!roomId) return;
-  const {error}=await sb.from('catalog_item_rooms').insert({catalog_item_id:itemId, room_id:roomId});
+  const {error}=await mutate(()=>sb.from('catalog_item_rooms').insert({catalog_item_id:itemId, room_id:roomId}));
   if(error){ showToast('Kunne ikke tilføje lokale: '+error.message,'error'); return; }
   await loadOrgCatalog(); render();
 }
 async function removeCatalogItemRoom(itemId, roomId){
-  const {error}=await sb.from('catalog_item_rooms').delete().eq('catalog_item_id',itemId).eq('room_id',roomId);
+  const {error}=await mutate(()=>sb.from('catalog_item_rooms').delete().eq('catalog_item_id',itemId).eq('room_id',roomId));
   if(error){ showToast('Kunne ikke fjerne lokale: '+error.message,'error'); return; }
   await loadOrgCatalog(); render();
 }
 async function addCatalogItemRooms(itemId, roomIds){
   if(!roomIds.length) return;
-  const {error}=await sb.from('catalog_item_rooms').insert(roomIds.map(rid=>({catalog_item_id:itemId, room_id:rid})));
+  const {error}=await mutate(()=>sb.from('catalog_item_rooms').insert(roomIds.map(rid=>({catalog_item_id:itemId, room_id:rid}))));
   if(error){ showToast('Kunne ikke tilføje lokaler: '+error.message,'error'); return; }
   await loadOrgCatalog(); render();
 }
 async function removeCatalogItemRooms(itemId, roomIds){
   if(!roomIds.length) return;
-  const {error}=await sb.from('catalog_item_rooms').delete().eq('catalog_item_id',itemId).in('room_id',roomIds);
+  const {error}=await mutate(()=>sb.from('catalog_item_rooms').delete().eq('catalog_item_id',itemId).in('room_id',roomIds));
   if(error){ showToast('Kunne ikke fjerne lokaler: '+error.message,'error'); return; }
   await loadOrgCatalog(); render();
 }
@@ -1853,12 +2058,12 @@ async function createCatalogItem(){
   if(!name){ showToast('Skriv et navn.','error'); return; }
   const btn=document.getElementById('ciCreate'), orig=btn.textContent;
   btn.disabled=true; btn.textContent='Opretter…';
-  const {error}=await sb.from('catalog_items').insert({org_id:state.orgId, name, category, price_kr:price, basis, child_half:childHalf, event_type:eventType});
+  const {error}=await mutate(()=>sb.from('catalog_items').insert({org_id:state.orgId, name, category, price_kr:price, basis, child_half:childHalf, event_type:eventType}));
   if(error){ btn.disabled=false; btn.textContent=orig; showToast('Kunne ikke oprette katalogvare: '+error.message,'error'); return; }
   if(roomIds.length){
     const {data:created}=await sb.from('catalog_items').select('id').eq('org_id',state.orgId).eq('name',name)
       .order('created_at',{ascending:false}).limit(1).maybeSingle();
-    if(created) await sb.from('catalog_item_rooms').insert(roomIds.map(rid=>({catalog_item_id:created.id, room_id:rid})));
+    if(created) await mutate(()=>sb.from('catalog_item_rooms').insert(roomIds.map(rid=>({catalog_item_id:created.id, room_id:rid}))));
   }
   btn.disabled=false; btn.textContent=orig;
   await loadOrgCatalog(); render();
@@ -1866,18 +2071,18 @@ async function createCatalogItem(){
 }
 async function deleteCatalogItem(id){
   if(!(await appConfirm('Slet katalogvaren? Kan ikke fortrydes.'))) return;
-  const {error}=await sb.from('catalog_items').delete().eq('id',id);
+  const {error}=await mutate(()=>sb.from('catalog_items').delete().eq('id',id));
   if(error){ showToast('Kunne ikke slette: '+error.message,'error'); return; }
   await loadOrgCatalog(); render();
 }
 async function addCatalogToEvent(itemId){
   if(!itemId) return;
-  const {error}=await sb.from('event_catalog_items').insert({event_id:state.eventId, catalog_item_id:itemId});
+  const {error}=await mutate(()=>sb.from('event_catalog_items').insert({event_id:state.eventId, catalog_item_id:itemId}));
   if(error){ showToast('Kunne ikke tilføje: '+error.message,'error'); return; }
   await loadCatalog(state.eventId); render();
 }
 async function removeCatalogFromEvent(itemId){
-  const {error}=await sb.from('event_catalog_items').delete().eq('event_id',state.eventId).eq('catalog_item_id',itemId);
+  const {error}=await mutate(()=>sb.from('event_catalog_items').delete().eq('event_id',state.eventId).eq('catalog_item_id',itemId));
   if(error){ showToast('Kunne ikke fjerne: '+error.message,'error'); return; }
   await loadCatalog(state.eventId); render();
 }
@@ -1960,14 +2165,14 @@ async function loadRooms(id){
 async function addPhase(label, roomId, startTime, endTime){
   if(!label.trim()){ showToast('Skriv et navn på fasen.', 'error'); return; }
   const sortOrder=(state.phases||[]).length;
-  const {error}=await sb.from('event_rooms').insert({event_id:state.eventId, label:label.trim(), room_id:roomId||null, start_time:startTime||null, end_time:endTime||null, sort_order:sortOrder});
+  const {error}=await mutate(()=>sb.from('event_rooms').insert({event_id:state.eventId, label:label.trim(), room_id:roomId||null, start_time:startTime||null, end_time:endTime||null, sort_order:sortOrder}));
   if(error){ showToast('Kunne ikke tilføje fase: '+error.message, 'error'); return; }
   pushLog({area:'system', label:'Fase tilføjet', from:'', to:label.trim(), cust:false});
   await loadRooms(state.eventId); render();
 }
 async function updatePhase(id, label, roomId, startTime, endTime){
   if(!label.trim()){ showToast('Skriv et navn på fasen.', 'error'); return; }
-  const {error}=await sb.from('event_rooms').update({label:label.trim(), room_id:roomId||null, start_time:startTime||null, end_time:endTime||null}).eq('id',id);
+  const {error}=await mutate(()=>sb.from('event_rooms').update({label:label.trim(), room_id:roomId||null, start_time:startTime||null, end_time:endTime||null}).eq('id',id));
   if(error){ showToast('Kunne ikke gemme fase: '+error.message, 'error'); await loadRooms(state.eventId); render(); return; }
   pushLog({area:'system', label:'Fase · '+label.trim(), from:'', to:(state.venueRooms.find(r=>r.id===roomId)||{}).name||'—', cust:false});
   await loadRooms(state.eventId); render();
@@ -1976,13 +2181,13 @@ async function updatePhase(id, label, roomId, startTime, endTime){
 async function removePhase(id){
   const p=(state.phases||[]).find(x=>x.id===id);
   if(!(await appConfirm('Slet fasen "'+(p?p.label:'')+'"? Kan ikke fortrydes.'))) return;
-  const {error}=await sb.from('event_rooms').delete().eq('id',id);
+  const {error}=await mutate(()=>sb.from('event_rooms').delete().eq('id',id));
   if(error){ showToast('Kunne ikke slette fase: '+error.message, 'error'); return; }
   pushLog({area:'system', label:'Fase fjernet', from:p?p.label:'', to:'', cust:false});
   await loadRooms(state.eventId); render();
 }
 async function addCoordinator(sid){
-  const {error}=await sb.from('event_staff').insert({event_id:state.eventId, staff_id:sid});
+  const {error}=await mutate(()=>sb.from('event_staff').insert({event_id:state.eventId, staff_id:sid}));
   if(error){ showToast('Kunne ikke tildele: '+error.message,'error'); return; }
   const nm=(state.roster.find(r=>r.id===sid)||{}).name||'medarbejder';
   pushLog({area:'system', label:'Medarbejder tildelt', from:'', to:nm, cust:false});
@@ -1990,7 +2195,7 @@ async function addCoordinator(sid){
 }
 async function removeCoordinator(sid){
   const nm=(state.eventStaff.find(s=>s.id===sid)||{}).name||'medarbejder';
-  const {error}=await sb.from('event_staff').delete().eq('event_id',state.eventId).eq('staff_id',sid);
+  const {error}=await mutate(()=>sb.from('event_staff').delete().eq('event_id',state.eventId).eq('staff_id',sid));
   if(error){ showToast('Kunne ikke fjerne: '+error.message,'error'); return; }
   pushLog({area:'system', label:'Medarbejder fjernet', from:nm, to:'', cust:false});
   await loadEventStaff(); render();
@@ -2004,7 +2209,7 @@ async function setEventStatus(id, status){
     const label=(EVENT_STATUSES.find(([v])=>v===status)||[])[1]||status;
     if(!(await appConfirm('Sæt status tilbage til "'+label+'"? Det er et skridt tilbage i processen.'))) return;
   }
-  const {error}=await sb.from('events').update({status}).eq('id',id);
+  const {error}=await mutate(()=>sb.from('events').update({status}).eq('id',id));
   if(error){ showToast('Kunne ikke ændre status: '+error.message,'error'); return; }
   state.status=status;
   const statusTxt=(EVENT_STATUSES.find(([v])=>v===status)||[])[1]||status;
@@ -2015,22 +2220,29 @@ async function setEventStatus(id, status){
   showToast('Status ændret til '+statusTxt,'ok');
 }
 async function updateEventDetails(){
+  const btnBefore=document.getElementById('edSave');
+  if(btnBefore.disabled) return; /* værn mod dobbelt-klik mens et gem allerede er i gang */
   const title=document.getElementById('edTitle').value.trim();
   const venueId=document.getElementById('edVenue').value;
   const date=document.getElementById('edDate').value;
   const price=parseInt(document.getElementById('edPrice').value||'0',10)||0;
   const eventType=document.getElementById('edType').value;
   if(!title||!venueId||!date){ showToast('Udfyld titel, lokation og dato.','error'); return; }
-  const btn=document.getElementById('edSave'), orig=btn.textContent;
-  btn.disabled=true; btn.textContent='Gemmer…';
-  const {error}=await sb.from('events').update({title, venue_id:venueId, event_date:date, offer_total_kr:price, event_type:eventType}).eq('id',state.eventId);
-  if(error){ btn.disabled=false; btn.textContent=orig; showToast('Kunne ikke gemme: '+error.message,'error'); return; }
+  btnBefore.disabled=true; btnBefore.textContent='Gemmer…';
+  const {error}=await mutate(()=>sb.from('events').update({title, venue_id:venueId, event_date:date, offer_total_kr:price, event_type:eventType}).eq('id',state.eventId));
+  if(error){ btnBefore.disabled=false; btnBefore.textContent='Gem'; showToast('Kunne ikke gemme: '+error.message,'error'); return; }
   const {data:ev}=await sb.from('events').select('*,venues(name)').eq('id',state.eventId).maybeSingle();
   if(ev){ state.offerTotal=ev.offer_total_kr; state.eventDate=ev.event_date; state.eventTitle=ev.title; state.venueName=ev.venues?ev.venues.name:''; state.venueId=ev.venue_id; state.eventType=ev.event_type; }
   await loadRooms(state.eventId);
   pushLog({area:'system', label:'Arrangementdetaljer', cust:true, friendly:'Arrangementdetaljer opdateret'});
+  /* render() genopbygger hele fanen (inkl. #edSave) fra bunden — den "Gemmer…"-tilstand, vi lige satte,
+     forsvinder derfor med den gamle knap. Derfor sættes "Gemt ✓" på den NYE knap efter render(), ikke før. */
   render();
-  flashSaved('#edSave');
+  const btnAfter=document.getElementById('edSave');
+  if(btnAfter){
+    btnAfter.disabled=true; btnAfter.textContent='Gemt ✓'; btnAfter.classList.add('flash-saved');
+    setTimeout(()=>{ if(document.body.contains(btnAfter)){ btnAfter.disabled=false; btnAfter.textContent='Gem'; btnAfter.classList.remove('flash-saved'); } }, 1400);
+  }
 }
 function addDays(dateStr, delta){
   const d=new Date(dateStr+'T00:00:00');
@@ -2044,7 +2256,7 @@ async function reloadPunkter(){
 async function updatePunktStatus(id, status){
   const p=state.punkter.find(x=>x.id===id); if(!p) return;
   const from=p.status;
-  const {error}=await sb.from('agenda_items').update({status}).eq('id',id);
+  const {error}=await mutate(()=>sb.from('agenda_items').update({status}).eq('id',id));
   if(error){ showToast('Kunne ikke ændre status: '+error.message,'error'); return; }
   p.status=status;
   pushLog({area:'punkter', label:p.titel, from, to:status, cust:true, friendly:p.titel+' er nu '+STATUS_LABEL[status]});
@@ -2053,7 +2265,7 @@ async function updatePunktStatus(id, status){
 }
 async function createPunkt(titel, ejer, frist, note, file){
   if(!titel.trim()){ showToast('Skriv en titel.','error'); return; }
-  const {data,error}=await sb.from('agenda_items').insert({event_id:state.eventId, title:titel.trim(), owner:ejer, due_date:frist||null, note:(note||'').trim()}).select('id').single();
+  const {data,error}=await mutate(()=>sb.from('agenda_items').insert({event_id:state.eventId, title:titel.trim(), owner:ejer, due_date:frist||null, note:(note||'').trim()}).select('id').single());
   if(error){ showToast('Kunne ikke oprette opgave: '+error.message,'error'); return; }
   pushLog({area:'punkter', label:titel.trim(), cust:(ejer==='jer'), friendly:'Ny opgave: '+titel.trim()});
   await reloadPunkter();
@@ -2064,7 +2276,7 @@ async function createPunkt(titel, ejer, frist, note, file){
 async function deletePunkt(id){
   if(!(await appConfirm('Slet opgaven? Kan ikke fortrydes.'))) return;
   const p=state.punkter.find(x=>x.id===id);
-  const {error}=await sb.from('agenda_items').delete().eq('id',id);
+  const {error}=await mutate(()=>sb.from('agenda_items').delete().eq('id',id));
   if(error){ showToast('Kunne ikke slette: '+error.message,'error'); return; }
   pushLog({area:'punkter', label:p?p.titel:'', cust:false, friendly:'Opgave slettet: '+(p?p.titel:'')});
   await reloadPunkter(); render();
@@ -2083,11 +2295,11 @@ async function addAgendaNote(agendaItemId, text, file){
   let file_path=null, file_name=null;
   if(file){
     file_path=`${state.eventId}/${agendaItemId}/${Date.now()}-${file.name}`;
-    const {error:upErr}=await sb.storage.from('task-attachments').upload(file_path, file);
+    const {error:upErr}=await mutate(()=>sb.storage.from('task-attachments').upload(file_path, file));
     if(upErr){ showToast('Kunne ikke uploade fil: '+upErr.message,'error'); return; }
     file_name=file.name;
   }
-  const {error}=await sb.from('agenda_item_notes').insert({agenda_item_id:agendaItemId, event_id:state.eventId, author_name:actor.navn, author_side:actor.side, text:t, file_path, file_name});
+  const {error}=await mutate(()=>sb.from('agenda_item_notes').insert({agenda_item_id:agendaItemId, event_id:state.eventId, author_name:actor.navn, author_side:actor.side, text:t, file_path, file_name}));
   if(error){ showToast('Kunne ikke gemme note: '+error.message,'error'); return; }
   await loadAgendaNotes(state.eventId);
   state.openTaskNotes.add(agendaItemId);
@@ -2107,7 +2319,7 @@ async function applyTaskTemplates(eventId, eventDate, eventType){
     due_date: t.days_before_event!=null ? addDays(eventDate, -t.days_before_event) : null,
     note:t.note||'', sort_order:t.sort_order||0
   }));
-  await sb.from('agenda_items').insert(rows);
+  await mutate(()=>sb.from('agenda_items').insert(rows));
 }
 async function loadTaskTemplates(){
   const {data}=await sb.from('task_templates').select('*').eq('org_id',state.orgId).order('sort_order');
@@ -2123,7 +2335,7 @@ async function createTaskTemplate(){
   if(!title){ showToast('Skriv en titel.','error'); return; }
   const btn=document.getElementById('ttCreate'), orig=btn.textContent;
   btn.disabled=true; btn.textContent='Opretter…';
-  const {error}=await sb.from('task_templates').insert({org_id:state.orgId, title, owner, days_before_event:days, note, event_type:eventType});
+  const {error}=await mutate(()=>sb.from('task_templates').insert({org_id:state.orgId, title, owner, days_before_event:days, note, event_type:eventType}));
   btn.disabled=false; btn.textContent=orig;
   if(error){ showToast('Kunne ikke oprette: '+error.message,'error'); return; }
   await loadTaskTemplates(); render();
@@ -2131,16 +2343,16 @@ async function createTaskTemplate(){
 }
 async function deleteTaskTemplate(id){
   if(!(await appConfirm('Slet skabelonen? Kan ikke fortrydes.'))) return;
-  const {error}=await sb.from('task_templates').delete().eq('id',id);
+  const {error}=await mutate(()=>sb.from('task_templates').delete().eq('id',id));
   if(error){ showToast('Kunne ikke slette: '+error.message,'error'); return; }
   await loadTaskTemplates(); render();
 }
-async function generateGuestLink(name, email){
+async function generateGuestLink(name, email, expiresInDays){
   if(!name || !email){ showToast('Udfyld både navn og mail.','error'); return; }
   const eventIdAtStart = state.eventId;
   state.guestLinkBusy=true; render();
   try{
-    const {data, error}=await sb.functions.invoke('invite-guest', {body:{eventId:eventIdAtStart, email, displayName:name}});
+    const {data, error}=await mutate(()=>sb.functions.invoke('invite-guest', {body:{eventId:eventIdAtStart, email, displayName:name, expiresInDays:expiresInDays||null}}));
     if(error || !data || !data.link){
       showToast('Kunne ikke oprette link: '+(error?.message || data?.error || 'ukendt fejl'),'error');
       return;
@@ -2149,11 +2361,24 @@ async function generateGuestLink(name, email){
     state.guestLink=data.link;
     state.guestLinkEventId=eventIdAtStart;
     pushLog({area:'system', label:'Gæstelink', cust:false, friendly:'Magisk link genereret til '+name+' ('+email+')'});
+    await loadEventGuestAccesses(eventIdAtStart);
   }catch(e){
     showToast('Kunne ikke oprette link: '+e.message,'error');
   }finally{
     state.guestLinkBusy=false; render();
   }
+}
+async function loadEventGuestAccesses(eventId){
+  const {data}=await sb.from('event_access').select('id,display_name,email,created_at,last_seen_at,expires_at').eq('event_id',eventId).order('created_at');
+  state.eventGuestAccesses=data||[];
+}
+async function revokeGuestAccess(id){
+  const a=(state.eventGuestAccesses||[]).find(x=>x.id===id);
+  if(!(await appConfirm('Tilbagekald adgangen for '+(a?a.display_name:'gæsten')+'? Personen mister øjeblikkeligt adgang til arrangementet.'))) return;
+  const {error}=await mutate(()=>sb.from('event_access').delete().eq('id',id));
+  if(error){ showToast('Kunne ikke tilbagekalde: '+error.message,'error'); return; }
+  await loadEventGuestAccesses(state.eventId); render();
+  showToast('Adgang tilbagekaldt.','ok');
 }
 function copyGuestLink(){
   if(!state.guestLink || state.guestLinkEventId!==state.eventId) return;
@@ -2171,8 +2396,8 @@ async function createEvent(){
   if(!title||!venueId||!date){ showToast('Udfyld titel, lokation og dato.','error'); return; }
   const btn=document.getElementById('neCreate'), orig=btn.textContent;
   btn.disabled=true; btn.textContent='Opretter…';
-  const {error}=await sb.from('events')
-    .insert({title, venue_id:venueId, org_id:state.orgId, event_date:date, offer_total_kr:0, status:'kladde', event_type:eventType});
+  const {error}=await mutate(()=>sb.from('events')
+    .insert({title, venue_id:venueId, org_id:state.orgId, event_date:date, offer_total_kr:0, status:'kladde', event_type:eventType}));
   if(error){ btn.disabled=false; btn.textContent=orig; showToast('Kunne ikke oprette: '+error.message,'error'); return; }
   /* Knappen forbliver deaktiveret/"Opretter…", indtil vi enten navigerer ind i det nye arrangement eller
      falder tilbage til oversigten — ellers ser formularen momentant ud til at være klar til et nyt (dobbelt-)tryk. */
@@ -2186,8 +2411,8 @@ async function createEvent(){
 }
 function logCloudView(){
   const a=currentActor();
-  sb.from('activity_log').insert(logToDb({ts:Date.now(), who:a.navn, side:a.side, type:'view', area:'system', label:'Åbnede arrangementet', from:'', to:'', cust:false, friendly:'', text:''}))
-    .then(({error})=>error&&console.error('view',error));
+  mutate(()=>sb.from('activity_log').insert(logToDb({ts:Date.now(), who:a.navn, side:a.side, type:'view', area:'system', label:'Åbnede arrangementet', from:'', to:'', cust:false, friendly:'', text:''}))
+    .then(({error})=>error&&console.error('view',error)));
 }
 
 /* skærmstyring */
@@ -2197,7 +2422,10 @@ function showNoAccess(){ showGate('Du er logget ind som '+state.userEmail+', men
 function showPicker(){
   unsubscribeRealtime(); state.eventId=null; state.previewMode=false; if(state.previewPriorRolle) state.rolle=state.previewPriorRolle; state.previewPriorRolle=null; state.view='picker';
   showApp(); render();
-  loadPickerExceptions().then(render);
+  state.pickerExceptionsLoading=true; state.pickerExceptionsError=false; render();
+  loadPickerExceptions()
+    .catch(()=>{ state.pickerExceptionsError=true; })
+    .finally(()=>{ state.pickerExceptionsLoading=false; render(); });
 }
 function goHome(){
   if(!state.actor) return;
@@ -2359,6 +2587,18 @@ function eventStatusChip(status){
   return `<span class="chip ${cls}"><span class="dot"></span>${label}</span>`;
 }
 function actionRequiredSection(){
+  if(state.pickerExceptionsLoading){
+    return `<section class="card" style="border-left:3px solid var(--amber)">
+      <header><h2>Kræver handling</h2></header>
+      <div class="empty">Henter…</div>
+    </section>`;
+  }
+  if(state.pickerExceptionsError){
+    return `<section class="card" style="border-left:3px solid var(--amber)">
+      <header><h2>Kræver handling</h2></header>
+      <div class="empty">Kunne ikke hente. <button class="btn" id="exceptionsRetry">Prøv igen</button></div>
+    </section>`;
+  }
   const ids=Object.keys(state.eventExceptions||{});
   if(!ids.length) return '';
   const events=(state.events||[]).filter(e=>state.eventExceptions[e.id]&&state.eventExceptions[e.id].length);
@@ -2566,6 +2806,9 @@ function viewBrugere(){
     state.rolle=state.previewPriorRolle||'kilden'; state.previewMode=false; state.previewPriorRolle=null; render();
   };
   document.getElementById('backToList').onclick=()=>{ showPicker(); };
+  document.getElementById('switchEvent').onclick=()=>{
+    unsubscribeRealtime(); state.eventId=null; state.view='guestPicker'; render();
+  };
   const {data:{session}}=await sb.auth.getSession();
   if(session) cloudBoot(session.user); else showGate();
   sb.auth.onAuthStateChange((_e,s)=>{ if(s&&!state.eventId&&state.view!=='picker'&&state.view!=='superadmin') cloudBoot(s.user); });

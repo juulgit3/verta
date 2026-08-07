@@ -101,11 +101,18 @@ create table event_staff (
   primary key (event_id, staff_id)
 );
 
+-- Understøtter allerede flere rækker pr. bruger (unique er på parret, ikke på user_id alene) — en gæst
+-- kan derfor legitimt have adgang til flere arrangementer. Klienten afgør, hvilket der er "aktivt" for
+-- den aktuelle session (se cloudBoot i app/index.html); denne tabel er stadig den eneste autoritative
+-- adgangskilde, som RLS (is_event_guest()) slår op i.
 create table event_access (
   id uuid primary key default gen_random_uuid(),
   event_id uuid not null references events(id) on delete cascade,
   user_id uuid not null references auth.users(id) on delete cascade,
   display_name text not null,
+  email text,                       -- til admin-UI'ets liste over aktive gæsteadgange (auth.users er ikke læsbar via RLS)
+  expires_at timestamptz,           -- valgfri udløbstid for invitationen; håndhævet i is_event_guest() nedenfor
+  last_seen_at timestamptz,         -- opdateres ved hvert gæste-login, adskilt fra first_visited_at (kun engangs-velkomstkort)
   first_visited_at timestamptz,     -- sat ved gæstens allerførste besøg, styrer velkomstkortet
   created_at timestamptz not null default now(),
   unique (event_id, user_id)
@@ -283,7 +290,8 @@ $$;
 create or replace function is_event_guest(target_event uuid)
 returns boolean language sql security definer stable set search_path = public as $$
   select exists (select 1 from event_access a
-                 where a.event_id = target_event and a.user_id = auth.uid())
+                 where a.event_id = target_event and a.user_id = auth.uid()
+                   and (a.expires_at is null or a.expires_at > now()))
 $$;
 
 -- Kontaktpersonens navn til gæstens velkomstkort. Gæsten har ingen RLS-adgang

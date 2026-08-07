@@ -1,0 +1,12 @@
+{
+  "name": "verta-tests",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Selvstændig, node-baseret regressionstestpakke for app/index.html. Ikke en del af selve appens \"ingen build\"-arkitektur — kun et udviklingsværktøj. Testene indlæser de RIGTIGE funktioner direkte fra ../app/index.html (via streng-udtræk + vm/jsdom), aldrig en genimplementering, så en test kun kan bestå, hvis den rigtige kildekode faktisk gør det rigtige.",
+  "scripts": {
+    "test": "node run.js"
+  },
+  "devDependencies": {
+    "jsdom": "^24.0.0"
+  }
+}
