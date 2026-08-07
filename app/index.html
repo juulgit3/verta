@@ -1678,6 +1678,7 @@ function viewKoekken(){
   return `
   <section class="card">
     <header><h2>Køkkenseddel</h2><button class="btn noprint" id="print">Print</button></header>
+    <div class="note" style="margin-bottom:10px">Genereret ${esc(genereretTidspunkt())}</div>
     <div class="stat"><span>Kuverter til middag</span><b class="num">${a.middag.voksne+a.middag.boern}</b></div>
     <div class="stat"><span>Heraf børnekuverter</span><b class="num">${a.middag.boern}</b></div>
     <div class="stat"><span>Babyer til middag (uden kuvert)</span><b class="num">${a.middag.babyer}</b></div>
@@ -1794,6 +1795,163 @@ function viewKalender(){
       ${phases.length?phases.map(calendarPhaseCard).join(''):'<div class="empty">Ingen bookinger i denne periode.</div>'}
     </section>`;
   }).join('') : '<section class="card"><div class="empty">Ingen lokaler oprettet endnu.</div></section>'}`;
+}
+
+/* =========================================================
+   DRIFTSDOKUMENTER
+   Praktiske ark til selve arrangementsdagen — bevidst UDEN QR-koder og uden magic links/tokens i
+   indholdet (begge dele er eksplicit udelukket af kravspecen). Hvert dokument viser et
+   "Genereret [tidspunkt]"-banner, så et udprintet ark aldrig efterlader tvivl om, hvor friskt det er.
+   Genbruger appens eksisterende print-tilgang (window.print() + @media print-reglen, der allerede
+   skjuler faner/knapper) i stedet for at bygge en separat PDF-genereringspipeline.
+   ========================================================= */
+const DOC_TYPES = [
+  ['koereplan','Køreplan','Faser, tider og lokaler for arrangementsdagen.'],
+  ['lokalebestilling','Lokalebestilling','Bekræftelse af lokale, tidsrum og kapacitet pr. fase.'],
+  ['personale','Personaleoversigt','Hvem er tilknyttet arrangementet, og hvem har ansvaret.'],
+  ['kontakt','Kontaktliste','Navne og roller — ingen gæstelinks eller tokens.'],
+  ['samlet','Samlet oversigt','Ét ark med de vigtigste tal: gæster, pris, faser, opgaver.'],
+  ['aendringer','Ændringsoversigt','Historik over ændringer og behandlede ændringsforslag.']
+];
+function genereretTidspunkt(){ return nowDate().toLocaleString('da-DK',{day:'numeric',month:'long',year:'numeric',hour:'2-digit',minute:'2-digit'}); }
+function docHeader(){
+  const exportable=['personale','kontakt','aendringer'].includes(state.docPreview);
+  return `<div class="row noprint" style="justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:10px">
+    <button class="btn" data-doc-back>← Dokumenter</button>
+    <span class="row" style="gap:8px">
+      ${exportable?`<button class="btn" data-doc-export>Download CSV</button>`:''}
+      <button class="btn primary" data-doc-print>Print</button>
+    </span>
+  </div>
+  <div class="note" style="margin-bottom:4px">${esc(state.eventTitle||'')} · ${esc(state.venueName||'')} · ${state.eventDate?datoKort(state.eventDate):''}</div>
+  <div class="note" style="margin-bottom:14px">Genereret ${esc(genereretTidspunkt())}</div>`;
+}
+function downloadSimpleCsv(headers, rows, filename){
+  const q=v=>'"'+String(v==null?'':v).replace(/"/g,'""')+'"';
+  const csv=[headers,...rows].map(r=>r.map(q).join(';')).join('\r\n');
+  downloadBlob(new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8'}), filename);
+}
+function docExportCsv(){
+  if(state.docPreview==='personale' || state.docPreview==='kontakt'){
+    downloadSimpleCsv(['Navn','Rolle','Ansvar'], staffAnsvarRows().map(r=>[r.name,r.role,r.ansvar]), (state.docPreview==='personale'?'personaleoversigt-':'kontaktliste-')+guestExportSlug()+'.csv');
+  } else if(state.docPreview==='aendringer'){
+    downloadSimpleCsv(['Tidspunkt','Person','Hændelse'], (state.log||[]).filter(e=>e.type==='change').map(e=>[tid(e.ts), e.who, (e.friendly||e.label||'').replace(/<[^>]+>/g,'')]), 'aendringsoversigt-'+guestExportSlug()+'.csv');
+  }
+}
+function staffAnsvarRows(){
+  return (state.eventStaff||[]).map(s=>{
+    const roller=[];
+    if(s.id===state.ownerStaffId) roller.push('Primær koordinator');
+    if(s.id===state.secondaryStaffId) roller.push('Sekundær koordinator');
+    if(s.id===state.dayOfOwnerStaffId) roller.push('Ansvarlig på dagen');
+    return {name:s.name, role:s.role==='admin'?'Admin':'Koordinator', ansvar:roller.join(', ')||'—'};
+  });
+}
+function docKoereplan(){
+  const faser=state.phases||[];
+  return docHeader()+`
+  <section class="card">
+    <header><h2>Køreplan</h2><span class="note">${faser.length} faser</span></header>
+    ${faser.length? `<table class="tbl"><thead><tr><th>Fase</th><th>Lokale</th><th>Tid</th><th>Note</th></tr></thead><tbody>
+      ${faser.map(p=>`<tr><td>${esc(p.label)}</td><td>${esc(p.roomName||'—')}</td><td>${p.start||'?'}–${p.end||'?'}</td><td>${[p.setupMinutes?'Opsætning '+p.setupMinutes+' min før':'', p.teardownMinutes?'Oprydning '+p.teardownMinutes+' min efter':''].filter(Boolean).join(' · ')||'—'}</td></tr>`).join('')}
+    </tbody></table>` : '<div class="empty">Ingen faser oprettet endnu.</div>'}
+  </section>
+  <section class="card">
+    <header><h2>Ansvarlige</h2></header>
+    ${staffAnsvarRows().filter(r=>r.ansvar!=='—').map(r=>`<div class="stat"><span>${esc(r.name)}</span><span class="note">${esc(r.ansvar)}</span></div>`).join('')||'<div class="empty">Ingen ansvarsfordeling registreret endnu.</div>'}
+  </section>`;
+}
+function docLokalebestilling(){
+  const faser=state.phases||[];
+  const a=antal();
+  return docHeader()+`
+  <section class="card">
+    <header><h2>Lokalebestilling</h2></header>
+    ${faser.length? faser.map(p=>{
+      const room=(state.venueRooms||[]).find(r=>r.id===p.roomId);
+      const over = room && room.capacity_max && a.reception.total>room.capacity_max;
+      return `<div class="stat"><span><b>${esc(p.label)}</b><br><span class="note">${esc(p.roomName||'Intet lokale valgt')} · ${p.start||'?'}–${p.end||'?'}${room&&room.capacity_max?' · kapacitet '+room.capacity_max:''}</span></span>${over?'<span class="chip warn"><span class="dot"></span>Over kapacitet</span>':''}</div>`;
+    }).join('') : '<div class="empty">Ingen faser oprettet endnu.</div>'}
+  </section>`;
+}
+function docPersonale(){
+  const rows=staffAnsvarRows();
+  return docHeader()+`
+  <section class="card">
+    <header><h2>Personaleoversigt</h2><span class="note">${rows.length} tilknyttet</span></header>
+    ${rows.length?rows.map(r=>`<div class="stat"><span><b>${esc(r.name)}</b><br><span class="note">${esc(r.role)}</span></span>${r.ansvar!=='—'?`<span class="chip"><span class="dot"></span>${esc(r.ansvar)}</span>`:''}</div>`).join(''):'<div class="empty">Ingen medarbejdere tilknyttet endnu.</div>'}
+  </section>`;
+}
+function docKontakt(){
+  const rows=staffAnsvarRows();
+  return docHeader()+`
+  <section class="card">
+    <header><h2>Kontaktliste</h2></header>
+    <div class="note" style="margin-bottom:10px">${esc(state.orgName||'')}</div>
+    ${rows.length?rows.map(r=>`<div class="stat"><span><b>${esc(r.name)}</b><br><span class="note">${esc(r.role)}${r.ansvar!=='—'?' · '+esc(r.ansvar):''}</span></span></div>`).join(''):'<div class="empty">Ingen kontakter registreret endnu.</div>'}
+  </section>`;
+}
+function docSamlet(){
+  const a=antal();
+  const beregnetTotal=total();
+  const afvigelse=beregnetTotal-(state.offerTotal||0);
+  const approvalCounts={};
+  (state.approvals||[]).forEach(x=>{approvalCounts[x.status]=(approvalCounts[x.status]||0)+1;});
+  const opgaverAaben=(state.punkter||[]).filter(p=>p.status!=='aftalt').length;
+  const opgaverOver=(state.punkter||[]).filter(p=>p.status!=='aftalt'&&p.frist&&dageTil(p.frist)<0).length;
+  return docHeader()+`
+  <section class="card">
+    <header><h2>Arrangement</h2></header>
+    <div class="stat"><span>Titel</span><b>${esc(state.eventTitle||'')}</b></div>
+    <div class="stat"><span>Type</span><b>${esc(state.eventType||'')}</b></div>
+    <div class="stat"><span>Lokation</span><b>${esc(state.venueName||'')}</b></div>
+    <div class="stat"><span>Dato</span><b>${state.eventDate?datoKort(state.eventDate):''}</b></div>
+    <div class="stat"><span>Status</span><b>${esc(state.status||'')}</b></div>
+  </section>
+  <section class="card">
+    <header><h2>Gæster</h2></header>
+    <div class="stat"><span>Reception</span><b class="num">${a.reception.total}</b></div>
+    <div class="stat"><span>Middag</span><b class="num">${a.middag.total}</b></div>
+  </section>
+  <section class="card">
+    <header><h2>Pris</h2></header>
+    <div class="stat"><span>Beregnet total</span><b class="num">${kr(beregnetTotal)}</b></div>
+    <div class="stat"><span>Tilbud</span><b class="num">${kr(state.offerTotal||0)}</b></div>
+    ${afvigelse?`<div class="stat"><span>Afvigelse</span><b class="num">${afvigelse>0?'+':''}${kr(afvigelse)}</b></div>`:''}
+  </section>
+  <section class="card">
+    <header><h2>Faser og opgaver</h2></header>
+    <div class="stat"><span>Faser</span><b class="num">${(state.phases||[]).length}</b></div>
+    <div class="stat"><span>Udestående opgaver</span><b class="num">${opgaverAaben}</b></div>
+    <div class="stat"><span>Heraf overskredet frist</span><b class="num">${opgaverOver}</b></div>
+    <div class="stat"><span>Medarbejdere tilknyttet</span><b class="num">${(state.eventStaff||[]).length}</b></div>
+  </section>
+  ${Object.keys(approvalCounts).length?`<section class="card">
+    <header><h2>Godkendelser</h2></header>
+    ${Object.entries(approvalCounts).map(([s,n])=>`<div class="stat"><span>${esc(APPROVAL_STATUS_LABEL[s]||s)}</span><b class="num">${n}</b></div>`).join('')}
+  </section>`:''}`;
+}
+function docAendringer(){
+  const changes=(state.log||[]).filter(e=>e.type==='change').slice(0,200);
+  const crHistorik=(state.changeRequests||[]).filter(c=>c.status!=='pending');
+  return docHeader()+`
+  <section class="card">
+    <header><h2>Ændringslog</h2><span class="note">${changes.length}</span></header>
+    ${changes.length?changes.map(e=>`<div class="stat"><span>${esc(tid(e.ts))} · ${esc(e.who)}</span><span>${logLine(e)}</span></div>`).join(''):'<div class="empty">Ingen ændringer registreret endnu.</div>'}
+  </section>
+  ${crHistorik.length?`<section class="card">
+    <header><h2>Behandlede ændringsforslag</h2></header>
+    ${crHistorik.map(c=>`<div class="stat"><span>${changeRequestSummary(c)}</span><span class="chip ${c.status==='accepted'?'ok':'warn'}"><span class="dot"></span>${c.status==='accepted'?'Accepteret':'Afvist'}</span></div>`).join('')}
+  </section>`:''}`;
+}
+const DOC_RENDER = {koereplan:docKoereplan, lokalebestilling:docLokalebestilling, personale:docPersonale, kontakt:docKontakt, samlet:docSamlet, aendringer:docAendringer};
+function viewDokumenter(){
+  if(state.docPreview && DOC_RENDER[state.docPreview]) return DOC_RENDER[state.docPreview]();
+  return `<section class="card">
+    <header><h2>Driftsdokumenter</h2></header>
+    <div class="note" style="margin-bottom:10px">Praktiske ark til arrangementsdagen — ingen QR-koder, ingen gæstelinks eller tokens. Hvert dokument viser, hvornår det er genereret.</div>
+    ${DOC_TYPES.map(([id,titel,beskr])=>`<div class="stat"><span><b>${esc(titel)}</b><br><span class="note">${esc(beskr)}</span></span><button class="btn" data-doc-open="${id}">Vis</button></div>`).join('')}
+  </section>`;
 }
 
 function tid(ts){ return new Date(ts).toLocaleString('da-DK',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}); }
@@ -2258,6 +2416,11 @@ function bind(){
   const calToday=document.getElementById('calToday'); if(calToday) calToday.onclick=()=>{ state.calendarDate=todayIso(); loadCalendarData().then(render); };
   const calRoomSel=document.getElementById('calRoomSel'); if(calRoomSel) calRoomSel.onchange=()=>{ state.calendarRoomId=calRoomSel.value; render(); };
   const calRetry=document.getElementById('calRetry'); if(calRetry) calRetry.onclick=()=>loadCalendarData().then(render);
+
+  document.querySelectorAll('[data-doc-open]').forEach(el=>el.onclick=()=>{ state.docPreview=el.dataset.docOpen; render(); });
+  const docBack=document.querySelector('[data-doc-back]'); if(docBack) docBack.onclick=()=>{ state.docPreview=null; render(); };
+  const docPrint=document.querySelector('[data-doc-print]'); if(docPrint) docPrint.onclick=()=>window.print();
+  const docExport=document.querySelector('[data-doc-export]'); if(docExport) docExport.onclick=()=>docExportCsv();
   const crSend=document.getElementById('crSend'); if(crSend) crSend.onclick=submitGuestChangeRequest;
   document.querySelectorAll('[data-cr-accept]').forEach(el=>el.onclick=()=>acceptChangeRequest(el.dataset.crAccept));
   document.querySelectorAll('[data-cr-reject]').forEach(el=>el.onclick=()=>rejectChangeRequest(el.dataset.crReject));
@@ -2752,6 +2915,7 @@ async function openEvent(id){
   state.log=(lg||[]).map(logFromDb);
   state._dbG=new Set(state.gaester.map(g=>g.id));
   state.approvalRevisingId=null;
+  state.docPreview=null;
   await Promise.all([loadRooms(id), loadCatalog(id), loadAgendaNotes(id), loadApprovals(id), loadChangeRequests(id)]);
   if(state.rolle==='kilden'){ await Promise.all([loadEventStaff(), loadOrgCatalog(), loadEventGuestAccesses(id)]); logCloudView(); }
   else { const {data:contact}=await sb.rpc('get_event_contact',{target_event:id}); state.contactName=contact||''; logCloudView(); }
@@ -3078,10 +3242,13 @@ function setInboxSort(v){
   localStorage.setItem('verta_inbox_sort', v);
 }
 async function loadRooms(id){
-  const {data:er}=await sb.from('event_rooms').select('id, label, room_id, start_time, end_time, sort_order, rooms(name)').eq('event_id',id).order('sort_order');
-  state.phases=(er||[]).map(r=>({id:r.id, label:r.label, roomId:r.room_id, roomName:r.rooms?r.rooms.name:'', start:(r.start_time||'').slice(0,5), end:(r.end_time||'').slice(0,5)}));
+  const {data:er}=await sb.from('event_rooms').select('id, label, room_id, start_time, end_time, sort_order, setup_minutes, teardown_minutes, booking_status, rooms(name)').eq('event_id',id).order('sort_order');
+  state.phases=(er||[]).map(r=>({id:r.id, label:r.label, roomId:r.room_id, roomName:r.rooms?r.rooms.name:'', start:(r.start_time||'').slice(0,5), end:(r.end_time||'').slice(0,5), setupMinutes:r.setup_minutes||0, teardownMinutes:r.teardown_minutes||0, bookingStatus:r.booking_status||'bekræftet'}));
   if(state.rolle==='kilden' && state.venueId){
-    const {data:vr}=await sb.from('rooms').select('id,name').eq('venue_id',state.venueId).order('sort_order');
+    /* capacity_max var oprindeligt udeladt her — checkCapacityBeforeSave() slog derfor ALDRIG til,
+       fordi room.capacity_max altid var undefined. Rettet som en del af driftsdokumenterne, der også
+       har brug for kapacitetstallet (lokalebestilling). */
+    const {data:vr}=await sb.from('rooms').select('id,name,capacity_max').eq('venue_id',state.venueId).order('sort_order');
     state.venueRooms=vr||[];
   }
 }

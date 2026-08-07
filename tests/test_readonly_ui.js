@@ -20,7 +20,15 @@ function extract(startMarker, endMarker) {
 
 const guardSrc = extract('function assertCanMutate(){', '/* UI-lag oven på mutate()');
 const readOnlySrc = extract('function applyPreviewReadOnly(){', 'function onEnterSubmit');
-const viewGaesterSrc = extract('function viewGaester(){', 'function taskNotesHtml');
+// Range covers everything viewGaester() actually calls at render time (guestEditsAreLocked lives just
+// above it; bulkGuestFiltered/dietSummaryCard/dietTags/DIET_TAG_LABEL/normNameForDupe live below it, up
+// to taskNotesHtml). The CSV-import modal renderer (MODAL_RENDERERS.import) sits in the middle of that
+// range and references the generic modal system (MODAL_RENDERERS/state.modal), which this focused test
+// never exercises — stripped out below so its unresolved reference doesn't break the sandbox eval.
+const guestEditsAreLockedSrc = extract('function guestEditsAreLocked(){', 'function viewGaester(){');
+let viewGaesterSrc = extract('function viewGaester(){', 'function taskNotesHtml');
+viewGaesterSrc = viewGaesterSrc.slice(0, viewGaesterSrc.indexOf('MODAL_RENDERERS.import'))
+  + viewGaesterSrc.slice(viewGaesterSrc.indexOf('function bulkGuestFiltered'));
 const taskNotesHtmlSrc = extract('function taskNotesHtml(p){', 'function renderTask');
 const renderTaskSrc = extract('function renderTask(p){', 'function viewPunkter');
 const viewBeskederSrc = extract('function viewBeskeder(){', '/* =========================================================');
@@ -44,13 +52,15 @@ const sandbox = {
     agendaNotes: {},
     openTaskNotes: new Set(),
     orgName: 'Kilden',
-    log: []
+    log: [],
+    guestSel: new Set(),
+    guestBulkFilter: {}
   }
 };
 const helperSrc = "const DAG=864e5;\nfunction dageTil(iso){ return Math.ceil((new Date(iso+'T00:00:00')-new Date())/DAG); }\nfunction datoKort(iso){ return new Date(iso+'T00:00:00').toLocaleDateString('da-DK',{day:'numeric',month:'short'}); }\nconst STATUS_LABEL = {mangler:'Mangler', udkast:'Udkast', aftalt:'Udført'};\n";
 
 vm.createContext(sandbox);
-vm.runInContext(escSrc + helperSrc + guardSrc + readOnlySrc, sandbox);
+vm.runInContext(escSrc + helperSrc + guardSrc + readOnlySrc + guestEditsAreLockedSrc, sandbox);
 vm.runInContext(viewGaesterSrc, sandbox);
 vm.runInContext(taskNotesHtmlSrc, sandbox);
 vm.runInContext(renderTaskSrc, sandbox);
