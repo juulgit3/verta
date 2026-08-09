@@ -6,6 +6,9 @@
 
 drop trigger if exists on_auth_user_created on auth.users;
 drop trigger if exists on_event_created on events;
+drop table if exists event_change_requests cascade;
+drop table if exists event_approvals    cascade;
+drop table if exists event_templates    cascade;
 drop table if exists activity_log       cascade;
 drop table if exists agenda_item_notes  cascade;
 drop table if exists agenda_items       cascade;
@@ -91,7 +94,9 @@ create table events (
   status text not null default 'bekræftet',   -- kladde | tilbud | bekræftet | afviklet
   event_type text not null default 'bryllup', -- bryllup | firmafest | konference | teambuilding | andet
   baseline_locked boolean not null default false,
-  owner_staff_id uuid references staff(id),   -- den, der oprettede arrangementet
+  owner_staff_id uuid references staff(id),          -- primær koordinator (den, der oprettede arrangementet)
+  secondary_staff_id uuid references staff(id),      -- valgfri sekundær koordinator
+  day_of_owner_staff_id uuid references staff(id),   -- ansvarlig på selve arrangementsdagen (kan afvige fra primær)
   created_at timestamptz not null default now()
 );
 
@@ -125,10 +130,13 @@ create table event_rooms (
   id uuid primary key default gen_random_uuid(),
   event_id uuid not null references events(id) on delete cascade,
   label text not null,                 -- fasens navn, fx "Reception", "Frokost", "Foredrag"
-  room_id uuid not null references rooms(id) on delete cascade,
+  room_id uuid references rooms(id) on delete cascade,   -- kan være ubesat (fx en fase oprettet fra en skabelon på tværs af lokationer)
   start_time time,                     -- tidsrum for denne fase (bruges til at forhindre dobbeltbooking)
   end_time time,                       -- hvis end_time <= start_time, regnes det som efter midnat
-  sort_order integer not null default 0
+  sort_order integer not null default 0,
+  setup_minutes integer not null default 0,      -- opsætningstid før fasen, regnes med i konflikttjek
+  teardown_minutes integer not null default 0,   -- oprydningstid efter fasen, regnes med i konflikttjek
+  booking_status text not null default 'bekræftet'  -- tentativ | reserveret | bekræftet
 );
 create index on event_rooms (event_id);
 
@@ -181,7 +189,9 @@ create table agenda_items (
   status text not null default 'mangler',    -- mangler | udkast | aftalt ("Udført" i UI'et)
   due_date date,
   note text not null default '',
-  sort_order integer not null default 0
+  sort_order integer not null default 0,
+  assigned_staff_id uuid references staff(id),  -- navngiven medarbejderansvarlig (ud over det brede jer/kilden-skel)
+  priority text not null default 'normal'       -- kritisk | normal | lav
 );
 
 -- Tekst-noter og filbilag til aftalepunkter — synlige for begge parter, der kan se
@@ -199,6 +209,79 @@ create table agenda_item_notes (
 );
 create index on agenda_item_notes (agenda_item_id);
 create index on agenda_item_notes (event_id);
+
+-- Kundegodkendelser: en opgave er ikke det samme som en dokumenteret, versioneret godkendelse.
+-- version + superseded_by giver fuld historik: en ny version gør den forrige historisk ('erstattet')
+-- og ikke længere handlingsbar, uden at slette noget. Se guard_approval_update() nedenfor, som fryser
+-- alt indhold på en allerede afgjort række, og decide_approval(), som er gæstens eneste vej til at
+-- afgøre en godkendelse (server-side valideret, ikke en direkte UPDATE-RLS-politik for gæster).
+create table event_approvals (
+  id uuid primary key default gen_random_uuid(),
+  event_id uuid not null references events(id) on delete cascade,
+  title text not null,
+  description text not null default '',
+  approval_type text not null default 'andet',   -- tilbud | menu | bordplan | deltagerantal | prisaendring | praktisk | andet
+  status text not null default 'kladde',         -- kladde | afventer | godkendt | afvist | erstattet | tilbagekaldt
+  version integer not null default 1,
+  amount numeric,
+  currency text not null default 'DKK',
+  payload jsonb,
+  due_at timestamptz,
+  requested_by uuid references auth.users(id),
+  requested_by_name text,
+  requested_at timestamptz,
+  decided_by uuid references auth.users(id),
+  decided_by_name text,
+  decided_at timestamptz,
+  decision_comment text,
+  superseded_by uuid references event_approvals(id),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+create index on event_approvals (event_id);
+create index on event_approvals (event_id, status);
+
+-- Ændringsforslag med prisvirkning: bruges når en gæst ønsker en pris-/driftsrelevant ændring, efter
+-- arrangementet er bekræftet (se guests-RLS'en nedenfor, som lukker gæstens direkte skriveadgang til
+-- guests-tabellen fra det tidspunkt). apply_change_request() nedenfor udfører selve skrivningen atomisk.
+create table event_change_requests (
+  id uuid primary key default gen_random_uuid(),
+  event_id uuid not null references events(id) on delete cascade,
+  requested_by uuid references auth.users(id),
+  requested_by_role text not null default 'kunde',   -- 'kunde' | 'kilden'
+  requested_by_name text not null default '',
+  change_type text not null default 'guest_edit',    -- i dag: 'guest_edit' (se apply_change_request)
+  status text not null default 'pending',            -- pending | accepted | rejected
+  before_payload jsonb,
+  after_payload jsonb not null,
+  price_before numeric,
+  price_after numeric,
+  price_delta numeric,
+  comment text,
+  reviewed_by uuid references auth.users(id),
+  reviewed_by_name text,
+  reviewed_at timestamptz,
+  review_comment text,
+  created_at timestamptz not null default now()
+);
+create index on event_change_requests (event_id);
+create index on event_change_requests (event_id, status);
+
+-- Globale arrangementsskabeloner ("Heldagskonference", "Bryllup" osv). En enkelt jsonb-spec i stedet for
+-- en fuld separat tabelfamilie — skabelonen bruges kun til at forudfylde et NYT arrangement, ikke som en
+-- levende reference bagefter, så en fladere struktur er tilstrækkelig og langt enklere at vedligeholde.
+create table event_templates (
+  id uuid primary key default gen_random_uuid(),
+  org_id uuid not null references organisations(id) on delete cascade,
+  name text not null,
+  event_type text not null default 'andet',
+  spec jsonb not null default '{}'::jsonb,   -- {phases:[{label,startOffsetMin,endOffsetMin,roomHint}], catalogItemIds:[], taskTemplates:[{title,owner,daysBeforeEvent,note}], approvalTypes:[], notes:'', defaultOwnerRole:''}
+  archived boolean not null default false,
+  created_by uuid references auth.users(id),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+create index on event_templates (org_id);
 
 -- Org-genbrugelige opgaveskabeloner ("standardpakke"), samme mønster som catalog_items.
 -- Frist er relativ (dage før arrangementet), da skabeloner bruges på tværs af datoer.
@@ -303,6 +386,184 @@ returns text language sql security definer stable set search_path = public as $$
   where e.id = target_event and (is_event_guest(target_event) or is_org_staff(target_event))
 $$;
 
+-- Bekvem status-opslag til RLS-policyer (undgår at gentage samme subquery flere steder).
+create or replace function event_status(target_event uuid)
+returns text language sql security definer stable set search_path = public as $$
+  select status from events where id = target_event
+$$;
+
+-- Gæstens ENESTE vej til at afgøre en godkendelse — ingen direkte UPDATE-RLS-politik for gæster på
+-- event_approvals findes, med vilje. Validerer server-side at godkendelsen rent faktisk er sendt
+-- ('afventer'), uanset hvad klienten viste, før afgørelsen registreres.
+create or replace function decide_approval(p_id uuid, p_decision text, p_comment text default null)
+returns void language plpgsql security definer set search_path = public as $$
+declare
+  appr event_approvals%rowtype;
+  guest_name text;
+begin
+  if p_decision not in ('godkendt','afvist') then
+    raise exception 'Ugyldig afgørelse';
+  end if;
+  select * into appr from event_approvals where id = p_id;
+  if not found then raise exception 'Godkendelsen findes ikke'; end if;
+  if not is_event_guest(appr.event_id) then
+    raise exception 'Ingen adgang til dette arrangement';
+  end if;
+  if appr.status <> 'afventer' then
+    raise exception 'Denne godkendelse er ikke længere afventer (status: %)', appr.status;
+  end if;
+
+  select display_name into guest_name from event_access
+    where event_id = appr.event_id and user_id = auth.uid() limit 1;
+
+  update event_approvals set
+    status = p_decision,
+    decided_by = auth.uid(),
+    decided_by_name = coalesce(guest_name, 'Gæst'),
+    decided_at = now(),
+    decision_comment = p_comment,
+    updated_at = now()
+  where id = p_id;
+end;
+$$;
+
+-- Atomisk anvendelse af et accepteret ændringsforslag (i dag: change_type='guest_edit'). Kun staff kan
+-- kalde den (is_org_staff), og hele funktionskroppen kører i kalderens transaktion — fejler et skridt,
+-- rulles det hele tilbage, så "accepteret" og "gæstedata opdateret" aldrig kan komme ud af trit.
+create or replace function apply_change_request(p_id uuid, p_comment text default null)
+returns void language plpgsql security definer set search_path = public as $$
+declare
+  req event_change_requests%rowtype;
+  g jsonb;
+  staff_name text;
+  action text;
+begin
+  select * into req from event_change_requests where id = p_id;
+  if not found then raise exception 'Ændringsforslaget findes ikke'; end if;
+  if not is_org_staff(req.event_id) then raise exception 'Ingen adgang'; end if;
+  if req.status <> 'pending' then raise exception 'Forslaget er allerede behandlet'; end if;
+
+  if req.change_type = 'guest_edit' then
+    g := req.after_payload->'guest';
+    action := req.after_payload->>'action';
+    if action = 'insert' then
+      insert into guests (id, event_id, name, category, reception, dinner, dietary, sort_order)
+        values (coalesce((g->>'id')::uuid, gen_random_uuid()), req.event_id, coalesce(g->>'navn',''),
+                coalesce(g->>'kat','voksen'), coalesce((g->>'reception')::boolean, true),
+                coalesce((g->>'middag')::boolean, true), coalesce(g->>'kost',''), 999);
+    elsif action = 'update' then
+      update guests set name = coalesce(g->>'navn', name), category = coalesce(g->>'kat', category),
+        reception = coalesce((g->>'reception')::boolean, reception),
+        dinner = coalesce((g->>'middag')::boolean, dinner),
+        dietary = coalesce(g->>'kost', dietary)
+        where id = (g->>'id')::uuid and event_id = req.event_id;
+    elsif action = 'delete' then
+      delete from guests where id = (g->>'id')::uuid and event_id = req.event_id;
+    else
+      raise exception 'Ukendt handling i ændringsforslaget: %', action;
+    end if;
+  else
+    raise exception 'Ukendt ændringstype: %', req.change_type;
+  end if;
+
+  select name into staff_name from staff where id = auth.uid();
+  update event_change_requests set status = 'accepted', reviewed_by = auth.uid(),
+    reviewed_by_name = coalesce(staff_name, 'Medarbejder'), reviewed_at = now(), review_comment = p_comment
+    where id = p_id;
+end;
+$$;
+
+-- Dublikering sker atomisk server-side (én transaktion, hele funktionskroppen), autoriseret via
+-- is_org_staff() på KILDE-arrangementet. Kopierer kun det, kalderen har valgt via p_options — resten
+-- (gæster, event_access, magic links, beskeder, aktivitetslog, godkendelsesafgørelser, uploadede filer)
+-- kopieres ALDRIG, uanset options. Det nye arrangement starter altid som 'kladde'.
+create or replace function duplicate_event(
+  p_source_id uuid, p_new_title text, p_new_date date, p_new_venue_id uuid,
+  p_options jsonb default '{}'::jsonb
+)
+returns uuid language plpgsql security definer set search_path = public as $$
+declare
+  src events%rowtype;
+  new_id uuid;
+  shift_minutes integer;
+  r record;
+  new_agenda_id uuid;
+  agenda_map jsonb := '{}'::jsonb;
+begin
+  select * into src from events where id = p_source_id;
+  if not found then raise exception 'Kilde-arrangementet findes ikke'; end if;
+  if not is_org_staff(p_source_id) then raise exception 'Ingen adgang til kilde-arrangementet'; end if;
+  if p_new_venue_id is not null and not exists (select 1 from venues where id = p_new_venue_id and org_id = src.org_id) then
+    raise exception 'Lokationen tilhører ikke samme organisation';
+  end if;
+
+  shift_minutes := coalesce((p_options->>'shiftMinutes')::integer, 0);
+
+  insert into events (venue_id, org_id, title, event_date, offer_total_kr, status, event_type)
+    values (coalesce(p_new_venue_id, src.venue_id), src.org_id, p_new_title, p_new_date, 0, 'kladde', src.event_type)
+    returning id into new_id;
+
+  if coalesce((p_options->>'staff')::boolean, false) then
+    update events set owner_staff_id = src.owner_staff_id, secondary_staff_id = src.secondary_staff_id where id = new_id;
+    insert into event_staff (event_id, staff_id)
+      select new_id, staff_id from event_staff where event_id = p_source_id
+      on conflict do nothing;
+  end if;
+
+  if coalesce((p_options->>'phases')::boolean, false) then
+    insert into event_rooms (event_id, label, room_id, start_time, end_time, sort_order, setup_minutes, teardown_minutes, booking_status)
+      select new_id, label, room_id,
+        (start_time + (shift_minutes || ' minutes')::interval)::time,
+        (end_time + (shift_minutes || ' minutes')::interval)::time,
+        sort_order, setup_minutes, teardown_minutes, 'tentativ'
+      from event_rooms where event_id = p_source_id;
+  end if;
+
+  if coalesce((p_options->>'catalog')::boolean, false) then
+    insert into event_catalog_items (event_id, catalog_item_id)
+      select new_id, catalog_item_id from event_catalog_items where event_id = p_source_id
+      on conflict do nothing;
+  end if;
+
+  if coalesce((p_options->>'agenda')::boolean, false) then
+    for r in select * from agenda_items where event_id = p_source_id loop
+      insert into agenda_items (event_id, title, owner, status, due_date, note, sort_order, priority)
+        values (new_id, r.title, r.owner, 'mangler',
+          case when r.due_date is not null then p_new_date + (r.due_date - src.event_date) else null end,
+          r.note, r.sort_order, r.priority)
+        returning id into new_agenda_id;
+      agenda_map := agenda_map || jsonb_build_object(r.id::text, new_agenda_id::text);
+    end loop;
+
+    if coalesce((p_options->>'notes')::boolean, false) then
+      for r in select n.* from agenda_item_notes n
+        join agenda_items a on a.id = n.agenda_item_id
+        where a.event_id = p_source_id and n.file_path is null loop
+        insert into agenda_item_notes (agenda_item_id, event_id, author_name, author_side, text)
+          values ((agenda_map->>r.agenda_item_id::text)::uuid, new_id, r.author_name, r.author_side, r.text);
+      end loop;
+    end if;
+  end if;
+
+  if coalesce((p_options->>'taskTemplates')::boolean, false) then
+    insert into agenda_items (event_id, title, owner, due_date, note, sort_order)
+      select new_id, t.title, t.owner,
+        case when t.days_before_event is not null then p_new_date - t.days_before_event else null end,
+        coalesce(t.note,''), coalesce(t.sort_order,0)
+      from task_templates t
+      where t.org_id = src.org_id and (t.event_type is null or t.event_type = src.event_type);
+  end if;
+
+  if coalesce((p_options->>'approvalTypes')::boolean, false) then
+    insert into event_approvals (event_id, title, approval_type, status)
+      select new_id, 'Ny '||lower(coalesce(nullif(at.approval_type,''),'godkendelse')), at.approval_type, 'kladde'
+      from (select distinct approval_type from event_approvals where event_id = p_source_id) at;
+  end if;
+
+  return new_id;
+end;
+$$;
+
 -- =====================================================================
 --  3. TRIGGERE
 -- =====================================================================
@@ -394,9 +655,42 @@ create trigger on_agenda_item_update
   before update on agenda_items
   for each row execute function guard_agenda_item_update();
 
--- Forhindrer dobbeltbooking: samme lokale kan ikke bruges to steder samtidig
--- samme dag. Samme lokale samme dag men forskudte tidsrum er ok; samme
--- tidsrum i forskellige lokaler er ok.
+-- "Godkendelser må ikke kunne ændres historisk efter beslutningen": når status allerede er godkendt/
+-- afvist, klapper dette trigger alle indholdsfelter tilbage til den gamle værdi. Den eneste tilladte
+-- ændring efter en afgørelse er status -> 'erstattet' + superseded_by, præcis det en ny version gør ved
+-- den gamle. Gælder uanset kaldevej (staff-update eller decide_approval-RPC'en).
+create or replace function guard_approval_update()
+returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  if old.status in ('godkendt','afvist') then
+    new.title := old.title;
+    new.description := old.description;
+    new.approval_type := old.approval_type;
+    new.amount := old.amount;
+    new.currency := old.currency;
+    new.payload := old.payload;
+    new.due_at := old.due_at;
+    new.decided_by := old.decided_by;
+    new.decided_by_name := old.decided_by_name;
+    new.decided_at := old.decided_at;
+    new.decision_comment := old.decision_comment;
+    new.requested_by := old.requested_by;
+    new.requested_by_name := old.requested_by_name;
+    new.requested_at := old.requested_at;
+    if new.status not in (old.status, 'erstattet') then
+      new.status := old.status;
+    end if;
+  end if;
+  new.updated_at := now();
+  return new;
+end;
+$$;
+create trigger on_approval_update before update on event_approvals
+  for each row execute function guard_approval_update();
+
+-- Forhindrer dobbeltbooking: samme lokale kan ikke bruges to steder samtidig samme dag, inklusive
+-- opsætnings-/oprydningstid rundt om hver fase. Samme lokale samme dag men forskudte tidsrum (med nok
+-- luft til opsætning/oprydning) er ok; samme tidsrum i forskellige lokaler er ok.
 create or replace function check_room_conflict()
 returns trigger language plpgsql security definer set search_path = public as $$
 declare
@@ -405,30 +699,32 @@ declare
   new_end timestamptz;
   conflict_row record;
 begin
-  if new.start_time is null or new.end_time is null then
-    return new;   -- intet tidsrum sat endnu — kan ikke tjekkes
+  if new.start_time is null or new.end_time is null or new.room_id is null then
+    return new;   -- intet tidsrum/lokale sat endnu — kan ikke tjekkes
   end if;
 
   select event_date into ev_date from events where id = new.event_id;
-  new_start := ev_date + new.start_time;
+  new_start := ev_date + new.start_time - (coalesce(new.setup_minutes,0) || ' minutes')::interval;
   new_end   := ev_date + new.end_time;
   if new.end_time <= new.start_time then
     new_end := new_end + interval '1 day';   -- fase går over midnat
   end if;
+  new_end := new_end + (coalesce(new.teardown_minutes,0) || ' minutes')::interval;
 
-  select er.label, e2.title into conflict_row
+  select er.label, e2.title, e2.id as other_event_id into conflict_row
   from event_rooms er
   join events e2 on e2.id = er.event_id
   where er.room_id = new.room_id
     and er.start_time is not null and er.end_time is not null
     and er.id <> new.id
-    and (e2.event_date + er.start_time) < new_end
+    and (e2.event_date + er.start_time - (coalesce(er.setup_minutes,0) || ' minutes')::interval) < new_end
     and new_start < (e2.event_date + er.end_time
-        + (case when er.end_time <= er.start_time then interval '1 day' else interval '0' end))
+        + (case when er.end_time <= er.start_time then interval '1 day' else interval '0' end)
+        + (coalesce(er.teardown_minutes,0) || ' minutes')::interval)
   limit 1;
 
   if found then
-    raise exception 'Lokalet er allerede booket % – % (% · %)',
+    raise exception 'Lokalet er allerede booket % – % (% · %), inkl. opsætning/oprydning',
       new.start_time, new.end_time, conflict_row.title, conflict_row.label;
   end if;
 
@@ -460,6 +756,9 @@ alter table catalog_items       enable row level security;
 alter table event_catalog_items enable row level security;
 alter table catalog_item_rooms  enable row level security;
 alter table task_templates      enable row level security;
+alter table event_approvals     enable row level security;
+alter table event_change_requests enable row level security;
+alter table event_templates     enable row level security;
 
 -- Superadmin: kun læsbar for sig selv. Tilføjes/fjernes manuelt via SQL.
 create policy superadmins_read_self on superadmins for select using (id = auth.uid());
@@ -559,10 +858,24 @@ create policy eaccess_read   on event_access for select using ( user_id = auth.u
 create policy eaccess_insert on event_access for insert with check ( is_org_staff(event_id) );
 create policy eaccess_delete on event_access for delete using ( is_org_staff(event_id) );
 
--- Gæster: begge parter må læse og redigere
-create policy guests_all on guests for all
-  using ( is_org_staff(event_id) or is_event_guest(event_id) )
-  with check ( is_org_staff(event_id) or is_event_guest(event_id) );
+-- Gæster: begge parter læser altid. Staff må altid skrive. Gæsten må KUN skrive direkte, mens
+-- arrangementet endnu ikke er bekræftet (kladde/tilbud) — derefter er deltagerantal/kategori/kost
+-- prisrelevant driftsdata, og ændringer skal i stedet indsendes som et event_change_requests-forslag
+-- (se apply_change_request() ovenfor), som staff behandler. Dette er den "tydelige regel" for hvilke
+-- felter kunden må ændre direkte kontra hvad der bliver et forslag: det er ikke feltspecifikt (alle
+-- guests-felter er i praksis prisrelevante via computeEventTotal), men tidspunktspecifikt.
+create policy guests_read on guests for select
+  using ( is_org_staff(event_id) or is_event_guest(event_id) );
+create policy guests_staff_insert on guests for insert with check ( is_org_staff(event_id) );
+create policy guests_staff_update on guests for update using ( is_org_staff(event_id) ) with check ( is_org_staff(event_id) );
+create policy guests_staff_delete on guests for delete using ( is_org_staff(event_id) );
+create policy guests_guest_insert on guests for insert
+  with check ( is_event_guest(event_id) and event_status(event_id) in ('kladde','tilbud') );
+create policy guests_guest_update on guests for update
+  using ( is_event_guest(event_id) and event_status(event_id) in ('kladde','tilbud') )
+  with check ( is_event_guest(event_id) and event_status(event_id) in ('kladde','tilbud') );
+create policy guests_guest_delete on guests for delete
+  using ( is_event_guest(event_id) and event_status(event_id) in ('kladde','tilbud') );
 
 -- Aftalepunkter: kun koordinator opretter/sletter. Gæsten ser alt, men må
 -- kun opdatere status på egne ("jer") punkter — håndhævet i with check
@@ -591,6 +904,37 @@ create policy task_templates_read on task_templates for select
 create policy task_templates_insert on task_templates for insert with check ( is_org_admin(org_id) );
 create policy task_templates_update on task_templates for update using ( is_org_admin(org_id) ) with check ( is_org_admin(org_id) );
 create policy task_templates_delete on task_templates for delete using ( is_org_admin(org_id) );
+
+-- Godkendelser: begge parter læser (klienten skjuler kladder for gæsten); kun staff opretter/redigerer/
+-- tilbagekalder. Gæsten afgør UDELUKKENDE via decide_approval()-RPC'en ovenfor — ingen guest-update-
+-- politik her er en bevidst udeladelse, ikke en forglemmelse.
+create policy approvals_read on event_approvals for select
+  using ( is_org_staff(event_id) or is_event_guest(event_id) );
+create policy approvals_staff_write on event_approvals for insert
+  with check ( is_org_staff(event_id) );
+create policy approvals_staff_update on event_approvals for update
+  using ( is_org_staff(event_id) )
+  with check ( is_org_staff(event_id) );
+create policy approvals_staff_delete on event_approvals for delete
+  using ( is_org_staff(event_id) and status = 'kladde' );
+
+-- Ændringsforslag: begge parter læser og opretter (gæsten foreslår, staff kan også oprette til fx
+-- dokumentation); kun staff må behandle (godkende via apply_change_request()-RPC'en, eller afvise via
+-- en almindelig UPDATE, som ikke rører guests-tabellen og derfor ikke behøver egen RPC).
+create policy change_requests_read on event_change_requests for select
+  using ( is_org_staff(event_id) or is_event_guest(event_id) );
+create policy change_requests_insert on event_change_requests for insert
+  with check ( is_org_staff(event_id) or is_event_guest(event_id) );
+create policy change_requests_staff_update on event_change_requests for update
+  using ( is_org_staff(event_id) )
+  with check ( is_org_staff(event_id) );
+
+-- Arrangementsskabeloner: org-ejede, samme mønster som catalog_items/task_templates.
+create policy templates_read on event_templates for select
+  using ( org_id = my_org() or is_superadmin() );
+create policy templates_insert on event_templates for insert with check ( is_org_admin(org_id) );
+create policy templates_update on event_templates for update using ( is_org_admin(org_id) ) with check ( is_org_admin(org_id) );
+create policy templates_delete on event_templates for delete using ( is_org_admin(org_id) );
 
 -- LOG: append-only. Begge parter må indsætte.
 create policy log_insert on activity_log for insert

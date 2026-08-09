@@ -46,13 +46,14 @@ input,select,textarea{font:inherit;color:inherit}
 .chip.blue{border-color:rgba(20,53,214,.3);color:var(--blue)} .chip.blue .dot{background:var(--blue)}
 
 .statussteps{display:flex;gap:5px;flex-wrap:wrap;margin-top:6px}
-.sstep{font-size:10.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;
+.sstep{appearance:none;-webkit-appearance:none;font-family:inherit;line-height:normal;font-size:10.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;
   padding:4px 9px;border-radius:99px;border:1px solid var(--line);color:var(--ink-40);background:var(--card)}
 .sstep.done{border-color:rgba(62,107,76,.4);color:var(--moss);background:rgba(62,107,76,.08)}
 .sstep.current{border-color:var(--blue);color:#fff;background:var(--blue)}
-.sstep.interactive{cursor:pointer}
+.sstep.interactive{cursor:pointer;font:inherit;letter-spacing:inherit;text-transform:inherit}
 .sstep.interactive:hover{border-color:var(--ink)}
 .sstep.current.interactive:hover{filter:brightness(1.1)}
+.sstep.interactive:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
 
 .card > summary{display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin-bottom:14px;cursor:pointer}
 summary{list-style:none}
@@ -161,6 +162,7 @@ select.status:focus-visible,input:focus-visible,button:focus-visible{outline:2px
 .compose .hint{font-size:12px;color:var(--ink-40);max-width:60%}
 .msg{border-left:3px solid var(--ink);border-radius:0 var(--radius) var(--radius) 0;background:#fff;padding:11px 14px;margin:10px 0}
 .msg.kunde{border-left-color:var(--blue)}
+.msg.internal{background:rgba(168,104,28,.06);border-left-color:var(--amber)}
 .msg .mhead{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:3px}
 .msg .mwho{font-weight:600;font-size:13.5px}
 .msg .mtime{font-size:12px;color:var(--ink-40);font-variant-numeric:tabular-nums;white-space:nowrap}
@@ -197,6 +199,7 @@ footer.legal{margin-top:28px;font-size:12px;color:var(--ink-40);line-height:1.6}
   box-shadow:0 6px 20px rgba(18,21,27,.3);animation:toastin .2s ease both;max-width:100%}
 .toast.error{background:#5C1A1A}
 .toast.ok{background:var(--moss)}
+.toast .btn{background:rgba(255,255,255,.16);border-color:rgba(255,255,255,.35);color:#fff;padding:5px 10px;font-size:12.5px}
 @keyframes toastin{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
 #confirmModal{display:none;position:fixed;inset:0;background:rgba(18,21,27,.45);z-index:65;align-items:center;justify-content:center;padding:20px}
 #confirmModal .box{max-width:380px;width:100%;background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:22px}
@@ -230,7 +233,24 @@ input[type=file].search{padding:6px 8px;font-size:13px;min-width:0}
 /* loading-skærm */
 #bootLoading{position:fixed;inset:0;background:var(--paper);z-index:90;display:flex;align-items:center;justify-content:center}
 
-@media print{body{background:#fff} nav.tabs,.btn,.row.noprint,.rolebar,#superadminBar,#previewBar,.fab,#toastWrap,#bootLoading{display:none!important} .card{border:0;padding:0;margin-bottom:22px}
+/* Mobil bundnavigation: fire faste destinationer (Dag/Oversigt, Opgaver, Beskeder, Mere) i stedet for
+   den vandret-scrollende fanebjælke, som er svær at ramme præcist med tommelfingeren. Kun til stede
+   under 640px — over det er den vandrette fanebjælke selv fin at bruge, og en fast bundbjælke ville
+   bare tage plads væk fra indholdet uden grund. */
+.mobile-bottom-nav{position:fixed;left:0;right:0;bottom:0;z-index:75;background:var(--card);border-top:1px solid var(--line);
+  display:none;box-shadow:0 -4px 14px rgba(18,21,27,.08)}
+.mobile-bottom-nav button{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
+  min-height:56px;border:0;background:none;font:inherit;font-size:11px;font-weight:600;color:var(--ink-40);cursor:pointer;position:relative}
+.mobile-bottom-nav button.active{color:var(--blue)}
+.mobile-bottom-nav button:focus-visible{outline:2px solid var(--blue);outline-offset:-2px}
+.mobile-bottom-nav .mbn-icon{font-size:18px;line-height:1}
+.mobile-bottom-nav .mbn-badge{position:absolute;top:4px;right:calc(50% - 22px);background:var(--amber);color:#fff;border-radius:99px;font-size:10px;font-weight:700;padding:1px 5px;min-width:15px}
+@media(max-width:640px){
+  .mobile-bottom-nav.mbn-active{display:flex}
+  body.has-mobile-nav .wrap{padding-bottom:64px}
+  body.has-mobile-nav .fab{bottom:calc(72px + env(safe-area-inset-bottom))}
+}
+@media print{body{background:#fff} nav.tabs,.btn,.row.noprint,.rolebar,#superadminBar,#previewBar,.fab,#toastWrap,#bootLoading,.mobile-bottom-nav{display:none!important} .card{border:0;padding:0;margin-bottom:22px}
   .tbl input[type=text]{border:0;background:none} .tbl select{border:0;background:none;-webkit-appearance:none;appearance:none}}
 @media (prefers-reduced-motion:no-preference){.card{animation:rise .32s ease both}@keyframes rise{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}}
 
@@ -246,12 +266,16 @@ input[type=file].search{padding:6px 8px;font-size:13px;min-width:0}
   select.search, select.btn, .logfilters select{ min-height:44px }
   .tbl td.c{ padding:4px 10px }
   .chkwrap{ display:inline-flex; align-items:center; justify-content:center; min-width:44px; min-height:44px; cursor:pointer }
+  .sstep.interactive{ min-height:44px; display:inline-flex; align-items:center }
 }
 .chkwrap{ cursor:pointer }
+.bulkbar{position:sticky;bottom:0;background:var(--ink);color:#fff;border-radius:var(--radius);padding:10px 14px;margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;z-index:20}
+.bulkbar select,.bulkbar input{font-size:13px}
+.bulkbar .btn{background:rgba(255,255,255,.12);border-color:rgba(255,255,255,.3);color:#fff}
 @media(max-width:600px){
   .wrap{padding:18px 14px 90px}
   .logrow{grid-template-columns:1fr;gap:2px}
-  .fab{right:14px;padding:12px 16px;font-size:13px}
+  .fab{right:14px;padding:12px 16px;font-size:13px;min-height:44px;display:inline-flex;align-items:center}
   .card{padding:14px 14px 16px}
   .item{grid-template-columns:3px 1fr;row-gap:8px}
   .item > .row{grid-column:1/-1;justify-content:flex-start}
@@ -351,6 +375,7 @@ input[type=file].search{padding:6px 8px;font-size:13px;min-width:0}
   <footer class="legal" id="legal"></footer>
 </div>
 
+<nav id="mobileBottomNav" class="mobile-bottom-nav"></nav>
 <button id="fabAddTask" class="fab" style="display:none">+ Opgave</button>
 <div id="taskModal" style="display:none;position:fixed;inset:0;background:rgba(18,21,27,.45);z-index:60;align-items:center;justify-content:center;padding:20px">
   <div style="max-width:420px;width:100%;background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:22px">
@@ -370,6 +395,12 @@ input[type=file].search{padding:6px 8px;font-size:13px;min-width:0}
       <button class="btn primary" id="tmSave">Opret</button>
     </div>
   </div>
+</div>
+
+<!-- Generisk modal, genbrugt til dubléring, skabeloner, gæsteimport, godkendelser, massehandling,
+     overdragelse. Indholdet sættes af renderBigModal() ud fra state.modal.type. -->
+<div id="bigModal" style="display:none;position:fixed;inset:0;background:rgba(18,21,27,.45);z-index:70;align-items:center;justify-content:center;padding:20px;overflow:auto">
+  <div id="bigModalBox" style="max-width:640px;width:100%;background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:24px;margin:20px 0;max-height:calc(100vh - 40px);overflow:auto"></div>
 </div>
 
 <script>
@@ -397,7 +428,23 @@ let state = { gaester:[], punkter:[], log:[],
               superadminActor:null, impersonating:null, roster:[],
               previewMode:false, previewPriorRolle:null,
               eventExceptions:{}, eventNextDue:{}, pickerSort:'dato', pickerSearch:'', pickerFilterStatus:'alle',
-              pickerExceptionsLoading:false, pickerExceptionsError:false };
+              pickerExceptionsLoading:false, pickerExceptionsError:false,
+              approvals:[], changeRequests:[], modal:null,
+              orgTemplates:[], guestSel:new Set(), guestBulkFilter:{kat:'alle', reception:'alle', middag:'alle', kost:'alle'},
+              inboxFilter:JSON.parse(localStorage.getItem('verta_inbox_filter')||'{"who":"alle","kind":"alle"}'),
+              inboxSort:localStorage.getItem('verta_inbox_sort')||'prioritet',
+              pickerMineOnly:localStorage.getItem('verta_picker_mine')==='1',
+              logCollapseViews:true, openLogViewGroups:new Set(), calendarRange:'uge', calendarDate:null, docPreview:null };
+/* Generisk modal-dispatch: hver feature (dublikering, skabeloner, import, godkendelser, massehandling,
+   overdragelse, "Mere"-menuen) registrerer en renderer + evt. binder under sin egen nøgle i disse to
+   tabeller, i stedet for én kæmpe if/else. state.modal={type,...data} er den eneste kilde til hvilken
+   modal der er åben. Erklæret her, tidligt i scriptet — flere features tilføjer deres
+   MODAL_RENDERERS.xxx/MODAL_BINDERS.xxx et godt stykke længere nede i filen, men da det blot er
+   property-tildelinger (ikke funktionsdeklarationer), skal selve objekterne være initialiseret,
+   FØR scriptet når derned, ellers rammer den første tildeling en ReferenceError (TDZ) og hele
+   scriptet stopper med at køre. (Præcis den fejl var der reelt indtil denne rettelse.) */
+const MODAL_RENDERERS = {};
+const MODAL_BINDERS = {};
 /* Rigtig UUID til klient-oprettede rækker (guests.id er en uuid-kolonne — et 'n'+Date.now()-agtigt id ville få hele upsert-batchen til at fejle stille). */
 function newId(){
   if(crypto.randomUUID) return crypto.randomUUID();
@@ -409,16 +456,25 @@ const currentActor = () => state.actor||{navn:'?',side:'kilden'};
 /* =========================================================
    UI-hjælpere: toast + bekræft-modal (erstatter alert/confirm), Enter-taste
    ========================================================= */
-function showToast(msg, kind){
+function showToast(msg, kind, action){
   const wrap=document.getElementById('toastWrap');
   const t=document.createElement('div');
   t.className='toast'+(kind?' '+kind:'');
   /* role="alert" giver implicit aria-live="assertive" for fejl (skal afbryde og læses straks); success/info
      læner sig op ad #toastWrap's egen aria-live="polite" (venter til skærmlæseren er færdig med andet). */
   if(kind==='error') t.setAttribute('role','alert');
-  t.textContent=msg;
+  if(action && action.label){
+    const span=document.createElement('span'); span.textContent=msg;
+    const btn=document.createElement('button'); btn.className='btn'; btn.type='button'; btn.textContent=action.label;
+    btn.style.marginLeft='10px';
+    btn.onclick=()=>{ t.remove(); action.onClick(); };
+    t.appendChild(span); t.appendChild(btn);
+    setTimeout(()=>t.remove(), 8000);
+  } else {
+    t.textContent=msg;
+    setTimeout(()=>t.remove(), 4200);
+  }
   wrap.appendChild(t);
-  setTimeout(()=>t.remove(), 4200);
 }
 function appConfirm(msg){
   return new Promise(resolve=>{
@@ -498,12 +554,17 @@ function pushLog({area,label,from='',to='',cust=false,friendly=''}){
   state.log.unshift(ev);
   mutate(()=>sb.from('activity_log').insert(logToDb(ev)).then(({error})=>error&&console.error('log',error)));
 }
-function pushMessage(text){
+/* "Intern note" genbruger den eksisterende beskedstråd, men indsættes med entry_type='note' i stedet
+   for 'message' — RLS'ens log_read_guest kræver enten entry_type='message' eller customer_visible=true,
+   så en note med customer_visible=false er dermed usynlig for gæsten helt uden skemaændring. Kun staff
+   kan oprette dem (UI-lag), men selv et direkte API-misbrug fra en gæst ville blot skabe en note, gæsten
+   ikke selv kan læse igen — ingen datalækage. */
+function pushMessage(text, internal){
   const a=currentActor();
   const ev={id:'m'+Date.now(), ts:Date.now(), side:a.side, who:a.navn,
-    type:'message', area:'system', text:text.trim(), from:'', to:'', cust:false, friendly:''};
+    type: internal?'note':'message', area:'system', text:text.trim(), from:'', to:'', cust:false, friendly:''};
   state.log.unshift(ev);
-  state.lastRead[a.side]=Date.now();
+  if(!internal) state.lastRead[a.side]=Date.now();
   mutate(()=>sb.from('activity_log').insert(logToDb(ev)).then(({error})=>error&&console.error('msg',error)));
   /* v2: her udløser en Edge Function en mail til den anden part, jf. roadmap */
 }
@@ -614,19 +675,59 @@ async function commitGuestField(guestId, f, el){
 const esc = s => String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 
 const TABS = {
-  kilden:[['live','I dag'],['oversigt','Oversigt'],['gaester','Gæster'],['punkter','Aftalepunkter'],['koekken','Køkkenseddel'],['log','Log'],['admin','Admin'],['beskeder','Beskeder']],
-  kunde: [['oversigt','Oversigt'],['gaester','Gæster'],['punkter','Aftalepunkter'],['tidslinje','Tidslinje'],['beskeder','Beskeder']]
+  kilden:[['live','I dag'],['oversigt','Oversigt'],['gaester','Gæster'],['punkter','Aftalepunkter'],['godkendelser','Godkendelser'],['koekken','Køkkenseddel'],['kalender','Lokalekalender'],['dokumenter','Dokumenter'],['log','Log'],['admin','Admin'],['beskeder','Beskeder']],
+  kunde: [['oversigt','Oversigt'],['gaester','Gæster'],['punkter','Aftalepunkter'],['godkendelser','Godkendelser'],['tidslinje','Tidslinje'],['beskeder','Beskeder']]
 };
+const APPROVAL_TYPES = {tilbud:'Tilbud', menu:'Menu', bordplan:'Bordplan', deltagerantal:'Endeligt deltagerantal', prisaendring:'Prisændring', praktisk:'Praktisk aftale', andet:'Andet'};
+const APPROVAL_STATUS_LABEL = {kladde:'Kladde', afventer:'Afventer kunde', godkendt:'Godkendt', afvist:'Afvist', erstattet:'Erstattet af nyere version', tilbagekaldt:'Tilbagekaldt'};
 
 function renderTabs(){
   const el=document.getElementById('tabs'), n=unread(state.rolle);
   el.innerHTML = TABS[state.rolle].map(([id,label])=>
     `<button role="tab" data-tab="${id}" aria-selected="${state.tab===id}">${label}${id==='beskeder'&&n?`<span class="tabbadge">${n}</span>`:''}</button>`).join('');
-  el.querySelectorAll('button').forEach(b=>b.onclick=()=>{state.tab=b.dataset.tab;state.soeg='';render();});
+  el.querySelectorAll('button').forEach(b=>b.onclick=()=>{
+    state.tab=b.dataset.tab; state.soeg='';
+    if(state.tab==='kalender') loadCalendarData().then(render);
+    render();
+  });
   const active=el.querySelector('button[aria-selected="true"]');
   if(active) active.scrollIntoView({inline:'nearest', block:'nearest'});
 }
 
+/* Fast bundnavigation på mobil: de tre hyppigste faner pr. rolle plus "Mere" for resten, i stedet for
+   kun den vandret-scrollende fanebjælke (nav.tabs), som stadig findes og fungerer fint på bredere
+   skærme. "Dag" findes kun for medarbejdere (kunden har ingen "I dag"-fane) — kunden får Oversigt i
+   samme plads i stedet, så bundbjælken altid har fire meningsfulde destinationer. */
+const MOBILE_NAV_PRIMARY = {
+  kilden:[['live','Dag','📋'],['punkter','Opgaver','✓'],['beskeder','Beskeder','💬']],
+  kunde: [['oversigt','Oversigt','🏠'],['punkter','Opgaver','✓'],['beskeder','Beskeder','💬']]
+};
+/* Kontekstafhængig FAB: samme knap, men label/handling følger den aktive fane i stedet for altid at
+   være "+ Opgave" — en gæsteliste-fane har mest brug for at kunne tilføje en gæst med det samme, en
+   opgavefane for en opgave. Faner, hvor ingen af de to giver mening (kalender/dokumenter/log/admin/
+   godkendelser/beskeder — beskeder har sin egen synlige compose-boks), skjuler simpelthen FAB'en. */
+const FAB_CONTEXT = {
+  gaester:{label:'+ Gæst', onClick:()=>{ const btn=document.getElementById('tilfoej'); if(btn) btn.click(); }},
+  punkter:{label:'+ Opgave', onClick:()=>openTaskModal('')},
+  oversigt:{label:'+ Opgave', onClick:()=>openTaskModal('')},
+  live:{label:'+ Opgave', onClick:()=>openTaskModal('')}
+};
+function renderMobileBottomNav(){
+  const nav=document.getElementById('mobileBottomNav');
+  if(!nav) return;
+  const active = state.view==='workspace' && TABS[state.rolle];
+  nav.classList.toggle('mbn-active', !!active);
+  document.body.classList.toggle('has-mobile-nav', !!active);
+  if(!active){ nav.innerHTML=''; return; }
+  const primary=MOBILE_NAV_PRIMARY[state.rolle]||MOBILE_NAV_PRIMARY.kunde;
+  const primaryIds=primary.map(p=>p[0]);
+  const n=unread(state.rolle);
+  const items=primary.map(([id,label,icon])=>
+    `<button type="button" data-mbn="${id}" class="${state.tab===id?'active':''}" aria-current="${state.tab===id?'page':'false'}"><span class="mbn-icon">${icon}</span>${esc(label)}${id==='beskeder'&&n?`<span class="mbn-badge">${n}</span>`:''}</button>`
+  ).join('');
+  const moreActive = !primaryIds.includes(state.tab);
+  nav.innerHTML = items + `<button type="button" data-mbn="more" class="${moreActive?'active':''}" aria-current="${moreActive?'page':'false'}"><span class="mbn-icon">⋯</span>Mere</button>`;
+}
 function roomsLine(){
   const byRoom={};
   (state.phases||[]).forEach(p=>{ if(p.roomName){ (byRoom[p.roomName]=byRoom[p.roomName]||[]).push(p.label); } });
@@ -642,6 +743,8 @@ function heroChips(){
     <span class="chip"><span class="dot"></span><b class="num">${d}</b>&nbsp;dage til</span>
     <span class="chip ${jer?'warn':'ok'}"><span class="dot"></span>${jer?jer+' punkter afventer jer':'Intet afventer jer'}</span>
     ${kilden&&state.rolle==='kilden'?`<span class="chip warn"><span class="dot"></span>${kilden} afventer os</span>`:''}
+    ${pendingApprovalsCount()?`<span class="chip warn" data-goto-tab="godkendelser" style="cursor:pointer"><span class="dot"></span>${pendingApprovalsCount()} godkendelse${pendingApprovalsCount()>1?'r':''} afventer</span>`:''}
+    ${state.rolle==='kilden'?`<span class="chip"><span class="dot"></span>Koordinator: ${esc((((state.roster||[]).find(r=>r.id===state.ownerStaffId))||{}).name||'ingen')}</span>`:''}
     ${state.rolle==='kunde'&&state.contactName?`<span class="chip"><span class="dot"></span>Kontakt: ${esc(state.contactName)}</span>`:''}`;
 }
 
@@ -663,14 +766,36 @@ function viewAdmin(){
       </select></div>
       <button class="btn primary" id="edSave">Gem</button>
     </div>
+    <div class="row" style="margin-top:12px;gap:8px;flex-wrap:wrap">
+      <button class="btn" id="duplicateEventBtn">Duplikér arrangement</button>
+      <button class="btn" id="saveAsTemplateBtn">Gem som skabelon</button>
+    </div>
+  </section>
+  <section class="card">
+    <header><h2>Ansvar</h2></header>
+    <div class="formgrid">
+      <div class="field"><label for="ownerSel">Primær koordinator</label><select id="ownerSel" class="search" style="width:100%">
+        <option value="">— Ingen —</option>
+        ${(state.roster||[]).map(r=>`<option value="${r.id}" ${state.ownerStaffId===r.id?'selected':''}>${esc(r.name)}</option>`).join('')}
+      </select></div>
+      <div class="field"><label for="secondarySel">Sekundær koordinator</label><select id="secondarySel" class="search" style="width:100%">
+        <option value="">— Ingen —</option>
+        ${(state.roster||[]).map(r=>`<option value="${r.id}" ${state.secondaryStaffId===r.id?'selected':''}>${esc(r.name)}</option>`).join('')}
+      </select></div>
+      <div class="field"><label for="dayOfSel">Ansvarlig på dagen</label><select id="dayOfSel" class="search" style="width:100%">
+        <option value="">— Samme som primær —</option>
+        ${(state.roster||[]).map(r=>`<option value="${r.id}" ${state.dayOfOwnerStaffId===r.id?'selected':''}>${esc(r.name)}</option>`).join('')}
+      </select></div>
+    </div>
+    <div class="row" style="margin-top:10px"><button class="btn" id="handoverBtn">Overdrag arrangement</button></div>
   </section>
   <section class="card">
     <header><h2>Medarbejdere på arrangementet</h2><span class="note">${(state.eventStaff||[]).length} tilkoblet</span></header>
     <div class="stat"><span>Ejer</span><b>${owner?esc(owner.name):'—'}</b></div>
-    ${sekundaere.length?sekundaere.map(s=>`<div class="stat"><span>${esc(s.name)}${s.role==='admin'?' · admin':''}</span><button class="btn" data-remove-coord="${s.id}">Fjern</button></div>`).join(''):'<div class="empty">Ingen sekundære koordinatorer endnu.</div>'}
+    ${sekundaere.length?sekundaere.map(s=>`<div class="stat"><span>${esc(s.name)}${s.role==='admin'?' · admin':''}</span><button class="btn" data-remove-coord="${s.id}">Fjern</button></div>`).join(''):'<div class="empty">Ingen øvrige medarbejdere tilkoblet endnu.</div>'}
     <div class="row" style="margin-top:12px">
       <select id="coordSel" class="search">
-        <option value="">Tilføj sekundær koordinator…</option>
+        <option value="">Tilføj medarbejder til arrangementet…</option>
         ${(state.roster||[]).filter(r=>!(state.eventStaff||[]).find(s=>s.id===r.id)).map(r=>`<option value="${r.id}">${esc(r.name)}</option>`).join('')}
       </select>
       <button class="btn" id="coordAdd">Tilføj</button>
@@ -805,34 +930,90 @@ function viewOversigt(){
       <header><h2>Pris</h2><span class="note">inkl. moms</span></header>
       ${linjer.map(l=>`<div class="stat"><span>${l.navn}<br><span class="note">${l.grundlagTxt}</span></span><b class="num">${kr(l.belob)}</b></div>`).join('')}
       <div class="stat" style="border-top:1px solid var(--line);margin-top:6px;padding-top:12px"><span style="font-weight:700">I alt</span><b class="big">${kr(t)}</b></div>
-      <div class="recon ${diff!==0?'off':''}">
-        <div class="t">${diff===0?'Stemmer med tilbuddet':'Afviger '+kr(Math.abs(diff))+(diff>0?' over':' under')+' tilbuddet'}</div>
+      <div class="recon ${diff!==0?'off':''}" ${diff!==0?'data-price-detail style="cursor:pointer"':''}>
+        <div class="t">${diff===0?'Stemmer med tilbuddet':'Afviger '+kr(Math.abs(diff))+(diff>0?' over':' under')+' tilbuddet — klik for detaljer'}</div>
         <div class="d">Tilbud af ${datoKort(state.eventDate)}: ${kr(state.offerTotal)}. Tallet genberegnes, hver gang gæstelisten ændres.</div>
       </div>
+      ${(diff!==0 && state.rolle==='kilden')?`<button class="btn" id="matchOfferBtn" style="margin-top:8px">Tilpas tilbud til beregnet pris</button>`:''}
     </section>
   </div>`;
+  const latestApproval=(state.approvals||[]).filter(approvalVisibleTo).sort((a,b)=>b.created_at.localeCompare(a.created_at))[0];
+  const approvalStatusKort = latestApproval ? `
+  <section class="card">
+    <header><h2>Seneste godkendelse</h2><span class="note"><a href="#" data-goto-tab="godkendelser" style="color:inherit">Se alle →</a></span></header>
+    <div class="stat"><span>${esc(latestApproval.title)} <span class="note">v${latestApproval.version}</span></span>
+      <span class="chip ${latestApproval.status==='godkendt'?'ok':(latestApproval.status==='afvist'?'warn':'')}"><span class="dot"></span>${APPROVAL_STATUS_LABEL[latestApproval.status]}</span></div>
+  </section>` : '';
   if(state.rolle==='kunde'){
-    return `${welcomeKort}${udestaaendeKort}${gaesterPrisKort}`;
+    return `${welcomeKort}${approvalStatusKort}${udestaaendeKort}${gaesterPrisKort}`;
   }
   return `
   ${welcomeKort}
   ${setupKort}
   ${statusKort}
+  ${approvalStatusKort}
   ${deleKort}
   ${lokaleKort}
   ${gaesterPrisKort}
   ${udestaaendeKort}`;
 }
+async function matchOfferToComputed(){
+  const t=total();
+  if(!(await appConfirm('Sæt tilbudsbeløbet til den beregnede pris ('+kr(t)+')? Dette opretter samtidig en kundegodkendelse af den nye pris.'))) return;
+  const {error}=await mutate(()=>sb.from('events').update({offer_total_kr:t}).eq('id',state.eventId));
+  if(error){ showToast('Kunne ikke opdatere tilbuddet: '+error.message,'error'); return; }
+  state.offerTotal=t;
+  pushLog({area:'system', label:'Tilbud tilpasset', cust:true, friendly:'Tilbudsbeløbet blev tilpasset til den beregnede pris ('+kr(t)+')'});
+  await createOrReviseApproval({title:'Prisændring — tilbud tilpasset', approval_type:'prisaendring', description:'Tilbudsbeløbet er tilpasset den beregnede pris ud fra gæstelisten.', amount:t, send:true}, null);
+  render();
+  showToast('Tilbud opdateret og godkendelse sendt.','ok');
+}
 
+/* Efter Bekræftet er en direkte gæsteredigering fra kunden prisrelevant driftsdata (håndhævet i RLS,
+   se guests_guest_* policies i schema.sql) — herfra går kundens ændringer i stedet via et
+   event_change_requests-forslag, som staff behandler. "Tydelig regel": ikke feltspecifik, men
+   tidspunktspecifik (kladde/tilbud = direkte; bekræftet/afviklet = forslag). */
+function guestEditsAreLocked(){ return state.rolle==='kunde' && ['bekræftet','afviklet'].includes(state.status); }
 function viewGaester(){
   const q=state.soeg.toLowerCase();
-  const rows=state.gaester.filter(g=>!q||g.navn.toLowerCase().includes(q)||g.kost.toLowerCase().includes(q));
-  return `
+  const filtered=bulkGuestFiltered();
+  const rows=filtered.filter(g=>!q||g.navn.toLowerCase().includes(q)||g.kost.toLowerCase().includes(q));
+  const locked=guestEditsAreLocked();
+  const selCount=[...state.guestSel].filter(id=>state.gaester.find(g=>g.id===id)).length;
+  const bf=state.guestBulkFilter||{};
+  const filterBar = !locked ? `
+    <div class="row noprint" style="gap:8px;flex-wrap:wrap;margin-bottom:10px">
+      <select id="gfKat" class="search" style="max-width:130px">
+        <option value="alle" ${(!bf.kat||bf.kat==='alle')?'selected':''}>Alle kategorier</option>
+        <option value="voksen" ${bf.kat==='voksen'?'selected':''}>Voksen</option>
+        <option value="barn" ${bf.kat==='barn'?'selected':''}>Barn</option>
+        <option value="baby" ${bf.kat==='baby'?'selected':''}>Baby</option>
+      </select>
+      <select id="gfReception" class="search" style="max-width:140px">
+        <option value="alle" ${(!bf.reception||bf.reception==='alle')?'selected':''}>Reception: alle</option>
+        <option value="ja" ${bf.reception==='ja'?'selected':''}>Reception: ja</option>
+        <option value="nej" ${bf.reception==='nej'?'selected':''}>Reception: nej</option>
+      </select>
+      <select id="gfMiddag" class="search" style="max-width:130px">
+        <option value="alle" ${(!bf.middag||bf.middag==='alle')?'selected':''}>Middag: alle</option>
+        <option value="ja" ${bf.middag==='ja'?'selected':''}>Middag: ja</option>
+        <option value="nej" ${bf.middag==='nej'?'selected':''}>Middag: nej</option>
+      </select>
+      <select id="gfKost" class="search" style="max-width:150px">
+        <option value="alle" ${(!bf.kost||bf.kost==='alle')?'selected':''}>Kost: alle</option>
+        <option value="ingen" ${bf.kost==='ingen'?'selected':''}>Ingen kostinfo</option>
+        ${Object.entries(DIET_TAG_LABEL).map(([v,l])=>`<option value="${v}" ${bf.kost===v?'selected':''}>${l}</option>`).join('')}
+      </select>
+      <label class="row" style="gap:5px;font-size:12.5px;color:var(--ink-60)"><input type="checkbox" id="gfDup" ${bf.dup?'checked':''}>Kun dubletter</label>
+    </div>` : '';
+  const tabel = `
   <section class="card">
     <header><h2>Gæsteliste</h2><span class="note">${state.gaester.length} personer · driver antal, kost og pris</span></header>
     <div class="row noprint" style="margin-bottom:12px">
       <input class="search" id="soeg" placeholder="Søg navn eller kost" value="${esc(state.soeg)}">
-      <button class="btn primary" id="tilfoej">Tilføj gæst</button>
+      ${locked?'':'<button class="btn primary" id="tilfoej">Tilføj gæst</button>'}
+      ${locked?'':'<button class="btn" id="bulkAddNamesBtn">Indsæt flere navne</button>'}
+      ${locked?'':'<button class="btn" id="importGuestsBtn">Importér gæster</button>'}
       <select class="search" id="exportFormat" style="max-width:160px">
         <option value="csv">CSV</option>
         <option value="xlsx">Excel (.xls)</option>
@@ -841,9 +1022,19 @@ function viewGaester(){
       </select>
       <button class="btn" id="eksport">Eksportér</button>
     </div>
+    ${locked?'<div class="note" style="margin-bottom:8px">Arrangementet er bekræftet — ændringer sendes som forslag til Kilden (se nedenfor) i stedet for at gemme direkte.</div>':''}
+    ${dietSummaryCard()}
+    ${filterBar}
     <div class="scroll"><table class="tbl">
-      <thead><tr><th>Navn</th><th>Kategori</th><th class="c">Reception</th><th class="c">Middag</th><th>Særlig kost</th><th></th></tr></thead>
-      <tbody>${rows.map(g=>`<tr data-id="${g.id}">
+      <thead><tr>${locked?'':'<th class="c"><label class="chkwrap"><input type="checkbox" id="gselAll"></label></th>'}<th>Navn</th><th>Kategori</th><th class="c">Reception</th><th class="c">Middag</th><th>Særlig kost</th>${locked?'':'<th></th>'}</tr></thead>
+      <tbody>${rows.map(g=>locked?`<tr data-id="${g.id}">
+        <td>${esc(g.navn)}</td>
+        <td>${esc(g.kat)}</td>
+        <td class="c">${g.reception?'✓':'—'}</td>
+        <td class="c">${g.middag?'✓':'—'}</td>
+        <td>${esc(g.kost)||'—'}</td>
+      </tr>`:`<tr data-id="${g.id}">
+        <td class="c"><label class="chkwrap"><input type="checkbox" class="gsel" data-gsel="${g.id}" ${state.guestSel.has(g.id)?'checked':''}></label></td>
         <td><input type="text" data-f="navn" value="${esc(g.navn)}"></td>
         <td><select data-f="kat">${['voksen','barn','baby'].map(k=>`<option value="${k}" ${g.kat===k?'selected':''}>${k}</option>`).join('')}</select></td>
         <td class="c"><label class="chkwrap"><input type="checkbox" data-f="reception" ${g.reception?'checked':''}></label></td>
@@ -852,8 +1043,433 @@ function viewGaester(){
         <td class="c"><button class="del" data-slet="${g.id}" title="Slet">×</button></td>
       </tr>`).join('')}</tbody>
     </table></div>
-    ${rows.length?'':(state.gaester.length?'<div class="empty">Ingen gæster matcher søgningen.</div>':'<div class="empty">Ingen gæster tilføjet endnu. Tilføj jer selv og resten af listen ovenfor.</div>')}
+    ${rows.length?'':(state.gaester.length?'<div class="empty">Ingen gæster matcher søgningen/filtrene.</div>':'<div class="empty">Ingen gæster tilføjet endnu. Tilføj jer selv og resten af listen ovenfor.</div>')}
+    ${(!locked && selCount>0)?`<div class="bulkbar">
+      <span>${selCount} af ${state.gaester.length} valgt</span>
+      <select id="bulkKat" class="search" style="max-width:130px"><option value="">Sæt kategori…</option><option value="voksen">Voksen</option><option value="barn">Barn</option><option value="baby">Baby</option></select>
+      <select id="bulkReception" class="search" style="max-width:150px"><option value="">Reception…</option><option value="ja">Ja</option><option value="nej">Nej</option></select>
+      <select id="bulkMiddag" class="search" style="max-width:140px"><option value="">Middag…</option><option value="ja">Ja</option><option value="nej">Nej</option></select>
+      <input class="search" id="bulkKost" placeholder="Sæt kostbehov…" style="max-width:160px">
+      <button class="btn" id="bulkKostClear">Ryd kost</button>
+      <button class="btn" id="bulkExport">Eksportér valgte</button>
+      <button class="btn" id="bulkDelete">Slet valgte</button>
+    </div>`:''}
   </section>`;
+  return tabel + (locked? viewProposeChange() : '') + (state.rolle==='kilden'? viewChangeRequestsStaff() : '');
+}
+function computeTotalForGuests(guestsArray){
+  const saved=state.gaester; state.gaester=guestsArray;
+  const t=total();
+  state.gaester=saved;
+  return t;
+}
+async function loadChangeRequests(eventId){
+  const {data,error}=await sb.from('event_change_requests').select('*').eq('event_id',eventId).order('created_at',{ascending:false});
+  if(error){ console.error('change_requests',error); state.changeRequests=[]; return; }
+  state.changeRequests=data||[];
+}
+function viewProposeChange(){
+  const mine=(state.changeRequests||[]).filter(c=>c.requested_by===state.userId || c.requested_by_role==='kunde');
+  return `
+  <section class="card">
+    <header><h2>Foreslå ændring af gæsteliste</h2></header>
+    <div class="formgrid">
+      <div class="field"><label for="crGuest">Gæst</label><select id="crGuest" class="search">
+        <option value="">— Ny gæst —</option>
+        ${state.gaester.map(g=>`<option value="${g.id}">${esc(g.navn)}</option>`).join('')}
+      </select></div>
+      <div class="field"><label for="crNavn">Navn</label><input id="crNavn" class="search"></div>
+      <div class="field"><label for="crKat">Kategori</label><select id="crKat" class="search"><option value="voksen">voksen</option><option value="barn">barn</option><option value="baby">baby</option></select></div>
+      <div class="field"><label for="crKost">Særlig kost</label><input id="crKost" class="search"></div>
+      <div class="field"><label class="row" style="gap:6px;margin-top:20px"><input type="checkbox" id="crReception" checked>Reception</label></div>
+      <div class="field"><label class="row" style="gap:6px;margin-top:20px"><input type="checkbox" id="crMiddag" checked>Middag</label></div>
+      <div class="field" style="grid-column:span 2"><label class="row" style="gap:6px"><input type="checkbox" id="crDelete">Fjern denne gæst i stedet for at ændre</label></div>
+      <div class="field" style="grid-column:span 2"><label for="crComment">Kommentar til Kilden (valgfri)</label><input id="crComment" class="search"></div>
+    </div>
+    <div class="row" style="margin-top:10px"><button class="btn primary" id="crSend">Send forslag</button></div>
+    ${mine.length?`<div style="margin-top:14px;border-top:1px solid var(--line);padding-top:10px">
+      <div class="note" style="margin-bottom:6px">Jeres indsendte forslag</div>
+      ${mine.map(c=>`<div class="stat"><span>${changeRequestSummary(c)}</span><span class="chip ${c.status==='accepted'?'ok':c.status==='rejected'?'warn':''}"><span class="dot"></span>${c.status==='pending'?'Afventer':c.status==='accepted'?'Accepteret':'Afvist'}</span></div>`).join('')}
+    </div>`:''}
+  </section>`;
+}
+function changeRequestSummary(c){
+  const g=(c.after_payload||{}).guest||{};
+  const action=(c.after_payload||{}).action;
+  const what = action==='insert'?'Ny gæst: '+esc(g.navn||''):action==='delete'?'Fjern: '+esc(g.navn||''):'Ret: '+esc(g.navn||'');
+  const delta = (c.price_delta!=null)? ' ('+(c.price_delta>=0?'+':'')+kr(c.price_delta)+')' : '';
+  return what+delta;
+}
+function viewChangeRequestsStaff(){
+  const pending=(state.changeRequests||[]).filter(c=>c.status==='pending');
+  const done=(state.changeRequests||[]).filter(c=>c.status!=='pending').slice(0,10);
+  if(!pending.length && !done.length) return '';
+  return `
+  <section class="card" style="${pending.length?'border-left:3px solid var(--amber)':''}">
+    <header><h2>Ændringsforslag</h2><span class="note">${pending.length} afventer</span></header>
+    ${pending.length?pending.map(c=>changeRequestCard(c,true)).join(''):'<div class="empty">Intet afventer.</div>'}
+    ${done.length?`<details style="margin-top:10px"><summary class="notes-toggle"><span class="fold-chev">▸</span>Tidligere behandlet (${done.length})</summary>
+      ${done.map(c=>changeRequestCard(c,false)).join('')}</details>`:''}
+  </section>`;
+}
+function changeRequestCard(c, actionable){
+  const g=(c.after_payload||{}).guest||{};
+  const before=(c.before_payload||{}).guest;
+  const action=(c.after_payload||{}).action;
+  let diff;
+  if(action==='insert') diff='Ny gæst: '+esc(g.navn||'')+' ('+esc(g.kat||'')+')';
+  else if(action==='delete') diff='Fjern gæst: '+esc(before?before.navn:g.navn||'');
+  else diff='Ret '+esc(before?before.navn:'')+' → '+esc(g.navn||'')+' · '+(g.reception?'reception':'ikke reception')+' · '+(g.middag?'middag':'ikke middag')+(g.kost?' · '+esc(g.kost):'');
+  return `<div class="item" style="flex-wrap:wrap">
+    <span class="stripe ${c.status==='pending'?'warn':(c.status==='accepted'?'jer':'kilden')}"></span>
+    <div style="flex:1;min-width:220px">
+      <div class="name">${diff}</div>
+      <div class="meta">Foreslået af ${esc(c.requested_by_name||'kunden')} · ${tid(new Date(c.created_at).getTime())}${c.comment?' · "'+esc(c.comment)+'"':''}</div>
+      ${c.price_before!=null?`<div class="meta">Pris før: ${kr(c.price_before)} · efter: ${kr(c.price_after)} · forskel: ${c.price_delta>=0?'+':''}${kr(c.price_delta)}</div>`:''}
+      ${!actionable?`<div class="meta">${c.status==='accepted'?'Accepteret':'Afvist'} af ${esc(c.reviewed_by_name||'—')}${c.review_comment?' · "'+esc(c.review_comment)+'"':''}</div>`:''}
+      ${actionable?`<div class="row" style="gap:8px;margin-top:8px;flex-wrap:wrap">
+        <button class="btn primary" data-cr-accept="${c.id}">Accepter</button>
+        <button class="btn" data-cr-reject="${c.id}">Afvis</button>
+        <button class="btn" data-cr-approval="${c.id}">Opret godkendelse af ny pris</button>
+      </div>`:''}
+    </div>
+  </div>`;
+}
+async function submitGuestChangeRequest(){
+  const guestId=document.getElementById('crGuest').value;
+  const del=document.getElementById('crDelete').checked;
+  const g={
+    id: guestId||newId(),
+    navn: document.getElementById('crNavn').value.trim(),
+    kat: document.getElementById('crKat').value,
+    reception: document.getElementById('crReception').checked,
+    middag: document.getElementById('crMiddag').checked,
+    kost: document.getElementById('crKost').value.trim()
+  };
+  const before=guestId ? state.gaester.find(x=>x.id===guestId) : null;
+  if(!del && !g.navn){ showToast('Skriv et navn.','error'); return; }
+  if(del && !before){ showToast('Vælg en eksisterende gæst for at fjerne.','error'); return; }
+  const action = del?'delete':(guestId?'update':'insert');
+  const nextGuests = action==='delete' ? state.gaester.filter(x=>x.id!==guestId)
+    : action==='update' ? state.gaester.map(x=>x.id===guestId?{...x,navn:g.navn,kat:g.kat,reception:g.reception,middag:g.middag,kost:g.kost}:x)
+    : [...state.gaester, g];
+  const priceBefore=total(), priceAfter=computeTotalForGuests(nextGuests);
+  const row={
+    event_id: state.eventId, requested_by: state.userId, requested_by_role:'kunde', requested_by_name: currentActor().navn,
+    change_type:'guest_edit', before_payload: before?{guest:{id:before.id,navn:before.navn,kat:before.kat,reception:before.reception,middag:before.middag,kost:before.kost}}:null,
+    after_payload: {action, guest: action==='delete'?{id:guestId, navn:before.navn}:g},
+    price_before: priceBefore, price_after: priceAfter, price_delta: priceAfter-priceBefore,
+    comment: document.getElementById('crComment').value.trim()||null
+  };
+  const {error}=await mutate(()=>sb.from('event_change_requests').insert(row));
+  if(error){ showToast('Kunne ikke sende forslaget: '+error.message,'error'); return; }
+  pushLog({area:'gaester', label:'Ændringsforslag', cust:true, friendly:'Nyt ændringsforslag til gæstelisten sendt'});
+  await loadChangeRequests(state.eventId); render();
+  showToast('Forslag sendt.','ok');
+}
+async function acceptChangeRequest(id){
+  const c=(state.changeRequests||[]).find(x=>x.id===id); if(!c) return;
+  if(!(await appConfirm('Acceptér forslaget? Gæstelisten opdateres med det samme.'))) return;
+  const {error}=await mutate(()=>sb.rpc('apply_change_request',{p_id:id}));
+  if(error){ showToast('Kunne ikke acceptere: '+error.message,'error'); return; }
+  pushLog({area:'gaester', label:'Ændringsforslag accepteret', cust:true, friendly:changeRequestSummary(c)+' blev accepteret'});
+  await Promise.all([loadChangeRequests(state.eventId), reloadGaester()]); render();
+  showToast('Accepteret og gæstelisten opdateret.','ok');
+}
+async function rejectChangeRequest(id){
+  const c=(state.changeRequests||[]).find(x=>x.id===id); if(!c) return;
+  if(!(await appConfirm('Afvis forslaget? Gæstelisten forbliver uændret.'))) return;
+  let staffName=currentActor().navn;
+  const {error}=await mutate(()=>sb.from('event_change_requests').update({status:'rejected', reviewed_by:state.userId, reviewed_by_name:staffName, reviewed_at:new Date().toISOString()}).eq('id',id));
+  if(error){ showToast('Kunne ikke afvise: '+error.message,'error'); return; }
+  pushLog({area:'gaester', label:'Ændringsforslag afvist', cust:true, friendly:changeRequestSummary(c)+' blev afvist'});
+  await loadChangeRequests(state.eventId); render();
+}
+async function createApprovalFromChangeRequest(id){
+  const c=(state.changeRequests||[]).find(x=>x.id===id); if(!c) return;
+  const id2=await createOrReviseApproval({
+    title:'Prisændring pga. ændringsforslag', approval_type:'prisaendring',
+    description:changeRequestSummary(c).replace(/<[^>]+>/g,''),
+    amount: c.price_after, send:true
+  }, null);
+  if(id2){ state.tab='godkendelser'; render(); showToast('Godkendelse oprettet og sendt.','ok'); }
+}
+
+/* =========================================================
+   GÆSTEIMPORT (CSV) + MASSEHANDLINGER
+   ========================================================= */
+function parseCsvText(text){
+  if(text.charCodeAt(0)===0xFEFF) text=text.slice(1);
+  const sample=text.slice(0,400);
+  const delim=(sample.split(';').length>sample.split(',').length)?';':',';
+  const rows=[]; let row=[]; let field=''; let inQuotes=false;
+  for(let i=0;i<text.length;i++){
+    const c=text[i];
+    if(inQuotes){
+      if(c==='"'){ if(text[i+1]==='"'){ field+='"'; i++; } else inQuotes=false; }
+      else field+=c;
+    } else {
+      if(c==='"') inQuotes=true;
+      else if(c===delim){ row.push(field); field=''; }
+      else if(c==='\r'){ /* håndteres af \n */ }
+      else if(c==='\n'){ row.push(field); rows.push(row); row=[]; field=''; }
+      else field+=c;
+    }
+  }
+  if(field.length||row.length){ row.push(field); rows.push(row); }
+  return rows.filter(r=>!(r.length===1 && r[0].trim()===''));
+}
+function guessColumnIndex(headerRow, patterns){
+  const lower=headerRow.map(h=>(h||'').toLowerCase().trim());
+  for(const p of patterns){
+    const idx=lower.findIndex(h=>h.includes(p));
+    if(idx!==-1) return idx;
+  }
+  return -1;
+}
+function normalizeCategoryImport(v){
+  const s=(v||'').toLowerCase().trim();
+  if(['barn','child','børn','kid'].some(x=>s.includes(x))) return 'barn';
+  if(['baby','spæd','infant'].some(x=>s.includes(x))) return 'baby';
+  return 'voksen';
+}
+function parseBoolImport(v, def){
+  if(v==null||String(v).trim()==='') return def;
+  const s=String(v).toLowerCase().trim();
+  if(['ja','yes','true','1','x','y'].includes(s)) return true;
+  if(['nej','no','false','0','n'].includes(s)) return false;
+  return def;
+}
+const DIET_KEYWORDS = {vegetar:['vegetar'], vegansk:['vegan'], glutenfri:['gluten'], laktosefri:['laktose','mælk','mælkefri'], noedder:['nød','nødde','peanut','jordnød']};
+/* Kost er fritekst — normaliseringen er en gruppering til overblik, ikke en medicinsk garanti.
+   Den oprindelige tekst vises altid ved siden af, så intet fortolkes usynligt. */
+function dietTags(text){
+  const s=(text||'').toLowerCase();
+  const tags=[];
+  for(const [tag,words] of Object.entries(DIET_KEYWORDS)) if(words.some(w=>s.includes(w))) tags.push(tag);
+  if(!tags.length && s.trim()) tags.push('andet');
+  return tags;
+}
+const DIET_TAG_LABEL={vegetar:'Vegetar', vegansk:'Vegansk', glutenfri:'Glutenfri', laktosefri:'Laktosefri', noedder:'Nøddeallergi', andet:'Andre behov'};
+function downloadImportTemplate(){
+  const head=['Navn','Kategori','Reception','Middag','Særlig kost'];
+  const example=[['Sofie Hansen','voksen','Ja','Ja',''],['Lille Emma','barn','Ja','Nej','Glutenfri']];
+  const q=v=>'"'+String(v).replace(/"/g,'""')+'"';
+  const csv=[head,...example].map(r=>r.map(q).join(';')).join('\r\n');
+  downloadBlob(new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8'}), 'gaesteimport-skabelon.csv');
+}
+function normNameForDupe(s){ return (s||'').toLowerCase().trim().replace(/\s+/g,' '); }
+function buildImportPreview(rows){
+  if(!rows.length) return {header:[], mapping:{}, parsed:[]};
+  const header=rows[0];
+  const mapping={
+    navn: guessColumnIndex(header,['navn','name']),
+    kat: guessColumnIndex(header,['kategori','category']),
+    reception: guessColumnIndex(header,['reception']),
+    middag: guessColumnIndex(header,['middag','dinner']),
+    kost: guessColumnIndex(header,['kost','diæt','diet','allerg'])
+  };
+  const existingByName={}; state.gaester.forEach(g=>{ existingByName[normNameForDupe(g.navn)]=g; });
+  const parsed=rows.slice(1).filter(r=>r.some(c=>(c||'').trim()!=='')).map((r,i)=>{
+    const navn=(mapping.navn>=0?r[mapping.navn]:'').trim();
+    const kat=normalizeCategoryImport(mapping.kat>=0?r[mapping.kat]:'');
+    const reception=parseBoolImport(mapping.reception>=0?r[mapping.reception]:null, true);
+    const middag=parseBoolImport(mapping.middag>=0?r[mapping.middag]:null, true);
+    const kost=(mapping.kost>=0?r[mapping.kost]:'').trim();
+    const dupe=navn?existingByName[normNameForDupe(navn)]:null;
+    const errors=[];
+    if(!navn) errors.push('Mangler navn');
+    return {rowNum:i+2, navn, kat, reception, middag, kost, errors, duplicateOf: dupe?dupe.id:null, duplicateName: dupe?dupe.navn:null};
+  });
+  return {header, mapping, parsed};
+}
+MODAL_RENDERERS.bulkAddNames = function(){
+  return `
+  <h2 style="font-family:'Instrument Serif',serif;font-style:italic;font-size:24px;font-weight:400;margin:0 0 14px">Indsæt flere navne</h2>
+  <p style="font-size:14px;color:var(--ink-60);margin:0 0 12px">Ét navn pr. linje — de tilføjes alle som voksne til reception og middag, klar til at rette bagefter.</p>
+  <textarea id="banNames" class="search" rows="8" style="width:100%;resize:vertical" placeholder="Emily Hansen
+Lars Jensen
+..."></textarea>
+  <div id="banCount" class="note" style="margin-top:6px">0 navne</div>
+  <div class="row" style="margin-top:14px;justify-content:flex-end;gap:8px">
+    <button class="btn" data-modal-close>Annullér</button>
+    <button class="btn primary" id="banAdd">Tilføj</button>
+  </div>`;
+};
+MODAL_BINDERS.bulkAddNames = function(){
+  const ta=document.getElementById('banNames');
+  const countEl=document.getElementById('banCount');
+  const names=()=>ta.value.split('\n').map(s=>s.trim()).filter(Boolean);
+  ta.oninput=()=>{ const n=names().length; countEl.textContent=n+' navn'+(n===1?'':'e'); };
+  ta.focus();
+  document.getElementById('banAdd').onclick=async()=>{
+    const list=names();
+    if(!list.length){ showToast('Skriv mindst ét navn.','error'); return; }
+    await guestMutation(()=>{
+      list.forEach(navn=>state.gaester.push({id:newId(), navn, kat:'voksen', reception:true, middag:true, kost:''}));
+    }, list.length+' gæster tilføjet');
+    closeModal();
+    showToast(list.length+' gæster tilføjet.','ok');
+  };
+};
+MODAL_RENDERERS.import = function(){
+  const step=state.modal.step||'pick';
+  if(step==='pick'){
+    return `
+    <h2 style="font-family:'Instrument Serif',serif;font-style:italic;font-size:24px;font-weight:400;margin:0 0 14px">Importér gæster</h2>
+    <p style="font-size:14px;color:var(--ink-60);margin:0 0 12px">CSV eller Excel-eksporteret CSV. Kolonner: Navn, Kategori, Reception, Middag, Særlig kost.</p>
+    <button class="btn" id="impTemplateBtn">Download skabelon</button>
+    <div class="field" style="margin-top:14px"><label for="impFile">Vælg fil</label><input type="file" id="impFile" accept=".csv,text/csv" class="search" style="width:100%"></div>
+    <div id="impFileError" class="note" style="color:var(--amber);margin-top:6px"></div>
+    <div class="row" style="margin-top:14px;justify-content:flex-end;gap:8px">
+      <button class="btn" data-modal-close>Annullér</button>
+      <button class="btn primary" id="impNext">Næste: forhåndsvis</button>
+    </div>`;
+  }
+  const preview=state.modal.preview;
+  const valid=preview.parsed.filter(r=>!r.errors.length);
+  const invalid=preview.parsed.filter(r=>r.errors.length);
+  const dupes=preview.parsed.filter(r=>r.duplicateOf);
+  const missingNames=preview.parsed.filter(r=>r.errors.includes('Mangler navn')).length;
+  const priceBefore=total();
+  const nextGuests=simulateImportGuests(preview, state.modal.dupStrategy||'skip');
+  const priceAfter=computeTotalForGuests(nextGuests);
+  return `
+  <h2 style="font-family:'Instrument Serif',serif;font-style:italic;font-size:24px;font-weight:400;margin:0 0 14px">Forhåndsvisning</h2>
+  <div class="row" style="gap:16px;flex-wrap:wrap;margin-bottom:10px">
+    <span class="chip ok"><span class="dot"></span>${valid.length} gyldige</span>
+    <span class="chip ${invalid.length?'warn':''}"><span class="dot"></span>${invalid.length} med fejl</span>
+    <span class="chip"><span class="dot"></span>${dupes.length} dubletter</span>
+    <span class="chip"><span class="dot"></span>${missingNames} uden navn</span>
+  </div>
+  ${dupes.length?`<div class="field"><label for="impDupStrategy">Dubletter (matchet på navn)</label>
+    <select id="impDupStrategy" class="search">
+      <option value="skip" ${state.modal.dupStrategy!=='update'?'selected':''}>Spring over (behold eksisterende)</option>
+      <option value="update" ${state.modal.dupStrategy==='update'?'selected':''}>Opdatér eksisterende gæst</option>
+    </select></div>`:''}
+  <div class="scroll" style="max-height:280px;margin-top:10px"><table class="tbl">
+    <thead><tr><th>Række</th><th>Navn</th><th>Kategori</th><th>Reception</th><th>Middag</th><th>Kost</th><th>Status</th></tr></thead>
+    <tbody>${preview.parsed.map(r=>`<tr>
+      <td>${r.rowNum}</td><td>${esc(r.navn)||'—'}</td><td>${esc(r.kat)}</td><td>${r.reception?'Ja':'Nej'}</td><td>${r.middag?'Ja':'Nej'}</td><td>${esc(r.kost)||'—'}</td>
+      <td>${r.errors.length?`<span class="chip warn"><span class="dot"></span>${esc(r.errors.join(', '))}</span>`:r.duplicateOf?`<span class="chip"><span class="dot"></span>Dublet af ${esc(r.duplicateName)}</span>`:`<span class="chip ok"><span class="dot"></span>Klar</span>`}</td>
+    </tr>`).join('')}</tbody>
+  </table></div>
+  <div class="note" style="margin-top:10px">Forventet prisvirkning: ${kr(priceBefore)} → ${kr(priceAfter)} (${priceAfter-priceBefore>=0?'+':''}${kr(priceAfter-priceBefore)})</div>
+  <div class="row" style="margin-top:14px;justify-content:flex-end;gap:8px">
+    <button class="btn" id="impBack">Tilbage</button>
+    <button class="btn" data-modal-close>Annullér</button>
+    <button class="btn primary" id="impConfirm" ${valid.length===0?'disabled':''}>Bekræft import (${valid.length})</button>
+  </div>`;
+};
+function simulateImportGuests(preview, dupStrategy){
+  let list=state.gaester.slice();
+  preview.parsed.filter(r=>!r.errors.length).forEach(r=>{
+    if(r.duplicateOf){
+      if(dupStrategy==='update') list=list.map(g=>g.id===r.duplicateOf?{...g,kat:r.kat,reception:r.reception,middag:r.middag,kost:r.kost}:g);
+      // 'skip' → uændret
+    } else {
+      list=list.concat([{id:newId(),navn:r.navn,kat:r.kat,reception:r.reception,middag:r.middag,kost:r.kost}]);
+    }
+  });
+  return list;
+}
+MODAL_BINDERS.import = function(){
+  const step=state.modal.step||'pick';
+  if(step==='pick'){
+    document.getElementById('impTemplateBtn').onclick=downloadImportTemplate;
+    document.getElementById('impNext').onclick=async()=>{
+      const fileEl=document.getElementById('impFile');
+      const file=fileEl.files[0];
+      if(!file){ document.getElementById('impFileError').textContent='Vælg en fil først.'; return; }
+      try{
+        const text=await file.text();
+        const rows=parseCsvText(text);
+        if(rows.length<2){ document.getElementById('impFileError').textContent='Filen indeholder ingen datarækker.'; return; }
+        const preview=buildImportPreview(rows);
+        state.modal=Object.assign({}, state.modal, {step:'preview', preview, dupStrategy:'skip'});
+        render();
+      }catch(e){ document.getElementById('impFileError').textContent='Kunne ikke læse filen: '+e.message; }
+    };
+    return;
+  }
+  const dupSel=document.getElementById('impDupStrategy'); if(dupSel) dupSel.onchange=()=>{ state.modal.dupStrategy=dupSel.value; render(); };
+  document.getElementById('impBack').onclick=()=>{ state.modal=Object.assign({}, state.modal, {step:'pick'}); render(); };
+  document.getElementById('impConfirm').onclick=async()=>{
+    const btn=document.getElementById('impConfirm'); btn.disabled=true; btn.textContent='Importerer…';
+    const nextGuests=simulateImportGuests(state.modal.preview, state.modal.dupStrategy||'skip');
+    const {error}=await mutate(()=>sb.from('guests').upsert(nextGuests.map(gToDb)));
+    if(error){ showToast('Import fejlede: '+error.message,'error'); btn.disabled=false; btn.textContent='Bekræft import'; return; }
+    const added=nextGuests.length-state.gaester.length;
+    pushLog({area:'gaester', label:'Gæster importeret', cust:true, friendly:added+' gæster importeret fra CSV'});
+    await reloadGaester();
+    closeModal();
+    showToast('Import gennemført.','ok');
+  };
+};
+
+/* Massehandlinger: state.guestSel er en Set af markerede gæste-id'er. */
+function bulkGuestFiltered(){
+  const f=state.guestBulkFilter||{};
+  let rows=state.gaester;
+  if(f.kat && f.kat!=='alle') rows=rows.filter(g=>g.kat===f.kat);
+  if(f.reception && f.reception!=='alle') rows=rows.filter(g=>g.reception===(f.reception==='ja'));
+  if(f.middag && f.middag!=='alle') rows=rows.filter(g=>g.middag===(f.middag==='ja'));
+  if(f.kost==='ingen') rows=rows.filter(g=>!g.kost.trim());
+  else if(f.kost && f.kost!=='alle') rows=rows.filter(g=>dietTags(g.kost).includes(f.kost));
+  if(f.dup){
+    const seen={}; state.gaester.forEach(g=>{ const k=normNameForDupe(g.navn); seen[k]=(seen[k]||0)+1; });
+    rows=rows.filter(g=>seen[normNameForDupe(g.navn)]>1);
+  }
+  return rows;
+}
+async function applyBulkGuestChange(patchFn, label){
+  const ids=[...state.guestSel];
+  if(!ids.length) return;
+  const snapshot=state.gaester.map(g=>({...g}));
+  state.gaester=state.gaester.map(g=>ids.includes(g.id)?patchFn({...g}):g);
+  render();
+  try{
+    await save();
+    pushLog({area:'gaester', label:label, cust:true, friendly:label+' for '+ids.length+' gæster'});
+    await reloadGaester(); render();
+  }catch(err){
+    state.gaester=snapshot; render();
+    showToast('Kunne ikke gennemføre: '+(err.message||'ukendt fejl'),'error');
+  }
+}
+async function bulkDeleteGuests(){
+  const ids=[...state.guestSel];
+  if(!ids.length) return;
+  if(!(await appConfirm('Slet '+ids.length+' valgte gæster? Kan ikke fortrydes.'))) return;
+  const snapshot=state.gaester.map(g=>({...g}));
+  state.gaester=state.gaester.filter(g=>!ids.includes(g.id));
+  render();
+  try{
+    await save();
+    pushLog({area:'gaester', label:'Massesletning', cust:true, friendly:ids.length+' gæster slettet'});
+    state.guestSel=new Set();
+    await reloadGaester(); render();
+  }catch(err){
+    state.gaester=snapshot; render();
+    showToast('Kunne ikke slette: '+(err.message||'ukendt fejl'),'error');
+  }
+}
+function bulkExportSelected(){
+  const ids=[...state.guestSel];
+  const rows=state.gaester.filter(g=>ids.includes(g.id));
+  const head=['Navn','Kategori','Reception','Middag','Særlig kost'];
+  const q=v=>'"'+String(v==null?'':v).replace(/"/g,'""')+'"';
+  const csv=[head,...rows.map(g=>[g.navn,g.kat,g.reception?'Ja':'Nej',g.middag?'Ja':'Nej',g.kost||''])].map(r=>r.map(q).join(';')).join('\r\n');
+  downloadBlob(new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8'}), 'valgte-gaester.csv');
+}
+function dietSummaryCard(){
+  const counts={};
+  state.gaester.forEach(g=>{ dietTags(g.kost).forEach(t=>{ counts[t]=(counts[t]||0)+1; }); });
+  const tags=Object.keys(DIET_TAG_LABEL).filter(t=>counts[t]);
+  if(!tags.length) return '';
+  return `<div class="row noprint" style="gap:8px;flex-wrap:wrap;margin-bottom:10px">
+    ${tags.map(t=>`<span class="chip"><span class="dot"></span>${DIET_TAG_LABEL[t]}: ${counts[t]}</span>`).join('')}
+  </div>`;
 }
 
 function taskNotesHtml(p){
@@ -877,10 +1493,12 @@ function taskNotesHtml(p){
   </details>
   </div>`;
 }
+const PRIORITY_LABEL={kritisk:'Kritisk', normal:'Normal', lav:'Lav'};
 function renderTask(p){
   const kilden = state.rolle==='kilden';
   const d = p.frist ? dageTil(p.frist) : null;
   const erUdfoert = p.status==='aftalt';
+  const assignee=(state.roster||[]).find(r=>r.id===p.assignedStaffId);
   let controls;
   if(kilden){
     controls = `<select class="status" data-status>${['mangler','udkast','aftalt'].map(s=>`<option value="${s}" ${p.status===s?'selected':''}>${STATUS_LABEL[s]}</option>`).join('')}</select>`;
@@ -893,7 +1511,7 @@ function renderTask(p){
   }
   return `<div class="item" data-pid="${p.id}">
     <span class="stripe ${p.ejer}"></span>
-    <div><div class="name">${esc(p.titel)}</div><div class="meta">${p.frist?`Frist ${datoKort(p.frist)} · <span class="due ${d<0?'past':''}">${d<0?Math.abs(d)+' dage over':'om '+d+' dage'}</span>`:'Ingen frist'}${p.note?' · '+esc(p.note):''}</div></div>
+    <div><div class="name">${esc(p.titel)} ${p.prioritet&&p.prioritet!=='normal'?`<span class="chip ${p.prioritet==='kritisk'?'warn':''}" style="margin-left:4px"><span class="dot"></span>${PRIORITY_LABEL[p.prioritet]}</span>`:''}</div><div class="meta">${p.frist?`Frist ${datoKort(p.frist)} · <span class="due ${d<0?'past':''}">${d<0?Math.abs(d)+' dage over':'om '+d+' dage'}</span>`:'Ingen frist'}${assignee?' · '+esc(assignee.name):''}${p.note?' · '+esc(p.note):''}</div></div>
     <span class="row" style="gap:6px">
     ${controls}
     ${kilden?`<button class="btn" data-punkt-delete="${p.id}">Slet</button>`:''}
@@ -913,29 +1531,57 @@ function viewPunkter(){
         <option value="kilden">Mig (${esc(currentActor().navn)})</option>
       </select></div>
       <div class="field"><label for="pkFrist">Frist</label><input id="pkFrist" type="date" class="search"></div>
+      <div class="field"><label for="pkPrioritet">Prioritet</label><select id="pkPrioritet" class="search">
+        <option value="normal">Normal</option><option value="kritisk">Kritisk</option><option value="lav">Lav</option>
+      </select></div>
+      <div class="field"><label for="pkAssignee">Navngiven ansvarlig (valgfri)</label><select id="pkAssignee" class="search">
+        <option value="">— Ingen —</option>
+        ${(state.roster||[]).map(r=>`<option value="${r.id}">${esc(r.name)}</option>`).join('')}
+      </select></div>
       <div class="field full"><label for="pkNote">Note</label><input id="pkNote" class="search" placeholder="Valgfri"></div>
       <div class="field full"><label for="pkFile">Vedhæft fil</label><input type="file" id="pkFile" class="search"></div>
       <button class="btn primary" id="pkOpret">Opret</button>
     </div>
   </section>` : '';
+  const filterBar = kilden ? `
+  <div class="row noprint" style="gap:8px;flex-wrap:wrap;margin-bottom:10px">
+    <select id="pfWho" class="search" style="max-width:150px">
+      <option value="alle" ${(!state.punkterFilter||state.punkterFilter.who!=='mine')?'selected':''}>Teamets opgaver</option>
+      <option value="mine" ${state.punkterFilter&&state.punkterFilter.who==='mine'?'selected':''}>Mine opgaver</option>
+    </select>
+    <select id="pfPrioritet" class="search" style="max-width:140px">
+      <option value="alle">Alle prioriteter</option>
+      <option value="kritisk">Kritisk</option><option value="normal">Normal</option><option value="lav">Lav</option>
+    </select>
+  </div>` : '';
+  let punkter=state.punkter;
+  if(kilden && state.punkterFilter){
+    if(state.punkterFilter.who==='mine') punkter=punkter.filter(p=>p.assignedStaffId===state.userId);
+    if(state.punkterFilter.prioritet && state.punkterFilter.prioritet!=='alle') punkter=punkter.filter(p=>(p.prioritet||'normal')===state.punkterFilter.prioritet);
+  }
   const jerTitel = kilden ? 'Kundens ansvar' : 'Jeres ansvar';
   const kildenTitel = kilden ? 'Vores ansvar' : `${state.orgName||'Os'}s ansvar`;
   const groups = [['jer',jerTitel],['kilden',kildenTitel]].map(([ejer,titel])=>{
-    const all = state.punkter.filter(p=>p.ejer===ejer);
-    const open = all.filter(p=>p.status!=='aftalt').sort((a,b)=>(a.frist||'9999').localeCompare(b.frist||'9999'));
+    const all = punkter.filter(p=>p.ejer===ejer);
+    const withDue = all.filter(p=>p.frist);
+    const noDue = all.filter(p=>!p.frist && p.status!=='aftalt');
+    const open = withDue.filter(p=>p.status!=='aftalt').sort((a,b)=>(a.frist||'9999').localeCompare(b.frist||'9999'));
     const done = all.filter(p=>p.status==='aftalt').sort((a,b)=>(b.frist||'').localeCompare(a.frist||''));
     const doneKey = 'punkter-'+ejer;
     return `
   <section class="card">
-    <header><h2>${titel}</h2><span class="note">${open.length} udestående</span></header>
-    ${open.length?open.map(renderTask).join(''):'<div class="empty">Ingen udestående opgaver.</div>'}
+    <header><h2>${titel}</h2><span class="note">${open.length+noDue.length} udestående</span></header>
+    ${open.length?open.map(renderTask).join(''):(noDue.length?'':'<div class="empty">Ingen udestående opgaver.</div>')}
+    ${noDue.length?`<details style="margin-top:10px" open><summary class="note"><span class="fold-chev">▸</span>Uden frist (${noDue.length})</summary>
+      <div style="margin-top:8px;display:flex;flex-direction:column;gap:8px">${noDue.map(renderTask).join('')}</div>
+    </details>`:''}
     ${done.length?`<details data-done-group="${doneKey}" ${state.openDoneGroups.has(doneKey)?'open':''} style="margin-top:10px">
       <summary class="note"><span class="fold-chev">▸</span>Udført (${done.length})</summary>
       <div style="margin-top:8px;display:flex;flex-direction:column;gap:8px">${done.map(renderTask).join('')}</div>
     </details>`:''}
   </section>`;
   }).join('');
-  return createKort + groups;
+  return createKort + filterBar + groups;
 }
 
 /* Action-first "på dagen"-visning til mobil — ikke desktop-kortene stablet lodret, men et enkelt overblik over
@@ -953,7 +1599,8 @@ function viewLive(){
   const next = erIDag ? phasesWithTime.filter(p=>p.startDate>now).sort((a,b)=>a.startDate-b.startDate)[0] : null;
   const current = erIDag ? phasesWithTime.filter(p=>p.startDate<=now).sort((a,b)=>b.startDate-a.startDate)[0] : null;
   const minsTil = next ? Math.round((next.startDate-now)/60000) : null;
-  const owner=(state.eventStaff||[]).find(s=>s.id===state.ownerStaffId);
+  const dayOfId=state.dayOfOwnerStaffId||state.ownerStaffId;
+  const owner=(state.roster||state.eventStaff||[]).find(s=>s.id===dayOfId) || (state.eventStaff||[]).find(s=>s.id===state.ownerStaffId);
   const open=aabnePunkter().sort((a,b)=>(a.frist||'9999').localeCompare(b.frist||'9999'));
   if(!erIDag){
     const d=dageTil(state.eventDate);
@@ -995,12 +1642,153 @@ function viewLive(){
     <button class="btn primary" data-goto-tab="beskeder" style="margin-top:10px">Åbn beskeder →</button>
   </section>`;
 }
+/* =========================================================
+   KUNDEGODKENDELSER
+   ========================================================= */
+async function loadApprovals(eventId){
+  const {data,error}=await sb.from('event_approvals').select('*').eq('event_id',eventId).order('created_at',{ascending:false});
+  if(error){ console.error('approvals',error); state.approvals=[]; return; }
+  state.approvals=data||[];
+}
+function pendingApprovalsCount(){ return (state.approvals||[]).filter(a=>a.status==='afventer').length; }
+function approvalVisibleTo(a){
+  // Gæsten må aldrig se en kladde — den er ikke sendt endnu. Staff ser alt (inkl. kladder og historik).
+  return state.rolle==='kilden' || a.status!=='kladde';
+}
+async function createOrReviseApproval(form, priorId){
+  const title=(form.title||'').trim();
+  if(!title){ showToast('Skriv en titel.','error'); return null; }
+  const row={
+    event_id: state.eventId, title, description: form.description||'', approval_type: form.approval_type||'andet',
+    amount: form.amount? Number(form.amount): null, due_at: form.due_at? new Date(form.due_at+'T23:59:59').toISOString(): null,
+    payload: form.payload||null, status: form.send?'afventer':'kladde',
+    requested_by: form.send? state.userId: null, requested_by_name: form.send? currentActor().navn: null,
+    requested_at: form.send? new Date().toISOString(): null
+  };
+  if(priorId){
+    const prior=(state.approvals||[]).find(a=>a.id===priorId);
+    row.version=(prior?prior.version:1)+1;
+  }
+  const {data,error}=await mutate(()=>sb.from('event_approvals').insert(row).select('id').single());
+  if(error){ showToast('Kunne ikke gemme godkendelsen: '+error.message,'error'); return null; }
+  if(priorId){
+    const {error:supErr}=await mutate(()=>sb.from('event_approvals').update({status:'erstattet', superseded_by:data.id}).eq('id',priorId));
+    if(supErr) showToast('Ny version oprettet, men den gamle kunne ikke markeres som erstattet: '+supErr.message,'error');
+  }
+  pushLog({area:'system', label:'Godkendelse', cust:false, friendly:(priorId?'Ny version af godkendelse: ':'Godkendelse oprettet: ')+title});
+  await loadApprovals(state.eventId);
+  return data.id;
+}
+async function sendApproval(id){
+  const a=(state.approvals||[]).find(x=>x.id===id); if(!a) return;
+  const {error}=await mutate(()=>sb.from('event_approvals').update({status:'afventer', requested_by:state.userId, requested_by_name:currentActor().navn, requested_at:new Date().toISOString()}).eq('id',id));
+  if(error){ showToast('Kunne ikke sende: '+error.message,'error'); return; }
+  pushLog({area:'system', label:'Godkendelse sendt', cust:true, friendly:'"'+a.title+'" er sendt til jeres godkendelse'});
+  await loadApprovals(state.eventId); render();
+  showToast('Sendt til kunden.','ok');
+}
+async function revokeApproval(id){
+  const a=(state.approvals||[]).find(x=>x.id===id); if(!a) return;
+  if(!(await appConfirm('Tilbagekald "'+a.title+'"? Kunden kan ikke længere se eller afgøre den.'))) return;
+  const {error}=await mutate(()=>sb.from('event_approvals').update({status:'tilbagekaldt'}).eq('id',id));
+  if(error){ showToast('Kunne ikke tilbagekalde: '+error.message,'error'); return; }
+  pushLog({area:'system', label:'Godkendelse tilbagekaldt', cust:false, friendly:'"'+a.title+'" blev tilbagekaldt'});
+  await loadApprovals(state.eventId); render();
+}
+async function decideApprovalWithComment(id, decision){
+  const el=document.getElementById('decideComment-'+id);
+  const comment=el?el.value.trim()||null:null;
+  const a=(state.approvals||[]).find(x=>x.id===id); if(!a) return;
+  const ok = await appConfirm((decision==='godkendt'?'Godkend':'Afvis')+' "'+a.title+'"'+(a.amount?' ('+kr(a.amount)+')':'')+'? Version '+a.version+'. Denne handling kan ikke fortrydes.');
+  if(!ok) return;
+  const {error}=await mutate(()=>sb.rpc('decide_approval',{p_id:id, p_decision:decision, p_comment:comment}));
+  if(error){ showToast('Kunne ikke registrere afgørelsen: '+error.message,'error'); return; }
+  pushLog({area:'system', label:'Godkendelse afgjort', cust:false, friendly:'"'+a.title+'" blev '+(decision==='godkendt'?'godkendt':'afvist')+' af '+currentActor().navn});
+  await loadApprovals(state.eventId); render();
+  showToast(decision==='godkendt'?'Godkendt.':'Afvist.','ok');
+}
+function approvalCard(a, kilden){
+  const chipCls = a.status==='godkendt'?'ok':(a.status==='afvist'||a.status==='tilbagekaldt')?'warn':(a.status==='afventer'?'blue':'');
+  const supersededByRow = a.superseded_by ? (state.approvals||[]).find(x=>x.id===a.superseded_by) : null;
+  const priorVersions = (state.approvals||[]).filter(x=>x.superseded_by===a.id);
+  return `<div class="item" style="flex-wrap:wrap">
+    <span class="stripe ${a.status==='afventer'?'warn':(a.status==='godkendt'?'jer':'kilden')}"></span>
+    <div style="flex:1;min-width:220px">
+      <div class="name">${esc(a.title)} <span class="note">v${a.version}</span></div>
+      <div class="meta">${APPROVAL_TYPES[a.approval_type]||a.approval_type}${a.amount?' · '+kr(a.amount):''}${a.due_at?' · frist '+datoKort(a.due_at.slice(0,10)):''}</div>
+      ${a.description?`<div style="margin-top:4px;font-size:13.5px">${esc(a.description)}</div>`:''}
+      <div style="margin-top:6px"><span class="chip ${chipCls}"><span class="dot"></span>${APPROVAL_STATUS_LABEL[a.status]||a.status}</span></div>
+      ${a.decided_at?`<div class="meta" style="margin-top:6px">Afgjort af ${esc(a.decided_by_name||'—')} · ${tid(new Date(a.decided_at).getTime())}${a.decision_comment?' · "'+esc(a.decision_comment)+'"':''}</div>`:''}
+      ${(a.status==='afventer' && !kilden)?`
+        <div class="row" style="gap:6px;margin-top:10px;flex-wrap:wrap">
+          <input class="search" id="decideComment-${a.id}" placeholder="Kommentar (valgfri, vises ved afvisning)" style="flex:1;min-width:180px">
+        </div>
+        <div class="row" style="gap:8px;margin-top:8px">
+          <button class="btn primary" data-approve="${a.id}">Godkend</button>
+          <button class="btn" data-reject="${a.id}">Afvis eller bed om ændring</button>
+        </div>`:''}
+      ${kilden?`<div class="row" style="gap:6px;margin-top:10px;flex-wrap:wrap">
+        ${a.status==='kladde'?`<button class="btn primary" data-approval-send="${a.id}">Send til kunde</button>`:''}
+        ${(a.status==='kladde'||a.status==='afventer')?`<button class="btn" data-approval-revoke="${a.id}">Tilbagekald</button>`:''}
+        ${(a.status!=='erstattet')?`<button class="btn" data-approval-revise="${a.id}">Ny version</button>`:''}
+      </div>`:''}
+      ${supersededByRow?`<div class="note" style="margin-top:8px">→ Erstattet af version ${supersededByRow.version} (${APPROVAL_STATUS_LABEL[supersededByRow.status]})</div>`:''}
+      ${priorVersions.length?`<details style="margin-top:8px"><summary class="notes-toggle"><span class="fold-chev">▸</span>Tidligere versioner (${priorVersions.length})</summary>
+        ${priorVersions.map(p=>`<div class="note" style="margin-top:4px">v${p.version} — ${APPROVAL_STATUS_LABEL[p.status]}${p.decided_at?' · '+tid(new Date(p.decided_at).getTime()):''}</div>`).join('')}</details>`:''}
+    </div>
+  </div>`;
+}
+function readApprovalForm(send){
+  return {
+    title: document.getElementById('apTitle').value,
+    approval_type: document.getElementById('apType').value,
+    description: document.getElementById('apDesc').value,
+    amount: document.getElementById('apAmount').value,
+    due_at: document.getElementById('apDue').value,
+    send
+  };
+}
+function viewGodkendelser(){
+  const kilden = state.rolle==='kilden';
+  const all=(state.approvals||[]).filter(approvalVisibleTo);
+  const afventer=all.filter(a=>a.status==='afventer').sort((a,b)=>(a.due_at||'9999').localeCompare(b.due_at||'9999'));
+  const andre=all.filter(a=>a.status!=='afventer').sort((a,b)=>b.created_at.localeCompare(a.created_at));
+  const revising = state.approvalRevisingId ? (state.approvals||[]).find(a=>a.id===state.approvalRevisingId) : null;
+  const opretKort = kilden ? `
+  <section class="card">
+    <header><h2>${revising?'Ny version af "'+esc(revising.title)+'"':'Opret godkendelse'}</h2>${revising?`<span class="note">nuværende v${revising.version}</span>`:''}</header>
+    <div class="formgrid">
+      <div class="field"><label for="apTitle">Titel</label><input id="apTitle" class="search" placeholder="Fx Endeligt deltagerantal" value="${esc(revising?revising.title:'')}"></div>
+      <div class="field"><label for="apType">Type</label><select id="apType" class="search">${Object.entries(APPROVAL_TYPES).map(([v,l])=>`<option value="${v}" ${revising&&revising.approval_type===v?'selected':''}>${l}</option>`).join('')}</select></div>
+      <div class="field" style="grid-column:span 2"><label for="apDesc">Forklaring</label><input id="apDesc" class="search" placeholder="Hvad skal kunden tage stilling til?" value="${esc(revising?revising.description:'')}"></div>
+      <div class="field"><label for="apAmount">Beløb, kr (valgfrit)</label><input id="apAmount" type="number" class="search" value="${revising&&revising.amount!=null?revising.amount:''}"></div>
+      <div class="field"><label for="apDue">Frist (valgfrit)</label><input id="apDue" type="date" class="search" value="${revising&&revising.due_at?revising.due_at.slice(0,10):''}"></div>
+    </div>
+    <div class="row" style="margin-top:10px;gap:8px;flex-wrap:wrap">
+      <button class="btn" id="apSaveDraft">Gem som kladde</button>
+      <button class="btn primary" id="apSendNew">Send til kunde</button>
+      ${revising?'<button class="btn" id="apCancelRevise">Annullér ny version</button>':''}
+    </div>
+  </section>` : '';
+  const afventerKort = `
+  <section class="card" style="${afventer.length?'border-left:3px solid var(--amber)':''}">
+    <header><h2>${kilden?'Afventer kunden':'Afventer jeres godkendelse'}</h2><span class="note">${afventer.length}</span></header>
+    ${afventer.length?afventer.map(a=>approvalCard(a,kilden)).join(''):'<div class="empty">Intet afventer lige nu.</div>'}
+  </section>`;
+  const historikKort = `
+  <section class="card">
+    <header><h2>${kilden?'Kladder og historik':'Tidligere godkendelser'}</h2><span class="note">${andre.length}</span></header>
+    ${andre.length?andre.map(a=>approvalCard(a,kilden)).join(''):'<div class="empty">Ingen endnu.</div>'}
+  </section>`;
+  return `${opretKort}${afventerKort}${historikKort}`;
+}
 function viewKoekken(){
   const a=antal(), kost=state.gaester.filter(g=>g.kost.trim()), samlet={};
   kost.forEach(g=>{(samlet[g.kost.trim()]=samlet[g.kost.trim()]||[]).push(g.navn);});
   return `
   <section class="card">
     <header><h2>Køkkenseddel</h2><button class="btn noprint" id="print">Print</button></header>
+    <div class="note" style="margin-bottom:10px">Genereret ${esc(genereretTidspunkt())}</div>
     <div class="stat"><span>Kuverter til middag</span><b class="num">${a.middag.voksne+a.middag.boern}</b></div>
     <div class="stat"><span>Heraf børnekuverter</span><b class="num">${a.middag.boern}</b></div>
     <div class="stat"><span>Babyer til middag (uden kuvert)</span><b class="num">${a.middag.babyer}</b></div>
@@ -1010,6 +1798,269 @@ function viewKoekken(){
   <section class="card">
     <header><h2>Særlig kost</h2><span class="note">${kost.length} kuverter</span></header>
     ${Object.keys(samlet).length?Object.entries(samlet).map(([k,n])=>`<div class="stat"><span><b>${esc(k)}</b><br><span class="note">${n.map(esc).join(', ')}</span></span><b class="num">${n.length}</b></div>`).join(''):'<div class="empty">Ingen registreret endnu.</div>'}
+  </section>`;
+}
+
+/* =========================================================
+   LOKALEKALENDER OG KAPACITET
+   ========================================================= */
+function calendarWeekStart(dateStr){
+  const d=new Date(dateStr+'T00:00:00');
+  const day=d.getDay(); const diff=(day===0?-6:1-day);
+  d.setDate(d.getDate()+diff);
+  return d.toISOString().slice(0,10);
+}
+function calendarRangeStart(){ return state.calendarRange==='dag' ? (state.calendarDate||todayIso()) : calendarWeekStart(state.calendarDate||todayIso()); }
+function calendarRangeEnd(){ const s=calendarRangeStart(); return state.calendarRange==='dag' ? s : addDays(s,6); }
+function todayIso(){ return nowDate().toISOString().slice(0,10); }
+async function loadCalendarData(){
+  if(!state.calendarDate) state.calendarDate=todayIso();
+  const {data:venues}=await sb.from('venues').select('id,name,rooms(id,name,capacity_max)').eq('org_id',state.orgId).order('name');
+  state.calendarVenues=venues||[];
+  const isRoomView=state.calendarRange==='lokale';
+  const start = isRoomView ? todayIso() : calendarRangeStart();
+  const end = isRoomView ? addDays(todayIso(),60) : calendarRangeEnd();
+  const {data:evs,error:evErr}=await sb.from('events').select('id,title,status,event_date').eq('org_id',state.orgId).gte('event_date',start).lte('event_date',end);
+  if(evErr){ state.calendarError=true; return; }
+  state.calendarError=false;
+  state.calendarEventsById={}; (evs||[]).forEach(e=>{ state.calendarEventsById[e.id]=e; });
+  const ids=(evs||[]).map(e=>e.id);
+  if(!ids.length){ state.calendarPhases=[]; state.calendarGuestCounts={}; return; }
+  const [{data:phases},{data:guests}]=await Promise.all([
+    sb.from('event_rooms').select('*').in('event_id',ids),
+    sb.from('guests').select('event_id,reception').in('event_id',ids)
+  ]);
+  state.calendarPhases=phases||[];
+  const counts={}; (guests||[]).forEach(g=>{ if(g.reception) counts[g.event_id]=(counts[g.event_id]||0)+1; });
+  state.calendarGuestCounts=counts;
+}
+const BOOKING_STATUS_LABEL={tentativ:'Tentativ', reserveret:'Reserveret', bekræftet:'Bekræftet'};
+function calendarPhaseCard(p){
+  const ev=state.calendarEventsById[p.event_id];
+  if(!ev) return '';
+  const guestCount=state.calendarGuestCounts[p.event_id]||0;
+  const room=(state.calendarVenues||[]).flatMap(v=>v.rooms||[]).find(r=>r.id===p.room_id);
+  const overCapacity = room && room.capacity_max && guestCount>room.capacity_max;
+  const statusCls = p.booking_status==='bekræftet'?'ok':(p.booking_status==='reserveret'?'blue':'warn');
+  return `<div class="item" data-open="${ev.id}" style="cursor:pointer;flex-wrap:wrap">
+    <span class="stripe ${statusCls==='ok'?'jer':'kilden'}"></span>
+    <div style="flex:1;min-width:180px">
+      <div class="name">${esc(ev.title)} <span class="note">${esc(p.label)}</span></div>
+      <div class="meta">${datoKort(ev.event_date)} · ${p.start_time?p.start_time.slice(0,5):'?'}–${p.end_time?p.end_time.slice(0,5):'?'}${p.setup_minutes?' · opsætning '+p.setup_minutes+' min før':''}${p.teardown_minutes?' · oprydning '+p.teardown_minutes+' min efter':''}</div>
+      <div style="margin-top:4px" class="row" style="gap:6px;flex-wrap:wrap">
+        <span class="chip ${statusCls}"><span class="dot"></span>${BOOKING_STATUS_LABEL[p.booking_status]||p.booking_status}</span>
+        ${eventStatusChip(ev.status)}
+        ${guestCount?`<span class="chip ${overCapacity?'warn':''}"><span class="dot"></span>${guestCount}${room&&room.capacity_max?' / '+room.capacity_max:''} gæster${overCapacity?' — over kapacitet':''}</span>`:''}
+      </div>
+    </div>
+  </div>`;
+}
+function viewKalender(){
+  if(state.calendarError){
+    return `<section class="card"><header><h2>Lokalekalender</h2></header><div class="empty">Kunne ikke hente kalenderdata. <button class="btn" id="calRetry">Prøv igen</button></div></section>`;
+  }
+  const range=state.calendarRange||'uge';
+  const rangeBar=`
+  <section class="card">
+    <header><h2>Lokalekalender</h2></header>
+    <div class="row" style="gap:8px;flex-wrap:wrap;margin-bottom:10px">
+      <select id="calRange" class="search" style="max-width:130px">
+        <option value="dag" ${range==='dag'?'selected':''}>Dag</option>
+        <option value="uge" ${range==='uge'?'selected':''}>Uge</option>
+        <option value="lokale" ${range==='lokale'?'selected':''}>Lokale</option>
+      </select>
+      ${range!=='lokale'?`
+      <button class="btn" id="calPrev">← Forrige</button>
+      <input type="date" id="calDate" class="search" value="${state.calendarDate||todayIso()}" style="max-width:160px">
+      <button class="btn" id="calNext">Næste →</button>
+      <button class="btn" id="calToday">I dag</button>
+      <span class="note" style="align-self:center">${datoKort(calendarRangeStart())} – ${datoKort(calendarRangeEnd())}</span>`
+      : `<select id="calRoomSel" class="search" style="max-width:220px">
+          ${(state.calendarVenues||[]).flatMap(v=>(v.rooms||[]).map(r=>`<option value="${r.id}" ${state.calendarRoomId===r.id?'selected':''}>${esc(v.name)} · ${esc(r.name)}</option>`)).join('')}
+        </select>`}
+    </div>
+  </section>`;
+  if(range==='lokale'){
+    const roomId=state.calendarRoomId || (state.calendarVenues||[]).flatMap(v=>v.rooms||[])[0]?.id;
+    const room=(state.calendarVenues||[]).flatMap(v=>v.rooms||[]).find(r=>r.id===roomId);
+    const phases=(state.calendarPhases||[]).filter(p=>p.room_id===roomId).sort((a,b)=>{
+      const ea=state.calendarEventsById[a.event_id], eb=state.calendarEventsById[b.event_id];
+      return (ea?ea.event_date:'').localeCompare(eb?eb.event_date:'')||(a.start_time||'').localeCompare(b.start_time||'');
+    });
+    return `${rangeBar}<section class="card">
+      <header><h2>${room?esc(room.name):'Vælg lokale'}</h2><span class="note">${room&&room.capacity_max?'Kapacitet: '+room.capacity_max:'Ingen kapacitetsgrænse angivet'} · næste 60 dage</span></header>
+      ${phases.length?phases.map(calendarPhaseCard).join(''):'<div class="empty">Ingen bookinger i perioden.</div>'}
+    </section>`;
+  }
+  const venues=state.calendarVenues||[];
+  const cols=venues.flatMap(v=>(v.rooms||[]).map(r=>({venue:v,room:r})));
+  return `${rangeBar}
+  ${cols.length?cols.map(({venue,room})=>{
+    const phases=(state.calendarPhases||[]).filter(p=>p.room_id===room.id).sort((a,b)=>{
+      const ea=state.calendarEventsById[a.event_id], eb=state.calendarEventsById[b.event_id];
+      return (ea?ea.event_date:'').localeCompare(eb?eb.event_date:'')||(a.start_time||'').localeCompare(b.start_time||'');
+    });
+    return `<section class="card">
+      <header><h2>${esc(venue.name)} · ${esc(room.name)}</h2><span class="note">${room.capacity_max?'Kapacitet '+room.capacity_max:'Ingen kapacitetsgrænse'}</span></header>
+      ${phases.length?phases.map(calendarPhaseCard).join(''):'<div class="empty">Ingen bookinger i denne periode.</div>'}
+    </section>`;
+  }).join('') : '<section class="card"><div class="empty">Ingen lokaler oprettet endnu.</div></section>'}`;
+}
+
+/* =========================================================
+   DRIFTSDOKUMENTER
+   Praktiske ark til selve arrangementsdagen — bevidst UDEN QR-koder og uden magic links/tokens i
+   indholdet (begge dele er eksplicit udelukket af kravspecen). Hvert dokument viser et
+   "Genereret [tidspunkt]"-banner, så et udprintet ark aldrig efterlader tvivl om, hvor friskt det er.
+   Genbruger appens eksisterende print-tilgang (window.print() + @media print-reglen, der allerede
+   skjuler faner/knapper) i stedet for at bygge en separat PDF-genereringspipeline.
+   ========================================================= */
+const DOC_TYPES = [
+  ['koereplan','Køreplan','Faser, tider og lokaler for arrangementsdagen.'],
+  ['lokalebestilling','Lokalebestilling','Bekræftelse af lokale, tidsrum og kapacitet pr. fase.'],
+  ['personale','Personaleoversigt','Hvem er tilknyttet arrangementet, og hvem har ansvaret.'],
+  ['kontakt','Kontaktliste','Navne og roller — ingen gæstelinks eller tokens.'],
+  ['samlet','Samlet oversigt','Ét ark med de vigtigste tal: gæster, pris, faser, opgaver.'],
+  ['aendringer','Ændringsoversigt','Historik over ændringer og behandlede ændringsforslag.']
+];
+function genereretTidspunkt(){ return nowDate().toLocaleString('da-DK',{day:'numeric',month:'long',year:'numeric',hour:'2-digit',minute:'2-digit'}); }
+function docHeader(){
+  const exportable=['personale','kontakt','aendringer'].includes(state.docPreview);
+  return `<div class="row noprint" style="justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:10px">
+    <button class="btn" data-doc-back>← Dokumenter</button>
+    <span class="row" style="gap:8px">
+      ${exportable?`<button class="btn" data-doc-export>Download CSV</button>`:''}
+      <button class="btn primary" data-doc-print>Print</button>
+    </span>
+  </div>
+  <div class="note" style="margin-bottom:4px">${esc(state.eventTitle||'')} · ${esc(state.venueName||'')} · ${state.eventDate?datoKort(state.eventDate):''}</div>
+  <div class="note" style="margin-bottom:14px">Genereret ${esc(genereretTidspunkt())}</div>`;
+}
+function downloadSimpleCsv(headers, rows, filename){
+  const q=v=>'"'+String(v==null?'':v).replace(/"/g,'""')+'"';
+  const csv=[headers,...rows].map(r=>r.map(q).join(';')).join('\r\n');
+  downloadBlob(new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8'}), filename);
+}
+function docExportCsv(){
+  if(state.docPreview==='personale' || state.docPreview==='kontakt'){
+    downloadSimpleCsv(['Navn','Rolle','Ansvar'], staffAnsvarRows().map(r=>[r.name,r.role,r.ansvar]), (state.docPreview==='personale'?'personaleoversigt-':'kontaktliste-')+guestExportSlug()+'.csv');
+  } else if(state.docPreview==='aendringer'){
+    downloadSimpleCsv(['Tidspunkt','Person','Hændelse'], (state.log||[]).filter(e=>e.type==='change').map(e=>[tid(e.ts), e.who, (e.friendly||e.label||'').replace(/<[^>]+>/g,'')]), 'aendringsoversigt-'+guestExportSlug()+'.csv');
+  }
+}
+function staffAnsvarRows(){
+  return (state.eventStaff||[]).map(s=>{
+    const roller=[];
+    if(s.id===state.ownerStaffId) roller.push('Primær koordinator');
+    if(s.id===state.secondaryStaffId) roller.push('Sekundær koordinator');
+    if(s.id===state.dayOfOwnerStaffId) roller.push('Ansvarlig på dagen');
+    return {name:s.name, role:s.role==='admin'?'Admin':'Koordinator', ansvar:roller.join(', ')||'—'};
+  });
+}
+function docKoereplan(){
+  const faser=state.phases||[];
+  return docHeader()+`
+  <section class="card">
+    <header><h2>Køreplan</h2><span class="note">${faser.length} faser</span></header>
+    ${faser.length? `<table class="tbl"><thead><tr><th>Fase</th><th>Lokale</th><th>Tid</th><th>Note</th></tr></thead><tbody>
+      ${faser.map(p=>`<tr><td>${esc(p.label)}</td><td>${esc(p.roomName||'—')}</td><td>${p.start||'?'}–${p.end||'?'}</td><td>${[p.setupMinutes?'Opsætning '+p.setupMinutes+' min før':'', p.teardownMinutes?'Oprydning '+p.teardownMinutes+' min efter':''].filter(Boolean).join(' · ')||'—'}</td></tr>`).join('')}
+    </tbody></table>` : '<div class="empty">Ingen faser oprettet endnu.</div>'}
+  </section>
+  <section class="card">
+    <header><h2>Ansvarlige</h2></header>
+    ${staffAnsvarRows().filter(r=>r.ansvar!=='—').map(r=>`<div class="stat"><span>${esc(r.name)}</span><span class="note">${esc(r.ansvar)}</span></div>`).join('')||'<div class="empty">Ingen ansvarsfordeling registreret endnu.</div>'}
+  </section>`;
+}
+function docLokalebestilling(){
+  const faser=state.phases||[];
+  const a=antal();
+  return docHeader()+`
+  <section class="card">
+    <header><h2>Lokalebestilling</h2></header>
+    ${faser.length? faser.map(p=>{
+      const room=(state.venueRooms||[]).find(r=>r.id===p.roomId);
+      const over = room && room.capacity_max && a.reception.total>room.capacity_max;
+      return `<div class="stat"><span><b>${esc(p.label)}</b><br><span class="note">${esc(p.roomName||'Intet lokale valgt')} · ${p.start||'?'}–${p.end||'?'}${room&&room.capacity_max?' · kapacitet '+room.capacity_max:''}</span></span>${over?'<span class="chip warn"><span class="dot"></span>Over kapacitet</span>':''}</div>`;
+    }).join('') : '<div class="empty">Ingen faser oprettet endnu.</div>'}
+  </section>`;
+}
+function docPersonale(){
+  const rows=staffAnsvarRows();
+  return docHeader()+`
+  <section class="card">
+    <header><h2>Personaleoversigt</h2><span class="note">${rows.length} tilknyttet</span></header>
+    ${rows.length?rows.map(r=>`<div class="stat"><span><b>${esc(r.name)}</b><br><span class="note">${esc(r.role)}</span></span>${r.ansvar!=='—'?`<span class="chip"><span class="dot"></span>${esc(r.ansvar)}</span>`:''}</div>`).join(''):'<div class="empty">Ingen medarbejdere tilknyttet endnu.</div>'}
+  </section>`;
+}
+function docKontakt(){
+  const rows=staffAnsvarRows();
+  return docHeader()+`
+  <section class="card">
+    <header><h2>Kontaktliste</h2></header>
+    <div class="note" style="margin-bottom:10px">${esc(state.orgName||'')}</div>
+    ${rows.length?rows.map(r=>`<div class="stat"><span><b>${esc(r.name)}</b><br><span class="note">${esc(r.role)}${r.ansvar!=='—'?' · '+esc(r.ansvar):''}</span></span></div>`).join(''):'<div class="empty">Ingen kontakter registreret endnu.</div>'}
+  </section>`;
+}
+function docSamlet(){
+  const a=antal();
+  const beregnetTotal=total();
+  const afvigelse=beregnetTotal-(state.offerTotal||0);
+  const approvalCounts={};
+  (state.approvals||[]).forEach(x=>{approvalCounts[x.status]=(approvalCounts[x.status]||0)+1;});
+  const opgaverAaben=(state.punkter||[]).filter(p=>p.status!=='aftalt').length;
+  const opgaverOver=(state.punkter||[]).filter(p=>p.status!=='aftalt'&&p.frist&&dageTil(p.frist)<0).length;
+  return docHeader()+`
+  <section class="card">
+    <header><h2>Arrangement</h2></header>
+    <div class="stat"><span>Titel</span><b>${esc(state.eventTitle||'')}</b></div>
+    <div class="stat"><span>Type</span><b>${esc(state.eventType||'')}</b></div>
+    <div class="stat"><span>Lokation</span><b>${esc(state.venueName||'')}</b></div>
+    <div class="stat"><span>Dato</span><b>${state.eventDate?datoKort(state.eventDate):''}</b></div>
+    <div class="stat"><span>Status</span><b>${esc(state.status||'')}</b></div>
+  </section>
+  <section class="card">
+    <header><h2>Gæster</h2></header>
+    <div class="stat"><span>Reception</span><b class="num">${a.reception.total}</b></div>
+    <div class="stat"><span>Middag</span><b class="num">${a.middag.total}</b></div>
+  </section>
+  <section class="card">
+    <header><h2>Pris</h2></header>
+    <div class="stat"><span>Beregnet total</span><b class="num">${kr(beregnetTotal)}</b></div>
+    <div class="stat"><span>Tilbud</span><b class="num">${kr(state.offerTotal||0)}</b></div>
+    ${afvigelse?`<div class="stat"><span>Afvigelse</span><b class="num">${afvigelse>0?'+':''}${kr(afvigelse)}</b></div>`:''}
+  </section>
+  <section class="card">
+    <header><h2>Faser og opgaver</h2></header>
+    <div class="stat"><span>Faser</span><b class="num">${(state.phases||[]).length}</b></div>
+    <div class="stat"><span>Udestående opgaver</span><b class="num">${opgaverAaben}</b></div>
+    <div class="stat"><span>Heraf overskredet frist</span><b class="num">${opgaverOver}</b></div>
+    <div class="stat"><span>Medarbejdere tilknyttet</span><b class="num">${(state.eventStaff||[]).length}</b></div>
+  </section>
+  ${Object.keys(approvalCounts).length?`<section class="card">
+    <header><h2>Godkendelser</h2></header>
+    ${Object.entries(approvalCounts).map(([s,n])=>`<div class="stat"><span>${esc(APPROVAL_STATUS_LABEL[s]||s)}</span><b class="num">${n}</b></div>`).join('')}
+  </section>`:''}`;
+}
+function docAendringer(){
+  const changes=(state.log||[]).filter(e=>e.type==='change').slice(0,200);
+  const crHistorik=(state.changeRequests||[]).filter(c=>c.status!=='pending');
+  return docHeader()+`
+  <section class="card">
+    <header><h2>Ændringslog</h2><span class="note">${changes.length}</span></header>
+    ${changes.length?changes.map(e=>`<div class="stat"><span>${esc(tid(e.ts))} · ${esc(e.who)}</span><span class="row" style="gap:8px"><span>${logLine(e)}</span><button class="btn noprint" data-goto-log="${e.ts}">Gå til i loggen</button></span></div>`).join(''):'<div class="empty">Ingen ændringer registreret endnu.</div>'}
+  </section>
+  ${crHistorik.length?`<section class="card">
+    <header><h2>Behandlede ændringsforslag</h2></header>
+    ${crHistorik.map(c=>`<div class="stat"><span>${changeRequestSummary(c)}</span><span class="chip ${c.status==='accepted'?'ok':'warn'}"><span class="dot"></span>${c.status==='accepted'?'Accepteret':'Afvist'}</span></div>`).join('')}
+  </section>`:''}`;
+}
+const DOC_RENDER = {koereplan:docKoereplan, lokalebestilling:docLokalebestilling, personale:docPersonale, kontakt:docKontakt, samlet:docSamlet, aendringer:docAendringer};
+function viewDokumenter(){
+  if(state.docPreview && DOC_RENDER[state.docPreview]) return DOC_RENDER[state.docPreview]();
+  return `<section class="card">
+    <header><h2>Driftsdokumenter</h2></header>
+    <div class="note" style="margin-bottom:10px">Praktiske ark til arrangementsdagen — ingen QR-koder, ingen gæstelinks eller tokens. Hvert dokument viser, hvornår det er genereret.</div>
+    ${DOC_TYPES.map(([id,titel,beskr])=>`<div class="stat"><span><b>${esc(titel)}</b><br><span class="note">${esc(beskr)}</span></span><button class="btn" data-doc-open="${id}">Vis</button></div>`).join('')}
   </section>`;
 }
 
@@ -1024,7 +2075,7 @@ function ejerLabel(ejer){
 
 function logRowsFiltered(){
   let rows=state.log.filter(e=>
-    (state.logType==='alle'||(state.logType==='aendringer'&&e.type==='change')||(state.logType==='opslag'&&e.type==='view')||(state.logType==='beskeder'&&e.type==='message')) &&
+    (state.logType==='alle'||(state.logType==='aendringer'&&e.type==='change')||(state.logType==='opslag'&&e.type==='view')||(state.logType==='beskeder'&&(e.type==='message'||e.type==='note'))) &&
     (state.logWho==='alle'||e.who===state.logWho) &&
     (state.logArea==='alle'||e.area===state.logArea));
   if(state.logDays==='custom'){
@@ -1039,9 +2090,29 @@ function logRowsFiltered(){
   if(q) rows = rows.filter(e=>(e.who||'').toLowerCase().includes(q)||(e.label||'').toLowerCase().includes(q)||(e.friendly||'').toLowerCase().includes(q)||(e.text||'').toLowerCase().includes(q));
   return rows;
 }
+/* Slår lange stræk af "kiggede ind"-hændelser fra samme person sammen til én linje, så en aktiv
+   gæst/medarbejder ikke drukner de faktiske ændringer i støj. Kun konsekutive view-hændelser fra
+   samme person grupperes — alt andet (ændringer, beskeder) vises altid som enkeltlinjer. */
+function groupLogRows(rows){
+  if(!state.logCollapseViews) return rows.map(e=>({kind:'single', e}));
+  const out=[]; let i=0;
+  while(i<rows.length){
+    const e=rows[i];
+    if(e.type==='view'){
+      let j=i;
+      while(j+1<rows.length && rows[j+1].type==='view' && rows[j+1].who===e.who) j++;
+      const group=rows.slice(i,j+1);
+      if(group.length>1) out.push({kind:'viewgroup', who:e.who, side:e.side, entries:group, key:'lv-'+e.ts});
+      else out.push({kind:'single', e});
+      i=j+1;
+    } else { out.push({kind:'single', e}); i++; }
+  }
+  return out;
+}
 function logLine(e){
   if(e.type==='view') return '<span class="view">kiggede ind</span>';
   if(e.type==='message') return `<span class="tag">Besked</span><span class="msgq">”${esc(e.text||'')}”</span>`;
+  if(e.type==='note') return `<span class="tag">Intern note</span><span class="msgq">”${esc(e.text||'')}”</span>`;
   const desc = e.friendly ? esc(e.friendly) : `${esc(e.label)}${(e.from||e.to)?` <span class="delta">${e.from?esc(e.from):'—'}<span class="arrow">→</span>${esc(e.to)}</span>`:''}`;
   return `<span class="tag">${AREA_TXT[e.area]}</span>${desc}`;
 }
@@ -1109,14 +2180,48 @@ function viewLog(){
         ${state.logSearch?'<button type="button" id="fLogSearchClear" title="Ryd søgning" aria-label="Ryd søgning" style="position:absolute;right:4px;top:50%;transform:translateY(-50%);border:0;background:transparent;color:var(--ink-40);font-size:16px;line-height:1;cursor:pointer;padding:4px 6px">×</button>':''}
       </div>
       <label class="row" style="gap:5px;font-size:12.5px;color:var(--ink-60)"><input type="checkbox" id="fLogTech" ${state.logShowTech?'checked':''}>Vis tekniske detaljer</label>
+      <label class="row" style="gap:5px;font-size:12.5px;color:var(--ink-60)"><input type="checkbox" id="fLogCollapse" ${state.logCollapseViews?'checked':''}>Skjul gentagne opslag</label>
       <button class="btn noprint" id="logExport">Eksportér CSV</button>
     </div>
-    ${rows.length?rows.map(e=>`<div class="logrow ${e.type==='view'?'viewrow':''}">
-      <span class="when">${tid(e.ts)}</span>
-      <span class="who"><span class="dot ${e.side}"></span>${esc(e.who.split(' (')[0])}</span>
-      <span class="what">${logLine(e)}${(state.logShowTech&&e.ip)?` <span class="note" style="font-variant-numeric:tabular-nums">· IP ${esc(e.ip)}</span>`:''}</span>
-    </div>`).join(''):'<div class="empty">Ingen hændelser matcher filteret.</div>'}
+    ${rows.length?groupLogRows(rows).map(item=>item.kind==='single'?logRowHtml(item.e):logViewGroupHtml(item)).join(''):'<div class="empty">Ingen hændelser matcher filteret.</div>'}
   </section>`;
+}
+function logRowHtml(e){
+  return `<div class="logrow ${e.type==='view'?'viewrow':''}" id="logrow-${e.ts}" data-log-ts="${e.ts}">
+    <span class="when">${tid(e.ts)}</span>
+    <span class="who"><span class="dot ${e.side}"></span>${esc(e.who.split(' (')[0])}</span>
+    <span class="what">${logLine(e)}${(state.logShowTech&&e.ip)?` <span class="note" style="font-variant-numeric:tabular-nums">· IP ${esc(e.ip)}</span>`:''}</span>
+  </div>`;
+}
+/* Springer direkte til en given loghændelse fra andre faner (fx Ændringsoversigt-dokumentet) —
+   nulstiller filtrene, der ellers kunne skjule den, folder evt. kiggehænd.-gruppe ud, og scroller/
+   fremhæver linjen. */
+function gotoLogEntry(ts){
+  state.tab='log';
+  state.logType='alle'; state.logWho='alle'; state.logArea='alle'; state.logDays='alle'; state.logSearch='';
+  const e=state.log.find(x=>x.ts===ts);
+  if(e && e.type==='view'){
+    const groups=groupLogRows(logRowsFiltered());
+    const g=groups.find(it=>it.kind==='viewgroup' && it.entries.some(x=>x.ts===ts));
+    if(g) state.openLogViewGroups.add(g.key);
+  }
+  render();
+  setTimeout(()=>{
+    const el=document.getElementById('logrow-'+ts);
+    if(el){ el.scrollIntoView({behavior:'smooth', block:'center'}); flashSaved('#logrow-'+ts); }
+  }, 30);
+}
+function logViewGroupHtml(g){
+  const open=state.openLogViewGroups.has(g.key);
+  const newest=g.entries[0], oldest=g.entries[g.entries.length-1];
+  return `<details data-log-view-group="${g.key}" ${open?'open':''} class="logrow viewrow" style="display:block">
+    <summary style="cursor:pointer;display:flex;gap:10px;align-items:baseline"><span class="fold-chev">▸</span>
+      <span class="when">${tid(newest.ts)}</span>
+      <span class="who"><span class="dot ${g.side}"></span>${esc(g.who.split(' (')[0])}</span>
+      <span class="what"><span class="view">kiggede ind ${g.entries.length} gange</span> <span class="note">(${tid(oldest.ts)} – ${tid(newest.ts)})</span></span>
+    </summary>
+    <div style="margin-top:6px;display:flex;flex-direction:column;gap:4px">${g.entries.map(logRowHtml).join('')}</div>
+  </details>`;
 }
 
 function viewTidslinje(){
@@ -1137,20 +2242,21 @@ function viewTidslinje(){
 }
 
 function viewBeskeder(){
-  const msgs=state.log.filter(e=>e.type==='message').sort((a,b)=>b.ts-a.ts);
-  const modpart = state.rolle==='kilden' ? 'kunden' : (state.orgName||'os');
+  const kilden=state.rolle==='kilden';
+  const msgs=state.log.filter(e=>e.type==='message'||(e.type==='note'&&kilden)).sort((a,b)=>b.ts-a.ts);
+  const modpart = kilden ? 'kunden' : (state.orgName||'os');
   return `
   <section class="card">
     <header><h2>Beskeder</h2><span class="note">${msgs.length} i tråden</span></header>
     <div class="compose">
       <textarea id="msgtext" placeholder="Skriv en besked til ${modpart}…"></textarea>
       <div class="crow">
-        <span class="hint">Ikke en live-chat — svar kommer i åbningstiden.</span>
+        ${kilden?'<label class="row" style="gap:5px;font-size:12.5px;color:var(--ink-60)"><input type="checkbox" id="msgInternal">Intern note (kun os — kunden ser den aldrig)</label>':'<span class="hint">Ikke en live-chat — svar kommer i åbningstiden.</span>'}
         <button class="btn primary" id="sendmsg">Send besked</button>
       </div>
     </div>
-    ${msgs.length?msgs.map(m=>`<div class="msg ${m.side}">
-      <div class="mhead"><span class="mwho">${esc(m.who)}</span><span class="row" style="gap:8px"><span class="mtime">${tid(m.ts)}</span>${state.rolle==='kilden'?`<button class="btn" data-msg-to-task="${esc((m.text||'').slice(0,80))}" style="font-size:11px;padding:2px 7px">+ Opgave</button>`:''}</span></div>
+    ${msgs.length?msgs.map(m=>`<div class="msg ${m.side} ${m.type==='note'?'internal':''}">
+      <div class="mhead"><span class="mwho">${esc(m.who)}${m.type==='note'?' <span class="chip" style="margin-left:4px"><span class="dot"></span>Intern note</span>':''}</span><span class="row" style="gap:8px"><span class="mtime">${tid(m.ts)}</span>${kilden?`<button class="btn" data-msg-to-task="${esc((m.text||'').slice(0,80))}" style="font-size:11px;padding:2px 7px">+ Opgave</button>`:''}</span></div>
       <div class="mtext">${esc(m.text||'')}</div>
     </div>`).join(''):'<div class="empty">Ingen beskeder endnu. Skriv den første ovenfor.</div>'}
   </section>`;
@@ -1159,22 +2265,61 @@ function viewBeskeder(){
 /* =========================================================
    6. RENDER + HÆNDELSER
    ========================================================= */
+function openModal(type, data){ state.modal=Object.assign({type}, data||{}); render(); }
+function closeModal(){ state.modal=null; render(); }
+/* "Mere"-arket i den mobile bundnavigation: resten af rollens faner (dem der ikke har fået deres eget
+   fast plads i bunden), som en simpel liste i den eksisterende generiske modal. */
+MODAL_RENDERERS.moreMenu = function(){
+  const primaryIds=(MOBILE_NAV_PRIMARY[state.rolle]||MOBILE_NAV_PRIMARY.kunde).map(p=>p[0]);
+  const rest=TABS[state.rolle].filter(([id])=>!primaryIds.includes(id));
+  return `
+  <h2 style="font-family:'Instrument Serif',serif;font-style:italic;font-size:24px;font-weight:400;margin:0 0 14px">Mere</h2>
+  <div style="display:flex;flex-direction:column;gap:6px">
+    ${rest.map(([id,label])=>`<button type="button" class="btn" data-mbn-goto="${id}" style="width:100%;justify-content:flex-start">${esc(label)}${id==='beskeder'&&unread(state.rolle)?` (${unread(state.rolle)})`:''}</button>`).join('')}
+  </div>
+  <div class="row" style="margin-top:14px;justify-content:flex-end"><button class="btn" data-modal-close>Luk</button></div>`;
+};
+MODAL_BINDERS.moreMenu = function(){
+  document.querySelectorAll('[data-mbn-goto]').forEach(el=>el.onclick=()=>{ state.tab=el.dataset.mbnGoto; closeModal(); });
+};
+function renderBigModal(){
+  const host=document.getElementById('bigModal');
+  const box=document.getElementById('bigModalBox');
+  if(!state.modal){ host.style.display='none'; box.innerHTML=''; return; }
+  host.style.display='flex';
+  const renderer = MODAL_RENDERERS[state.modal.type];
+  box.innerHTML = renderer ? renderer() : '';
+  document.querySelectorAll('[data-modal-close]').forEach(el=>el.onclick=closeModal);
+  const binder = MODAL_BINDERS[state.modal.type];
+  if(binder) binder();
+  if(state.previewMode) applyPreviewReadOnly();
+}
 function render(){
+  renderInner();
+  renderBigModal();
+}
+function renderInner(){
   document.getElementById('bootLoading').style.display = 'none';
+  renderMobileBottomNav();
   renderSuperadminBar();
   document.getElementById('previewBar').style.display = state.previewMode ? 'block' : 'none';
   document.getElementById('logout').style.display = '';
   document.getElementById('setPasswordBtn').style.display = '';
   document.getElementById('backToList').style.display = (state.rolle==='kilden' && (state.events||[]).length>1 && state.view==='workspace') ? '' : 'none';
   document.getElementById('switchEvent').style.display = (state.rolle==='kunde' && (state.guestEvents||[]).length>1 && state.view==='workspace') ? '' : 'none';
-  document.getElementById('fabAddTask').style.display = (state.rolle==='kilden' && state.view==='workspace') ? 'block' : 'none';
+  {
+    const fab=document.getElementById('fabAddTask');
+    const ctx = (state.rolle==='kilden' && state.view==='workspace' && !state.previewMode) ? FAB_CONTEXT[state.tab] : null;
+    fab.style.display = ctx ? 'block' : 'none';
+    if(ctx){ fab.textContent=ctx.label; fab.onclick=ctx.onClick; }
+  }
 
-  if(state.view==='picker' || state.view==='users' || state.view==='venues' || state.view==='katalog' || state.view==='opgaver' || state.view==='superadmin' || state.view==='guestPicker'){
+  if(state.view==='picker' || state.view==='users' || state.view==='venues' || state.view==='katalog' || state.view==='opgaver' || state.view==='eventskabeloner' || state.view==='superadmin' || state.view==='guestPicker'){
     document.title = 'Verta';
     document.getElementById('whoami').textContent = state.actor?('Logget ind som '+state.actor.navn):'';
     document.getElementById('orgName').textContent = state.view==='superadmin' ? '' : (state.orgName||'');
     document.getElementById('eventLoc').innerHTML='';
-    document.getElementById('heroTitle').textContent = state.view==='superadmin' ? 'Kontrolrum' : (state.view==='users' ? 'Brugere' : (state.view==='venues' ? 'Lokationer' : (state.view==='katalog' ? 'Katalog' : (state.view==='opgaver' ? 'Opgaveskabeloner' : (state.view==='guestPicker' ? 'Vælg arrangement' : 'Arrangementer')))));
+    document.getElementById('heroTitle').textContent = state.view==='superadmin' ? 'Kontrolrum' : (state.view==='users' ? 'Brugere' : (state.view==='venues' ? 'Lokationer' : (state.view==='katalog' ? 'Katalog' : (state.view==='opgaver' ? 'Opgaveskabeloner' : (state.view==='eventskabeloner' ? 'Arrangementsskabeloner' : (state.view==='guestPicker' ? 'Vælg arrangement' : 'Arrangementer'))))));
     document.getElementById('heroChips').innerHTML='';
     document.getElementById('tabs').innerHTML='';
     const v=document.getElementById('view');
@@ -1261,6 +2406,14 @@ function render(){
         onEnterSubmit(document.getElementById('ttNote'), ()=>tc.click());
       }
       v.querySelectorAll('[data-delete-task-template]').forEach(el=>el.onclick=()=>deleteTaskTemplate(el.dataset.deleteTaskTemplate));
+    } else if(state.view==='eventskabeloner'){
+      v.innerHTML=viewEventTemplates();
+      const etc=document.getElementById('etCreate'); if(etc) etc.onclick=()=>openModal('template',{templateId:null});
+      v.querySelectorAll('[data-edit-template]').forEach(el=>el.onclick=()=>openModal('template',{templateId:el.dataset.editTemplate}));
+      v.querySelectorAll('[data-duplicate-template]').forEach(el=>el.onclick=()=>duplicateTemplate(el.dataset.duplicateTemplate));
+      v.querySelectorAll('[data-archive-template]').forEach(el=>el.onclick=()=>archiveTemplate(el.dataset.archiveTemplate, true));
+      v.querySelectorAll('[data-unarchive-template]').forEach(el=>el.onclick=()=>archiveTemplate(el.dataset.unarchiveTemplate, false));
+      v.querySelectorAll('[data-use-template]').forEach(el=>el.onclick=()=>{ state.view='picker'; state.newEventFromTemplate=el.dataset.useTemplate; render(); });
     } else {
       v.innerHTML=viewPicker();
       v.querySelectorAll('[data-open]').forEach(el=>el.onclick=()=>openEvent(el.dataset.open));
@@ -1281,6 +2434,10 @@ function render(){
         state.pickerExceptionsError=false; state.pickerExceptionsLoading=true; render();
         loadPickerExceptions().catch(()=>{ state.pickerExceptionsError=true; }).finally(()=>{ state.pickerExceptionsLoading=false; render(); });
       };
+      const inboxWho=document.getElementById('inboxWho'); if(inboxWho) inboxWho.onchange=()=>{ setInboxFilter({who:inboxWho.value}); render(); };
+      const inboxKind=document.getElementById('inboxKind'); if(inboxKind) inboxKind.onchange=()=>{ setInboxFilter({kind:inboxKind.value}); render(); };
+      const inboxSortSel=document.getElementById('inboxSortSel'); if(inboxSortSel) inboxSortSel.onchange=()=>{ setInboxSort(inboxSortSel.value); render(); };
+      v.querySelectorAll('[data-goto-inbox-tab]').forEach(el=>el.addEventListener('click', ()=>{ state.pendingInboxTab=el.dataset.gotoInboxTab; }));
     }
     v.querySelectorAll('[data-nav]').forEach(el=>el.onclick=async()=>{
       state.view=el.dataset.nav;
@@ -1288,6 +2445,7 @@ function render(){
       if(state.view==='venues') await loadVenuesFull();
       if(state.view==='katalog') await loadOrgCatalog();
       if(state.view==='opgaver') await loadTaskTemplates();
+      if(state.view==='eventskabeloner') await loadOrgTemplates();
       render();
     });
     return;
@@ -1303,7 +2461,7 @@ function render(){
   if(state.tab==='beskeder') state.lastRead[state.rolle]=Date.now();
   document.getElementById('whoami').textContent='Logget ind som '+currentActor().navn;
   heroChips(); renderTabs();
-  const map={live:viewLive,oversigt:viewOversigt,gaester:viewGaester,punkter:viewPunkter,koekken:viewKoekken,log:viewLog,admin:viewAdmin,tidslinje:viewTidslinje,beskeder:viewBeskeder};
+  const map={live:viewLive,oversigt:viewOversigt,gaester:viewGaester,punkter:viewPunkter,godkendelser:viewGodkendelser,koekken:viewKoekken,kalender:viewKalender,dokumenter:viewDokumenter,log:viewLog,admin:viewAdmin,tidslinje:viewTidslinje,beskeder:viewBeskeder};
   /* "I dag"/Køkkenseddel/Log/Admin er kilden-only faner. Uden dette tjek kan et skifte til "Forhåndsvis
      som kunde" (som ændrer state.rolle, men ikke state.tab) lade en tidligere valgt kilden-fane blive
      stående og rendere sit staff-only indhold under kundens rolle — fx "I dag"s "✓ Udført"/"Registrér
@@ -1373,9 +2531,37 @@ function bind(){
     const del=tr.querySelector('[data-slet]');
     if(del) del.onclick=async()=>{
       if(!(await appConfirm('Fjern '+(g.navn||'gæsten')+' fra gæstelisten?'))) return;
-      guestMutation(()=>state.gaester=state.gaester.filter(x=>x.id!==g.id),'Gæst fjernet · '+g.navn);
+      const fjernet={...g};
+      await guestMutation(()=>state.gaester=state.gaester.filter(x=>x.id!==g.id),'Gæst fjernet · '+g.navn);
+      showToast(fjernet.navn+' er fjernet.', 'ok', {label:'Fortryd', onClick:()=>{
+        guestMutation(()=>state.gaester.push({...fjernet, id:newId()}), 'Gæst gendannet · '+fjernet.navn);
+      }});
     };
   });
+  document.querySelectorAll('[data-gsel]').forEach(el=>el.onchange=()=>{
+    if(el.checked) state.guestSel.add(el.dataset.gsel); else state.guestSel.delete(el.dataset.gsel);
+    render();
+  });
+  const gselAll=document.getElementById('gselAll'); if(gselAll) gselAll.onchange=()=>{
+    const visibleIds=[...document.querySelectorAll('[data-gsel]')].map(el=>el.dataset.gsel);
+    if(gselAll.checked) visibleIds.forEach(id=>state.guestSel.add(id));
+    else visibleIds.forEach(id=>state.guestSel.delete(id));
+    render();
+  };
+  const importGuestsBtn=document.getElementById('importGuestsBtn'); if(importGuestsBtn) importGuestsBtn.onclick=()=>openModal('import',{step:'pick'});
+  const bulkAddNamesBtn=document.getElementById('bulkAddNamesBtn'); if(bulkAddNamesBtn) bulkAddNamesBtn.onclick=()=>openModal('bulkAddNames',{});
+  const gfKat=document.getElementById('gfKat'); if(gfKat) gfKat.onchange=()=>{ state.guestBulkFilter=Object.assign({},state.guestBulkFilter,{kat:gfKat.value}); render(); };
+  const gfReception=document.getElementById('gfReception'); if(gfReception) gfReception.onchange=()=>{ state.guestBulkFilter=Object.assign({},state.guestBulkFilter,{reception:gfReception.value}); render(); };
+  const gfMiddag=document.getElementById('gfMiddag'); if(gfMiddag) gfMiddag.onchange=()=>{ state.guestBulkFilter=Object.assign({},state.guestBulkFilter,{middag:gfMiddag.value}); render(); };
+  const gfKost=document.getElementById('gfKost'); if(gfKost) gfKost.onchange=()=>{ state.guestBulkFilter=Object.assign({},state.guestBulkFilter,{kost:gfKost.value}); render(); };
+  const gfDup=document.getElementById('gfDup'); if(gfDup) gfDup.onchange=()=>{ state.guestBulkFilter=Object.assign({},state.guestBulkFilter,{dup:gfDup.checked}); render(); };
+  const bulkKat=document.getElementById('bulkKat'); if(bulkKat) bulkKat.onchange=()=>{ if(bulkKat.value) applyBulkGuestChange(g=>{g.kat=bulkKat.value; return g;}, 'Kategori sat i bulk'); };
+  const bulkReception=document.getElementById('bulkReception'); if(bulkReception) bulkReception.onchange=()=>{ if(bulkReception.value) applyBulkGuestChange(g=>{g.reception=bulkReception.value==='ja'; return g;}, 'Reception sat i bulk'); };
+  const bulkMiddag=document.getElementById('bulkMiddag'); if(bulkMiddag) bulkMiddag.onchange=()=>{ if(bulkMiddag.value) applyBulkGuestChange(g=>{g.middag=bulkMiddag.value==='ja'; return g;}, 'Middag sat i bulk'); };
+  const bulkKost=document.getElementById('bulkKost'); onEnterSubmit(bulkKost, ()=>{ if(bulkKost&&bulkKost.value.trim()) applyBulkGuestChange(g=>{g.kost=bulkKost.value.trim(); return g;}, 'Kostbehov sat i bulk'); });
+  const bulkKostClear=document.getElementById('bulkKostClear'); if(bulkKostClear) bulkKostClear.onclick=()=>applyBulkGuestChange(g=>{g.kost=''; return g;}, 'Kostbehov ryddet i bulk');
+  const bulkExport=document.getElementById('bulkExport'); if(bulkExport) bulkExport.onclick=bulkExportSelected;
+  const bulkDelete=document.getElementById('bulkDelete'); if(bulkDelete) bulkDelete.onclick=bulkDeleteGuests;
 
   document.querySelectorAll('[data-pid]').forEach(el=>{
     const p=state.punkter.find(x=>x.id===el.dataset.pid);
@@ -1386,6 +2572,45 @@ function bind(){
   document.querySelectorAll('[data-punkt-done]').forEach(el=>el.onclick=()=>updatePunktStatus(el.dataset.punktDone,'aftalt'));
   document.querySelectorAll('[data-punkt-undo]').forEach(el=>el.onclick=()=>updatePunktStatus(el.dataset.punktUndo,'mangler'));
   document.querySelectorAll('[data-live-done]').forEach(el=>el.onclick=()=>updatePunktStatus(el.dataset.liveDone,'aftalt'));
+  const apSaveDraft=document.getElementById('apSaveDraft');
+  if(apSaveDraft) apSaveDraft.onclick=async()=>{
+    const form=readApprovalForm(false);
+    const priorId=state.approvalRevisingId;
+    const id=await createOrReviseApproval(form, priorId);
+    if(id){ state.approvalRevisingId=null; render(); showToast('Gemt som kladde.','ok'); }
+  };
+  const apSendNew=document.getElementById('apSendNew');
+  if(apSendNew) apSendNew.onclick=async()=>{
+    const form=readApprovalForm(true);
+    const priorId=state.approvalRevisingId;
+    const id=await createOrReviseApproval(form, priorId);
+    if(id){ state.approvalRevisingId=null; render(); showToast('Sendt til kunden.','ok'); }
+  };
+  document.querySelectorAll('[data-approval-send]').forEach(el=>el.onclick=()=>sendApproval(el.dataset.approvalSend));
+  document.querySelectorAll('[data-approval-revoke]').forEach(el=>el.onclick=()=>revokeApproval(el.dataset.approvalRevoke));
+  document.querySelectorAll('[data-approval-revise]').forEach(el=>el.onclick=()=>{
+    state.approvalRevisingId=el.dataset.approvalRevise; render();
+    document.getElementById('apTitle')&&document.getElementById('apTitle').scrollIntoView({behavior:'smooth',block:'center'});
+  });
+  const apCancelRevise=document.getElementById('apCancelRevise'); if(apCancelRevise) apCancelRevise.onclick=()=>{ state.approvalRevisingId=null; render(); };
+  document.querySelectorAll('[data-approve]').forEach(el=>el.onclick=()=>decideApprovalWithComment(el.dataset.approve,'godkendt'));
+  document.querySelectorAll('[data-reject]').forEach(el=>el.onclick=()=>decideApprovalWithComment(el.dataset.reject,'afvist'));
+  const calRange=document.getElementById('calRange'); if(calRange) calRange.onchange=()=>{ state.calendarRange=calRange.value; loadCalendarData().then(render); };
+  const calDate=document.getElementById('calDate'); if(calDate) calDate.onchange=()=>{ state.calendarDate=calDate.value; loadCalendarData().then(render); };
+  const calPrev=document.getElementById('calPrev'); if(calPrev) calPrev.onclick=()=>{ state.calendarDate=addDays(calendarRangeStart(), state.calendarRange==='dag'?-1:-7); loadCalendarData().then(render); };
+  const calNext=document.getElementById('calNext'); if(calNext) calNext.onclick=()=>{ state.calendarDate=addDays(calendarRangeStart(), state.calendarRange==='dag'?1:7); loadCalendarData().then(render); };
+  const calToday=document.getElementById('calToday'); if(calToday) calToday.onclick=()=>{ state.calendarDate=todayIso(); loadCalendarData().then(render); };
+  const calRoomSel=document.getElementById('calRoomSel'); if(calRoomSel) calRoomSel.onchange=()=>{ state.calendarRoomId=calRoomSel.value; render(); };
+  const calRetry=document.getElementById('calRetry'); if(calRetry) calRetry.onclick=()=>loadCalendarData().then(render);
+
+  document.querySelectorAll('[data-doc-open]').forEach(el=>el.onclick=()=>{ state.docPreview=el.dataset.docOpen; render(); });
+  const docBack=document.querySelector('[data-doc-back]'); if(docBack) docBack.onclick=()=>{ state.docPreview=null; render(); };
+  const docPrint=document.querySelector('[data-doc-print]'); if(docPrint) docPrint.onclick=()=>window.print();
+  const docExport=document.querySelector('[data-doc-export]'); if(docExport) docExport.onclick=()=>docExportCsv();
+  const crSend=document.getElementById('crSend'); if(crSend) crSend.onclick=submitGuestChangeRequest;
+  document.querySelectorAll('[data-cr-accept]').forEach(el=>el.onclick=()=>acceptChangeRequest(el.dataset.crAccept));
+  document.querySelectorAll('[data-cr-reject]').forEach(el=>el.onclick=()=>rejectChangeRequest(el.dataset.crReject));
+  document.querySelectorAll('[data-cr-approval]').forEach(el=>el.onclick=()=>createApprovalFromChangeRequest(el.dataset.crApproval));
   const liveSend=document.getElementById('liveProblemSend');
   if(liveSend){
     liveSend.onclick=()=>{
@@ -1424,7 +2649,9 @@ function bind(){
       const note=document.getElementById('pkNote').value;
       const fileEl=document.getElementById('pkFile');
       const file=fileEl&&fileEl.files[0]||null;
-      createPunkt(titel, ejer, frist, note, file).then(()=>{
+      const prioEl=document.getElementById('pkPrioritet');
+      const assEl=document.getElementById('pkAssignee');
+      createPunkt(titel, ejer, frist, note, file, prioEl?prioEl.value:'normal', assEl?assEl.value:'').then(()=>{
         const t=document.getElementById('pkTitel'); if(t) t.value='';
         const n=document.getElementById('pkNote'); if(n) n.value='';
         if(fileEl) fileEl.value='';
@@ -1433,6 +2660,10 @@ function bind(){
     onEnterSubmit(document.getElementById('pkTitel'), ()=>pkOpret.click());
     onEnterSubmit(document.getElementById('pkNote'), ()=>pkOpret.click());
   }
+  const pfWho=document.getElementById('pfWho');
+  if(pfWho) pfWho.onchange=()=>{ state.punkterFilter=Object.assign({},state.punkterFilter,{who:pfWho.value}); render(); };
+  const pfPrioritet=document.getElementById('pfPrioritet');
+  if(pfPrioritet) pfPrioritet.onchange=()=>{ state.punkterFilter=Object.assign({},state.punkterFilter,{prioritet:pfPrioritet.value}); render(); };
 
   const fT=document.getElementById('fType'); if(fT) fT.onchange=()=>{state.logType=fT.value;render();};
   const fW=document.getElementById('fWho');  if(fW) fW.onchange=()=>{state.logWho=fW.value;render();};
@@ -1450,6 +2681,12 @@ function bind(){
   }
   const fLSClear=document.getElementById('fLogSearchClear'); if(fLSClear) fLSClear.onclick=()=>{ state.logSearch=''; render(); document.getElementById('fLogSearch').focus(); };
   const fTech=document.getElementById('fLogTech'); if(fTech) fTech.onchange=()=>{state.logShowTech=fTech.checked;render();};
+  const fCollapse=document.getElementById('fLogCollapse'); if(fCollapse) fCollapse.onchange=()=>{state.logCollapseViews=fCollapse.checked;render();};
+  document.querySelectorAll('[data-log-view-group]').forEach(el=>el.ontoggle=()=>{
+    if(el.open) state.openLogViewGroups.add(el.dataset.logViewGroup);
+    else state.openLogViewGroups.delete(el.dataset.logViewGroup);
+  });
+  document.querySelectorAll('[data-goto-log]').forEach(el=>el.onclick=()=>gotoLogEntry(Number(el.dataset.gotoLog)));
   const logExport=document.getElementById('logExport');
   if(logExport) logExport.onclick=()=>{
     if(logExport.disabled) return;
@@ -1466,8 +2703,14 @@ function bind(){
     }
   };
 
+  document.querySelectorAll('[data-mbn]').forEach(el=>el.onclick=()=>{
+    const id=el.dataset.mbn;
+    if(id==='more') openModal('moreMenu',{});
+    else { state.tab=id; state.soeg=''; render(); }
+  });
+
   const sm=document.getElementById('sendmsg');
-  if(sm) sm.onclick=()=>{const ta=document.getElementById('msgtext');const t=ta.value.trim();if(!t)return;pushMessage(t);render();};
+  if(sm) sm.onclick=()=>{const ta=document.getElementById('msgtext');const t=ta.value.trim();if(!t)return;const intEl=document.getElementById('msgInternal');pushMessage(t, !!(intEl&&intEl.checked));render();};
   document.querySelectorAll('[data-msg-to-task]').forEach(el=>el.onclick=()=>openTaskModal(el.dataset.msgToTask));
 
   const ca=document.getElementById('coordAdd');
@@ -1478,13 +2721,21 @@ function bind(){
   if(cta) cta.onclick=()=>{const sel=document.getElementById('catalogSel');if(sel.value)addCatalogToEvent(sel.value);};
   document.querySelectorAll('[data-remove-catalog]').forEach(b=>{ b.onclick=()=>removeCatalogFromEvent(b.dataset.removeCatalog); });
 
+  const ownerSel=document.getElementById('ownerSel'); if(ownerSel) ownerSel.onchange=()=>updateEventOwnership('owner', ownerSel.value);
+  const secondarySel=document.getElementById('secondarySel'); if(secondarySel) secondarySel.onchange=()=>updateEventOwnership('secondary', secondarySel.value);
+  const dayOfSel=document.getElementById('dayOfSel'); if(dayOfSel) dayOfSel.onchange=()=>updateEventOwnership('dayOf', dayOfSel.value);
+  const handoverBtn=document.getElementById('handoverBtn'); if(handoverBtn) handoverBtn.onclick=()=>openModal('handover',{});
+  const dupBtn=document.getElementById('duplicateEventBtn'); if(dupBtn) dupBtn.onclick=()=>openModal('duplicate',{});
+  const satBtn=document.getElementById('saveAsTemplateBtn'); if(satBtn) satBtn.onclick=()=>openModal('saveTemplate',{});
   const es=document.getElementById('edSave'); if(es){ es.onclick=updateEventDetails;
     onEnterSubmit(document.getElementById('edTitle'), ()=>es.click());
     onEnterSubmit(document.getElementById('edPrice'), ()=>es.click());
   }
 
-  document.querySelectorAll('[data-goto-tab]').forEach(el=>el.onclick=()=>{state.tab=el.dataset.gotoTab; render();});
+  document.querySelectorAll('[data-goto-tab]').forEach(el=>el.onclick=(e)=>{e.preventDefault(); state.tab=el.dataset.gotoTab; render();});
   const wd=document.getElementById('welcomeDismiss'); if(wd) wd.onclick=()=>{state.guestWelcome=false; render();};
+  const matchOfferBtn=document.getElementById('matchOfferBtn'); if(matchOfferBtn) matchOfferBtn.onclick=matchOfferToComputed;
+  const priceDetail=document.querySelector('[data-price-detail]'); if(priceDetail) priceDetail.onclick=()=>{state.tab='admin'; render();};
 
   const glGen=document.getElementById('guestLinkGen');
   if(glGen){
@@ -1605,7 +2856,7 @@ function renderSuperadminBar(){
    ========================================================= */
 const gFromDb = r => ({id:r.id, navn:r.name, kat:r.category, reception:r.reception, middag:r.dinner, kost:r.dietary||''});
 const gToDb   = (g,i) => ({id:g.id, event_id:state.eventId, name:g.navn, category:g.kat, reception:g.reception, dinner:g.middag, dietary:g.kost, sort_order:i});
-const pFromDb = r => ({id:r.id, titel:r.title, ejer:r.owner, status:r.status, frist:r.due_date||'', note:r.note||''});
+const pFromDb = r => ({id:r.id, titel:r.title, ejer:r.owner, status:r.status, frist:r.due_date||'', note:r.note||'', assignedStaffId:r.assigned_staff_id||'', prioritet:r.priority||'normal'});
 const logFromDb = r => ({id:r.id, ts:new Date(r.ts).getTime(), side:r.actor_side, who:r.actor_name, type:r.entry_type, area:r.area, label:r.label, from:r.from_val, to:r.to_val, cust:r.customer_visible, friendly:r.friendly, text:r.message_text, ip:r.ip_address||''});
 const logToDb   = e => ({event_id:state.eventId, ts:new Date(e.ts).toISOString(), actor_name:e.who, actor_side:e.side, entry_type:e.type, area:e.area, label:e.label||'', from_val:e.from||'', to_val:e.to||'', customer_visible:!!e.cust, friendly:e.friendly||'', message_text:e.text||''});
 
@@ -1647,18 +2898,19 @@ async function cloudBoot(user){
   const {data:st}=await sb.from('staff').select('*').eq('id',user.id).maybeSingle();
   if(st){
     state.rolle='kilden'; state.actor={navn:st.name, side:'kilden'}; state.isAdmin=(st.role==='admin'); state.orgId=st.org_id;
-    const [{data:orgRow},{data:vens},{count:catCount},{count:staffCnt},{data:evs}] = await Promise.all([
+    const [{data:orgRow},{data:vens},{count:catCount},{data:rosterRows},{data:evs}] = await Promise.all([
       sb.from('organisations').select('name,onboarding_dismissed').eq('id',st.org_id).maybeSingle(),
       sb.from('venues').select('id,name').eq('org_id',st.org_id).order('name'),
       sb.from('catalog_items').select('id',{count:'exact',head:true}).eq('org_id',st.org_id),
-      sb.from('staff').select('id',{count:'exact',head:true}).eq('org_id',st.org_id),
-      sb.from('events').select('id,title,event_date,status,offer_total_kr,event_type,venues(name)').order('event_date',{ascending:false})
+      sb.from('staff').select('id,name').eq('org_id',st.org_id),
+      sb.from('events').select('id,title,event_date,status,offer_total_kr,event_type,owner_staff_id,venues(name)').order('event_date',{ascending:false})
     ]);
     state.orgName=orgRow?orgRow.name:'';
     state.orgOnboardingDismissed=!!(orgRow&&orgRow.onboarding_dismissed);
     state.venues=vens||[];
     state.orgCatalogCount=catCount||0;
-    state.orgStaffCount=staffCnt||0;
+    state.roster=rosterRows||[];
+    state.orgStaffCount=(rosterRows||[]).length;
     state.events=evs||[];
     if(state.events.length===1) openEvent(state.events[0].id); else showPicker();
     return;
@@ -1752,7 +3004,7 @@ async function enterOrgAsSuperadmin(orgId){
     sb.from('venues').select('id,name').eq('org_id',orgId).order('name'),
     sb.from('catalog_items').select('id',{count:'exact',head:true}).eq('org_id',orgId),
     sb.from('staff').select('id',{count:'exact',head:true}).eq('org_id',orgId),
-    sb.from('events').select('id,title,event_date,status,offer_total_kr,event_type,venues(name)').eq('org_id',orgId).order('event_date',{ascending:false}),
+    sb.from('events').select('id,title,event_date,status,offer_total_kr,event_type,owner_staff_id,venues(name)').eq('org_id',orgId).order('event_date',{ascending:false}),
     sb.from('staff').select('id,name').eq('org_id',orgId).order('name')
   ]);
   state.orgOnboardingDismissed=!!(orgRow&&orgRow.onboarding_dismissed);
@@ -1855,15 +3107,17 @@ async function openEvent(id){
     sb.from('agenda_items').select('*').eq('event_id',id).order('sort_order'),
     sb.from('activity_log').select('*').eq('event_id',id).order('ts',{ascending:false})
   ]);
-  if(ev){ state.offerTotal=ev.offer_total_kr; state.eventDate=ev.event_date; state.eventTitle=ev.title; state.venueName=ev.venues?ev.venues.name:''; state.venueId=ev.venue_id; state.orgName=ev.organisations?ev.organisations.name:(state.orgName||''); state.ownerStaffId=ev.owner_staff_id; state.eventType=ev.event_type; state.status=ev.status; }
+  if(ev){ state.offerTotal=ev.offer_total_kr; state.eventDate=ev.event_date; state.eventTitle=ev.title; state.venueName=ev.venues?ev.venues.name:''; state.venueId=ev.venue_id; state.orgName=ev.organisations?ev.organisations.name:(state.orgName||''); state.ownerStaffId=ev.owner_staff_id; state.secondaryStaffId=ev.secondary_staff_id; state.dayOfOwnerStaffId=ev.day_of_owner_staff_id; state.eventType=ev.event_type; state.status=ev.status; }
   state.gaester=(gs||[]).map(gFromDb);
   state.punkter=(ps||[]).map(pFromDb);
   state.log=(lg||[]).map(logFromDb);
   state._dbG=new Set(state.gaester.map(g=>g.id));
-  await Promise.all([loadRooms(id), loadCatalog(id), loadAgendaNotes(id)]);
+  state.approvalRevisingId=null;
+  state.docPreview=null;
+  await Promise.all([loadRooms(id), loadCatalog(id), loadAgendaNotes(id), loadApprovals(id), loadChangeRequests(id)]);
   if(state.rolle==='kilden'){ await Promise.all([loadEventStaff(), loadOrgCatalog(), loadEventGuestAccesses(id)]); logCloudView(); }
   else { const {data:contact}=await sb.rpc('get_event_contact',{target_event:id}); state.contactName=contact||''; logCloudView(); }
-  state.view='workspace'; state.tab='oversigt';
+  state.view='workspace'; state.tab = state.pendingInboxTab || 'oversigt'; state.pendingInboxTab=null;
   showApp(); render();
   subscribeRealtime(id);
 }
@@ -2001,9 +3255,10 @@ const CAT_EVENT_TYPES = ['bryllup','firmafest','konference','teambuilding','ande
 const EVENT_STATUSES = [['kladde','Kladde'],['tilbud','Tilbud'],['bekræftet','Bekræftet'],['afviklet','Afviklet']];
 function statusStepsHtml(status, eventId, interactive){
   const idx = EVENT_STATUSES.findIndex(([v])=>v===status);
+  const tag = interactive ? 'button' : 'span';
   return `<div class="statussteps">${EVENT_STATUSES.map(([v,label],i)=>
-    `<span class="sstep ${interactive?'interactive':''} ${i<idx?'done':i===idx?'current':''}"
-      ${interactive?`data-set-status="${eventId}|${v}"`:''}>${label}</span>`).join('')}</div>`;
+    `<${tag} class="sstep ${interactive?'interactive':''} ${i<idx?'done':i===idx?'current':''}"
+      ${interactive?`type="button" data-set-status="${eventId}|${v}" aria-current="${i===idx?'step':'false'}"`:''}>${label}</${tag}>`).join('')}</div>`;
 }
 async function loadOrgCatalog(){
   const {data}=await sb.from('catalog_items').select('*, catalog_item_rooms(room_id)').eq('org_id',state.orgId).order('category').order('sort_order');
@@ -2105,24 +3360,32 @@ function computeEventTotal(guestRows, catalogRows){
   });
   return total;
 }
-/* Henter, på tværs af alle arrangementer i org'en, det der skal til for at afgøre om et arrangement
-   "kræver handling" lige nu: overskredne/nærtstående opgavefrister, manglende lokale, manglende gæstelink,
-   og om det beregnede beløb afviger fra tilbuddet. Bevidst afgrænset til data, der kan hentes billigt i bulk —
-   se "Kendte begrænsninger" i changelog for hvad der ikke er dækket (kundebeskeder kræver en server-side
-   "sidst læst"-markør, som ikke findes i skemaet i dag). */
+/* Prioriteringsmodel for arbejdsindbakken (dokumenteret, ikke kun farve — hver reason har en "tier"
+   der også vises som tekst): 1 Overskredet/kritisk, 2 Kræver medarbejderhandling, 3 Afventer kunde tæt
+   på frist, 4 Kommende, 5 Information. Farve er kun et supplement (chip har altid tekst + dot). */
+const INBOX_TIER_LABEL = {1:'Overskredet/kritisk', 2:'Kræver handling', 3:'Afventer kunde', 4:'Kommende', 5:'Information'};
+/* Henter, på tværs af alle arrangementer i org'en, hvad der reelt kræver en næste handling: overskredne/
+   nærtstående opgavefrister, godkendelser der afventer/er afvist, ubehandlede ændringsforslag, manglende
+   lokale/gæstelink/ansvarlig, og prisafvigelser. Bevidst afgrænset til data, der kan hentes billigt i
+   bulk (én runde forespørgsler, ikke én pr. arrangement) — kundebeskeder som selvstændig undtagelse er
+   bevidst UDELADT: det kræver en server-side "sidst læst af medarbejder"-markør pr. arrangement, som ikke
+   findes i skemaet i dag (ville kræve en skemaændring ud over denne opgaves omfang). */
 async function loadPickerExceptions(){
   const ids=(state.events||[]).map(e=>e.id);
   state.eventExceptions={};
   if(!ids.length) return;
-  const [{data:tasks},{data:rooms},{data:access},{data:guests},{data:catLinks}] = await Promise.all([
-    sb.from('agenda_items').select('event_id,status,due_date').in('event_id',ids),
+  const [{data:tasks},{data:rooms},{data:access},{data:guests},{data:catLinks},{data:approvals},{data:changeReqs}] = await Promise.all([
+    sb.from('agenda_items').select('event_id,status,due_date,assigned_staff_id,priority').in('event_id',ids),
     sb.from('event_rooms').select('event_id,room_id,start_time,end_time').in('event_id',ids),
     sb.from('event_access').select('event_id').in('event_id',ids),
     sb.from('guests').select('event_id,category,reception,dinner').in('event_id',ids),
-    sb.from('event_catalog_items').select('event_id,catalog_items(price_kr,basis,child_half)').in('event_id',ids)
+    sb.from('event_catalog_items').select('event_id,catalog_items(price_kr,basis,child_half)').in('event_id',ids),
+    sb.from('event_approvals').select('event_id,status,title,due_at').in('event_id',ids),
+    sb.from('event_change_requests').select('event_id,status').in('event_id',ids)
   ]);
   const byEvent = (rows,key) => { const m={}; (rows||[]).forEach(r=>{ (m[r.event_id]=m[r.event_id]||[]).push(key?r[key]:r); }); return m; };
   const tasksByEvent=byEvent(tasks), roomsByEvent=byEvent(rooms), accessByEvent=byEvent(access), guestsByEvent=byEvent(guests), catByEvent=byEvent(catLinks);
+  const approvalsByEvent=byEvent(approvals), crByEvent=byEvent(changeReqs);
   const today=new Date().toISOString().slice(0,10);
   const in7=addDays(today,7);
   const out={}; const nextDue={};
@@ -2132,38 +3395,79 @@ async function loadPickerExceptions(){
     if(openTasks.length) nextDue[ev.id]=openTasks.map(t=>t.due_date).sort()[0];
     const overdue=openTasks.filter(t=>t.due_date<today);
     const soon=openTasks.filter(t=>t.due_date>=today && t.due_date<=in7);
-    if(overdue.length) reasons.push({txt:overdue.length+' opgave'+(overdue.length>1?'r':'')+' er overskredet', urgent:true});
-    else if(soon.length) reasons.push({txt:soon.length+' opgave'+(soon.length>1?'r':'')+' har frist inden for 7 dage', urgent:false});
+    if(overdue.length) reasons.push({txt:overdue.length+' opgave'+(overdue.length>1?'r':'')+' er overskredet', urgent:true, tier:1, kind:'task', who:'organisationen', actionLabel:'Se opgaver', actionTab:'punkter'});
+    else if(soon.length) reasons.push({txt:soon.length+' opgave'+(soon.length>1?'r':'')+' har frist inden for 7 dage', urgent:false, tier:4, kind:'task', who:'organisationen', actionLabel:'Se opgaver', actionTab:'punkter'});
+    if(!ev.owner_staff_id) reasons.push({txt:'Ingen ansvarlig medarbejder', urgent:true, tier:2, kind:'ejer', who:'organisationen', actionLabel:'Tilknyt medarbejder', actionTab:'admin'});
+    (approvalsByEvent[ev.id]||[]).forEach(a=>{
+      if(a.status==='afventer'){
+        const dueSoon = a.due_at && a.due_at.slice(0,10)<=in7;
+        reasons.push({txt:'Godkendelse afventer kunden: '+a.title, urgent:!!(a.due_at&&a.due_at.slice(0,10)<today), tier:dueSoon?3:4, kind:'godkendelse', who:'kunde', actionLabel:'Åbn godkendelse', actionTab:'godkendelser'});
+      } else if(a.status==='afvist'){
+        reasons.push({txt:'Godkendelse afvist: '+a.title, urgent:true, tier:2, kind:'godkendelse', who:'organisationen', actionLabel:'Åbn godkendelse', actionTab:'godkendelser'});
+      }
+    });
+    const pendingCr=(crByEvent[ev.id]||[]).filter(c=>c.status==='pending');
+    if(pendingCr.length) reasons.push({txt:pendingCr.length+' ændringsforslag afventer behandling', urgent:false, tier:2, kind:'aendringsforslag', who:'organisationen', actionLabel:'Se ændringsforslag', actionTab:'gaester'});
     if(ev.status==='tilbud'||ev.status==='bekræftet'){
       const rr=roomsByEvent[ev.id]||[];
-      if(!rr.length || rr.some(r=>!r.room_id||!r.start_time||!r.end_time)) reasons.push({txt:'Lokale eller tidspunkt mangler', urgent:false});
-      if(!(accessByEvent[ev.id]||[]).length) reasons.push({txt:'Gæstelink er ikke oprettet endnu', urgent:false});
+      if(!rr.length || rr.some(r=>!r.room_id||!r.start_time||!r.end_time)) reasons.push({txt:'Lokale eller tidspunkt mangler', urgent:false, tier:2, kind:'lokale', who:'organisationen', actionLabel:'Vælg lokale', actionTab:'oversigt'});
+      if(!(accessByEvent[ev.id]||[]).length) reasons.push({txt:'Gæstelink er ikke oprettet endnu', urgent:false, tier:4, kind:'gaestelink', who:'organisationen', actionLabel:'Del med gæsten', actionTab:'oversigt'});
     }
     if(ev.status==='kladde'){
       const d=dageTil(ev.event_date);
-      if(d>=0 && d<=30) reasons.push({txt:'Arrangementet nærmer sig, men er stadig en kladde', urgent:d<=7});
+      if(d>=0 && d<=30) reasons.push({txt:'Arrangementet nærmer sig, men er stadig en kladde', urgent:d<=7, tier:d<=7?1:4, kind:'status', who:'organisationen', actionLabel:'Se arrangement', actionTab:'oversigt'});
     }
     const catRows=(catByEvent[ev.id]||[]).map(c=>c.catalog_items).filter(Boolean);
     if(catRows.length){
       const beregnet=computeEventTotal(guestsByEvent[ev.id], catRows);
       const diff=beregnet-(ev.offer_total_kr||0);
-      if(Math.abs(diff)>=50) reasons.push({txt:'Pris er '+kr(Math.abs(diff))+(diff>0?' over':' under')+' tilbuddet', urgent:false});
+      if(Math.abs(diff)>=50) reasons.push({txt:'Pris er '+kr(Math.abs(diff))+(diff>0?' over':' under')+' tilbuddet', urgent:false, tier:2, kind:'pris', who:'organisationen', actionLabel:'Gennemgå pris', actionTab:'oversigt'});
+    }
+    const d=dageTil(ev.event_date);
+    if(d>=0 && d<=3 && ev.status!=='afviklet' && reasons.some(r=>r.tier<=2)){
+      reasons.unshift({txt:'Arrangementet er om '+d+' dage og er ikke klar', urgent:true, tier:1, kind:'nær-afvikling', who:'organisationen', actionLabel:'Åbn arrangement', actionTab:'live'});
     }
     if(reasons.length) out[ev.id]=reasons;
   });
   state.eventExceptions=out;
   state.eventNextDue=nextDue;
 }
+function setInboxFilter(patch){
+  state.inboxFilter=Object.assign({}, state.inboxFilter, patch);
+  localStorage.setItem('verta_inbox_filter', JSON.stringify(state.inboxFilter));
+}
+function setInboxSort(v){
+  state.inboxSort=v;
+  localStorage.setItem('verta_inbox_sort', v);
+}
 async function loadRooms(id){
-  const {data:er}=await sb.from('event_rooms').select('id, label, room_id, start_time, end_time, sort_order, rooms(name)').eq('event_id',id).order('sort_order');
-  state.phases=(er||[]).map(r=>({id:r.id, label:r.label, roomId:r.room_id, roomName:r.rooms?r.rooms.name:'', start:(r.start_time||'').slice(0,5), end:(r.end_time||'').slice(0,5)}));
+  const {data:er}=await sb.from('event_rooms').select('id, label, room_id, start_time, end_time, sort_order, setup_minutes, teardown_minutes, booking_status, rooms(name)').eq('event_id',id).order('sort_order');
+  state.phases=(er||[]).map(r=>({id:r.id, label:r.label, roomId:r.room_id, roomName:r.rooms?r.rooms.name:'', start:(r.start_time||'').slice(0,5), end:(r.end_time||'').slice(0,5), setupMinutes:r.setup_minutes||0, teardownMinutes:r.teardown_minutes||0, bookingStatus:r.booking_status||'bekræftet'}));
   if(state.rolle==='kilden' && state.venueId){
-    const {data:vr}=await sb.from('rooms').select('id,name').eq('venue_id',state.venueId).order('sort_order');
+    /* capacity_max var oprindeligt udeladt her — checkCapacityBeforeSave() slog derfor ALDRIG til,
+       fordi room.capacity_max altid var undefined. Rettet som en del af driftsdokumenterne, der også
+       har brug for kapacitetstallet (lokalebestilling). */
+    const {data:vr}=await sb.from('rooms').select('id,name,capacity_max').eq('venue_id',state.venueId).order('sort_order');
     state.venueRooms=vr||[];
   }
 }
+/* Konflikttjek for direkte tidsoverlap (inkl. opsætning/oprydning) håndhæves allerede server-side af
+   check_room_conflict()-triggeren og vises via den kastede fejlbesked nedenfor. Kapacitetsoverskridelse
+   er derimod ikke en hård databaseregel (et lokale kan reelt godt bruges lidt over nominel kapacitet) —
+   den vises i stedet som en bekræftelse HER, før gemning, jf. kravet om at vise konflikten før gemning. */
+async function checkCapacityBeforeSave(roomId){
+  if(!roomId) return true;
+  const room=(state.venueRooms||[]).find(r=>r.id===roomId);
+  if(!room || !room.capacity_max) return true;
+  const guestTotal=antal().reception.total; // konservativt: største af reception/middag ville også være rimeligt, reception er typisk størst
+  if(guestTotal>room.capacity_max){
+    return await appConfirm('Kapacitetsoverskridelse: '+esc(room.name)+' har plads til '+room.capacity_max+', men arrangementet har '+guestTotal+' gæster til reception. Fortsæt alligevel?');
+  }
+  return true;
+}
 async function addPhase(label, roomId, startTime, endTime){
   if(!label.trim()){ showToast('Skriv et navn på fasen.', 'error'); return; }
+  if(!(await checkCapacityBeforeSave(roomId))) return;
   const sortOrder=(state.phases||[]).length;
   const {error}=await mutate(()=>sb.from('event_rooms').insert({event_id:state.eventId, label:label.trim(), room_id:roomId||null, start_time:startTime||null, end_time:endTime||null, sort_order:sortOrder}));
   if(error){ showToast('Kunne ikke tilføje fase: '+error.message, 'error'); return; }
@@ -2172,6 +3476,7 @@ async function addPhase(label, roomId, startTime, endTime){
 }
 async function updatePhase(id, label, roomId, startTime, endTime){
   if(!label.trim()){ showToast('Skriv et navn på fasen.', 'error'); return; }
+  if(!(await checkCapacityBeforeSave(roomId))) return;
   const {error}=await mutate(()=>sb.from('event_rooms').update({label:label.trim(), room_id:roomId||null, start_time:startTime||null, end_time:endTime||null}).eq('id',id));
   if(error){ showToast('Kunne ikke gemme fase: '+error.message, 'error'); await loadRooms(state.eventId); render(); return; }
   pushLog({area:'system', label:'Fase · '+label.trim(), from:'', to:(state.venueRooms.find(r=>r.id===roomId)||{}).name||'—', cust:false});
@@ -2200,6 +3505,70 @@ async function removeCoordinator(sid){
   pushLog({area:'system', label:'Medarbejder fjernet', from:nm, to:'', cust:false});
   await loadEventStaff(); render();
 }
+const OWNERSHIP_FIELD_DB={owner:'owner_staff_id', secondary:'secondary_staff_id', dayOf:'day_of_owner_staff_id'};
+const OWNERSHIP_FIELD_STATE={owner:'ownerStaffId', secondary:'secondaryStaffId', dayOf:'dayOfOwnerStaffId'};
+const OWNERSHIP_FIELD_LABEL={owner:'Primær koordinator', secondary:'Sekundær koordinator', dayOf:'Ansvarlig på dagen'};
+async function updateEventOwnership(field, staffId){
+  const dbField=OWNERSHIP_FIELD_DB[field];
+  const {error}=await mutate(()=>sb.from('events').update({[dbField]:staffId||null}).eq('id',state.eventId));
+  if(error){ showToast('Kunne ikke opdatere: '+error.message,'error'); return; }
+  state[OWNERSHIP_FIELD_STATE[field]]=staffId||null;
+  const nm=staffId?(state.roster.find(r=>r.id===staffId)||{}).name:'—';
+  pushLog({area:'system', label:OWNERSHIP_FIELD_LABEL[field], to:nm||'—', cust:false});
+  render();
+}
+/* Der skal altid være mindst én admin, som kan overtage et arrangement — sikret strukturelt af RLS
+   (event_update tillader is_org_staff, som er sandt for enhver admin i organisationen uanset
+   owner_staff_id), ikke af selve overdragelsesfunktionen. Overdragelse er derfor blot et ejerskifte;
+   adgangen for andre admins er upåvirket og kræver ingen særskilt "mindst én admin tilbage"-logik her. */
+async function handoverEvent(newOwnerId, moveTasks, note){
+  const oldOwnerName=(state.roster.find(r=>r.id===state.ownerStaffId)||{}).name||'ingen';
+  const newOwnerName=(state.roster.find(r=>r.id===newOwnerId)||{}).name||'—';
+  const {error}=await mutate(()=>sb.from('events').update({owner_staff_id:newOwnerId}).eq('id',state.eventId));
+  if(error){ showToast('Kunne ikke overdrage: '+error.message,'error'); return false; }
+  const {error:staffErr}=await mutate(()=>sb.from('event_staff').upsert({event_id:state.eventId, staff_id:newOwnerId}, {onConflict:'event_id,staff_id'}));
+  if(staffErr) console.error('handover event_staff', staffErr);
+  state.ownerStaffId=newOwnerId;
+  if(moveTasks){
+    const openIds=state.punkter.filter(p=>p.status!=='aftalt').map(p=>p.id);
+    if(openIds.length){
+      const {error:taskErr}=await mutate(()=>sb.from('agenda_items').update({assigned_staff_id:newOwnerId}).in('id',openIds));
+      if(taskErr) showToast('Overdraget, men kunne ikke flytte alle åbne opgaver: '+taskErr.message,'error');
+    }
+  }
+  pushLog({area:'system', label:'Arrangement overdraget', from:oldOwnerName, to:newOwnerName, cust:false, friendly:'Arrangementet blev overdraget fra '+oldOwnerName+' til '+newOwnerName+(note?' ("'+note+'")':'')});
+  await loadEventStaff();
+  if(moveTasks) await reloadPunkter();
+  return true;
+}
+MODAL_RENDERERS.handover = function(){
+  const currentName=(state.roster.find(r=>r.id===state.ownerStaffId)||{}).name||'Ingen';
+  return `
+  <h2 style="font-family:'Instrument Serif',serif;font-style:italic;font-size:24px;font-weight:400;margin:0 0 14px">Overdrag arrangement</h2>
+  <div class="stat"><span>Nuværende ejer</span><b>${esc(currentName)}</b></div>
+  <div class="field" style="margin-top:10px"><label for="hoNewOwner">Ny ejer</label><select id="hoNewOwner" class="search" style="width:100%">
+    <option value="">Vælg…</option>
+    ${(state.roster||[]).filter(r=>r.id!==state.ownerStaffId).map(r=>`<option value="${r.id}">${esc(r.name)}</option>`).join('')}
+  </select></div>
+  <label class="row" style="gap:6px;margin-top:10px"><input type="checkbox" id="hoMoveTasks" checked>Flyt også åbne opgaver til den nye ejer</label>
+  <div class="field" style="margin-top:10px"><label for="hoNote">Note (valgfri)</label><input id="hoNote" class="search" style="width:100%"></div>
+  <div class="row" style="margin-top:14px;justify-content:flex-end;gap:8px">
+    <button class="btn" data-modal-close>Annullér</button>
+    <button class="btn primary" id="hoConfirm">Bekræft overdragelse</button>
+  </div>`;
+};
+MODAL_BINDERS.handover = function(){
+  document.getElementById('hoConfirm').onclick=async()=>{
+    const newOwnerId=document.getElementById('hoNewOwner').value;
+    if(!newOwnerId){ showToast('Vælg en ny ejer.','error'); return; }
+    const moveTasks=document.getElementById('hoMoveTasks').checked;
+    const note=document.getElementById('hoNote').value.trim();
+    const newOwnerName=(state.roster.find(r=>r.id===newOwnerId)||{}).name||'';
+    if(!(await appConfirm('Overdrag arrangementet til '+newOwnerName+'?'+(moveTasks?' Åbne opgaver flyttes også.':'')))) return;
+    const ok=await handoverEvent(newOwnerId, moveTasks, note);
+    if(ok){ closeModal(); showToast('Arrangement overdraget.','ok'); }
+  };
+};
 async function setEventStatus(id, status){
   const from=state.status;
   if(status===from) return;
@@ -2207,14 +3576,18 @@ async function setEventStatus(id, status){
   const toIdx=EVENT_STATUSES.findIndex(([v])=>v===status);
   if(toIdx<fromIdx){
     const label=(EVENT_STATUSES.find(([v])=>v===status)||[])[1]||status;
-    if(!(await appConfirm('Sæt status tilbage til "'+label+'"? Det er et skridt tilbage i processen.'))) return;
+    const guestLockChange = ['bekræftet','afviklet'].includes(from) && !['bekræftet','afviklet'].includes(status);
+    const forklaring = guestLockChange
+      ? ' Gæsten får igen direkte redigeringsadgang til gæstelisten — allerede indsendte ændringsforslag berøres ikke.'
+      : '';
+    if(!(await appConfirm('Sæt status tilbage til "'+label+'"? Det er et skridt tilbage i processen.'+forklaring))) return;
   }
   const {error}=await mutate(()=>sb.from('events').update({status}).eq('id',id));
   if(error){ showToast('Kunne ikke ændre status: '+error.message,'error'); return; }
   state.status=status;
   const statusTxt=(EVENT_STATUSES.find(([v])=>v===status)||[])[1]||status;
   pushLog({area:'system', label:'Status', from, to:status, cust:true, friendly:'Status ændret til '+statusTxt});
-  const {data:evs}=await sb.from('events').select('id,title,event_date,status,offer_total_kr,event_type,venues(name)').eq('org_id',state.orgId).order('event_date',{ascending:false});
+  const {data:evs}=await sb.from('events').select('id,title,event_date,status,offer_total_kr,event_type,owner_staff_id,venues(name)').eq('org_id',state.orgId).order('event_date',{ascending:false});
   state.events=evs||[];
   render();
   showToast('Status ændret til '+statusTxt,'ok');
@@ -2263,9 +3636,9 @@ async function updatePunktStatus(id, status){
   render();
   flashSaved(`[data-pid="${id}"]`);
 }
-async function createPunkt(titel, ejer, frist, note, file){
+async function createPunkt(titel, ejer, frist, note, file, prioritet, assignedStaffId){
   if(!titel.trim()){ showToast('Skriv en titel.','error'); return; }
-  const {data,error}=await mutate(()=>sb.from('agenda_items').insert({event_id:state.eventId, title:titel.trim(), owner:ejer, due_date:frist||null, note:(note||'').trim()}).select('id').single());
+  const {data,error}=await mutate(()=>sb.from('agenda_items').insert({event_id:state.eventId, title:titel.trim(), owner:ejer, due_date:frist||null, note:(note||'').trim(), priority:prioritet||'normal', assigned_staff_id:assignedStaffId||null}).select('id').single());
   if(error){ showToast('Kunne ikke oprette opgave: '+error.message,'error'); return; }
   pushLog({area:'punkter', label:titel.trim(), cust:(ejer==='jer'), friendly:'Ny opgave: '+titel.trim()});
   await reloadPunkter();
@@ -2393,6 +3766,8 @@ async function createEvent(){
   const date=document.getElementById('neDate').value;
   const eventType=document.getElementById('neType').value;
   const useTasks=document.getElementById('neTasks').checked;
+  const templateEl=document.getElementById('neTemplate');
+  const templateId=templateEl?templateEl.value:'';
   if(!title||!venueId||!date){ showToast('Udfyld titel, lokation og dato.','error'); return; }
   const btn=document.getElementById('neCreate'), orig=btn.textContent;
   btn.disabled=true; btn.textContent='Opretter…';
@@ -2401,14 +3776,217 @@ async function createEvent(){
   if(error){ btn.disabled=false; btn.textContent=orig; showToast('Kunne ikke oprette: '+error.message,'error'); return; }
   /* Knappen forbliver deaktiveret/"Opretter…", indtil vi enten navigerer ind i det nye arrangement eller
      falder tilbage til oversigten — ellers ser formularen momentant ud til at være klar til et nyt (dobbelt-)tryk. */
-  const {data:evs}=await sb.from('events').select('id,title,event_date,status,offer_total_kr,event_type,venues(name)').eq('org_id',state.orgId).order('event_date',{ascending:false});
+  const {data:evs}=await sb.from('events').select('id,title,event_date,status,offer_total_kr,event_type,owner_staff_id,venues(name)').eq('org_id',state.orgId).order('event_date',{ascending:false});
   state.events=evs||[];
   const created=(state.events||[]).find(e=>e.title===title && e.event_date===date);
   if(created){
-    if(useTasks) await applyTaskTemplates(created.id, date, eventType);
+    if(templateId) await applyTemplateToEvent(templateId, created.id, date);
+    else if(useTasks) await applyTaskTemplates(created.id, date, eventType);
+    state.newEventFromTemplate=null;
     await openEvent(created.id);
   } else { btn.disabled=false; btn.textContent=orig; render(); }
 }
+/* =========================================================
+   ARRANGEMENTSSKABELONER + DUBLIKERING
+   ========================================================= */
+async function loadOrgTemplates(){
+  const {data,error}=await sb.from('event_templates').select('*').eq('org_id',state.orgId).order('created_at');
+  if(error){ console.error('templates',error); state.orgTemplates=[]; return; }
+  state.orgTemplates=data||[];
+}
+function minutesToTime(mins){ const m=((mins%1440)+1440)%1440; const h=Math.floor(m/60), mm=m%60; return String(h).padStart(2,'0')+':'+String(mm).padStart(2,'0'); }
+async function applyTemplateToEvent(templateId, eventId, eventDate){
+  const tmpl=(state.orgTemplates||[]).find(t=>t.id===templateId);
+  if(!tmpl) return;
+  const spec=tmpl.spec||{};
+  if(spec.phases && spec.phases.length){
+    const rows=spec.phases.map((p,i)=>({event_id:eventId, label:p.label||('Fase '+(i+1)), room_id:null,
+      start_time: p.startOffsetMin!=null? minutesToTime(p.startOffsetMin): null,
+      end_time: p.endOffsetMin!=null? minutesToTime(p.endOffsetMin): null, sort_order:i}));
+    const {error}=await mutate(()=>sb.from('event_rooms').insert(rows));
+    if(error) showToast('Kunne ikke oprette faser fra skabelonen: '+error.message,'error');
+  }
+  if(spec.catalogItemIds && spec.catalogItemIds.length){
+    const {error}=await mutate(()=>sb.from('event_catalog_items').insert(spec.catalogItemIds.map(id=>({event_id:eventId, catalog_item_id:id}))));
+    if(error) showToast('Kunne ikke tilføje katalogvarer fra skabelonen: '+error.message,'error');
+  }
+  if(spec.taskTemplates && spec.taskTemplates.length){
+    const rows=spec.taskTemplates.map((t,i)=>({event_id:eventId, title:t.title, owner:t.owner||'jer',
+      due_date: t.daysBeforeEvent!=null? addDays(eventDate,-t.daysBeforeEvent): null, note:t.note||'', sort_order:i}));
+    const {error}=await mutate(()=>sb.from('agenda_items').insert(rows));
+    if(error) showToast('Kunne ikke tilføje opgaver fra skabelonen: '+error.message,'error');
+  }
+  if(spec.approvalTypes && spec.approvalTypes.length){
+    const rows=spec.approvalTypes.map(t=>({event_id:eventId, title:'Ny '+(APPROVAL_TYPES[t]||t).toLowerCase(), approval_type:t, status:'kladde'}));
+    const {error}=await mutate(()=>sb.from('event_approvals').insert(rows));
+    if(error) showToast('Kunne ikke oprette godkendelseskladder fra skabelonen: '+error.message,'error');
+  }
+  pushLog({area:'system', label:'Skabelon anvendt', cust:false, friendly:'Arrangementet blev sat op fra skabelonen "'+tmpl.name+'"'});
+}
+function viewEventTemplates(){
+  const active=(state.orgTemplates||[]).filter(t=>!t.archived);
+  const archived=(state.orgTemplates||[]).filter(t=>t.archived);
+  const row=t=>`<div class="item">
+    <span class="stripe jer"></span>
+    <div><div class="name">${esc(t.name)}</div><div class="meta">${esc(t.event_type)} · ${(t.spec.phases||[]).length} faser · ${(t.spec.catalogItemIds||[]).length} katalogvarer · ${(t.spec.taskTemplates||[]).length} opgaver</div></div>
+    <span class="row" style="gap:6px;flex-wrap:wrap">
+      <button class="btn" data-use-template="${t.id}">Opret arrangement</button>
+      <button class="btn" data-edit-template="${t.id}">Redigér</button>
+      <button class="btn" data-duplicate-template="${t.id}">Duplikér</button>
+      ${t.archived?`<button class="btn" data-unarchive-template="${t.id}">Genaktivér</button>`:`<button class="btn" data-archive-template="${t.id}">Arkivér</button>`}
+    </span>
+  </div>`;
+  return `${consoleNav('eventskabeloner')}
+  <div style="margin:20px 0 10px"><span class="eyebrow">Arrangementsskabeloner</span></div>
+  <section class="card">
+    <header><h2>Aktive skabeloner</h2><span class="note">${active.length}</span><button class="btn primary" id="etCreate">Ny skabelon</button></header>
+    ${active.length?active.map(row).join(''):'<div class="empty">Ingen skabeloner endnu. Opret en fra bunden, eller gem et eksisterende arrangement som skabelon fra dets Admin-fane.</div>'}
+  </section>
+  ${archived.length?`<section class="card"><header><h2>Arkiverede</h2><span class="note">${archived.length}</span></header>${archived.map(row).join('')}</section>`:''}`;
+}
+async function duplicateTemplate(id){
+  const t=(state.orgTemplates||[]).find(x=>x.id===id); if(!t) return;
+  const {error}=await mutate(()=>sb.from('event_templates').insert({org_id:state.orgId, name:t.name+' (kopi)', event_type:t.event_type, spec:t.spec, created_by:state.userId}));
+  if(error){ showToast('Kunne ikke duplikere: '+error.message,'error'); return; }
+  await loadOrgTemplates(); render();
+  showToast('Skabelon duplikeret.','ok');
+}
+async function archiveTemplate(id, archived){
+  const {error}=await mutate(()=>sb.from('event_templates').update({archived}).eq('id',id));
+  if(error){ showToast('Kunne ikke opdatere: '+error.message,'error'); return; }
+  await loadOrgTemplates(); render();
+}
+MODAL_RENDERERS.template = function(){
+  const t = state.modal.templateId ? (state.orgTemplates||[]).find(x=>x.id===state.modal.templateId) : null;
+  const spec = t? (t.spec||{}) : {};
+  const phasesTxt=(spec.phases||[]).map(p=>`${p.label}|${p.startOffsetMin!=null?p.startOffsetMin:''}|${p.endOffsetMin!=null?p.endOffsetMin:''}`).join('\n');
+  const tasksTxt=(spec.taskTemplates||[]).map(x=>`${x.title}|${x.owner||'jer'}|${x.daysBeforeEvent!=null?x.daysBeforeEvent:''}`).join('\n');
+  return `
+  <h2 style="font-family:'Instrument Serif',serif;font-style:italic;font-size:24px;font-weight:400;margin:0 0 14px">${t?'Redigér skabelon':'Ny skabelon'}</h2>
+  <div style="display:flex;flex-direction:column;gap:10px">
+    <div class="field"><label for="tplName">Navn</label><input id="tplName" class="search" value="${esc(t?t.name:'')}" placeholder="Fx Heldagskonference" style="width:100%"></div>
+    <div class="field"><label for="tplType">Arrangementstype</label><select id="tplType" class="search" style="width:100%">${CAT_EVENT_TYPES.map(x=>`<option value="${x}" ${t&&t.event_type===x?'selected':''}>${x}</option>`).join('')}</select></div>
+    <div class="field"><label for="tplPhases">Standardfaser — én pr. linje: Navn|Start (min. efter midnat)|Slut (min.)</label>
+      <textarea id="tplPhases" class="search" style="width:100%;min-height:70px" placeholder="Reception|900|1020">${esc(phasesTxt)}</textarea></div>
+    <div class="field"><label>Katalogvarer</label>
+      <div class="scroll" style="max-height:140px;border:1px solid var(--line);border-radius:var(--radius);padding:8px">
+        ${(state.orgCatalog||[]).map(c=>`<label class="row" style="gap:6px"><input type="checkbox" class="tplCat" value="${c.id}" ${(spec.catalogItemIds||[]).includes(c.id)?'checked':''}>${esc(c.name)}</label>`).join('')||'<span class="note">Intet katalog endnu.</span>'}
+      </div></div>
+    <div class="field"><label for="tplTasks">Opgaveskabeloner — én pr. linje: Titel|Ansvarlig (jer/kilden)|Dage før</label>
+      <textarea id="tplTasks" class="search" style="width:100%;min-height:60px" placeholder="Bordplan|jer|14">${esc(tasksTxt)}</textarea></div>
+    <div class="field"><label>Godkendelsestyper</label>
+      <div class="row" style="gap:10px;flex-wrap:wrap">${Object.entries(APPROVAL_TYPES).map(([v,l])=>`<label class="row" style="gap:5px"><input type="checkbox" class="tplApprovalType" value="${v}" ${(spec.approvalTypes||[]).includes(v)?'checked':''}>${l}</label>`).join('')}</div></div>
+    <div class="field"><label for="tplNotes">Interne noter</label><textarea id="tplNotes" class="search" style="width:100%;min-height:50px">${esc(spec.notes||'')}</textarea></div>
+  </div>
+  <div class="row" style="margin-top:14px;justify-content:flex-end;gap:8px">
+    <button class="btn" data-modal-close>Annullér</button>
+    <button class="btn primary" id="tplSave">${t?'Gem':'Opret'}</button>
+  </div>`;
+};
+MODAL_BINDERS.template = function(){
+  document.getElementById('tplSave').onclick=async()=>{
+    const name=document.getElementById('tplName').value.trim();
+    if(!name){ showToast('Skriv et navn.','error'); return; }
+    const phases=document.getElementById('tplPhases').value.split('\n').map(l=>l.trim()).filter(Boolean).map(l=>{
+      const [label,s,e]=l.split('|'); return {label:(label||'').trim(), startOffsetMin:s&&s.trim()!==''?parseInt(s,10):null, endOffsetMin:e&&e.trim()!==''?parseInt(e,10):null};
+    });
+    const tasks=document.getElementById('tplTasks').value.split('\n').map(l=>l.trim()).filter(Boolean).map(l=>{
+      const [title,owner,days]=l.split('|'); return {title:(title||'').trim(), owner:(owner||'jer').trim(), daysBeforeEvent:days&&days.trim()!==''?parseInt(days,10):null};
+    });
+    const catalogItemIds=[...document.querySelectorAll('.tplCat:checked')].map(el=>el.value);
+    const approvalTypes=[...document.querySelectorAll('.tplApprovalType:checked')].map(el=>el.value);
+    const spec={phases, catalogItemIds, taskTemplates:tasks, approvalTypes, notes:document.getElementById('tplNotes').value.trim()};
+    const row={org_id:state.orgId, name, event_type:document.getElementById('tplType').value, spec, created_by:state.userId};
+    const templateId=state.modal.templateId;
+    const {error}= templateId
+      ? await mutate(()=>sb.from('event_templates').update(row).eq('id',templateId))
+      : await mutate(()=>sb.from('event_templates').insert(row));
+    if(error){ showToast('Kunne ikke gemme skabelonen: '+error.message,'error'); return; }
+    await loadOrgTemplates(); closeModal();
+    showToast('Skabelon gemt.','ok');
+  };
+};
+MODAL_RENDERERS.saveTemplate = function(){
+  return `
+  <h2 style="font-family:'Instrument Serif',serif;font-style:italic;font-size:24px;font-weight:400;margin:0 0 14px">Gem som skabelon</h2>
+  <div class="field"><label for="satName">Skabelonnavn</label><input id="satName" class="search" value="${esc(state.eventTitle||'')}" style="width:100%"></div>
+  <div class="note" style="margin-top:10px">Kopierer faser (relativ tid), valgte katalogvarer, arrangementets aftalepunkter som opgaveskabeloner, og godkendelsestyper der er brugt. Gæster, beskeder og log kopieres aldrig.</div>
+  <div class="row" style="margin-top:14px;justify-content:flex-end;gap:8px">
+    <button class="btn" data-modal-close>Annullér</button>
+    <button class="btn primary" id="satSave">Gem skabelon</button>
+  </div>`;
+};
+MODAL_BINDERS.saveTemplate = function(){
+  document.getElementById('satSave').onclick=async()=>{
+    const name=document.getElementById('satName').value.trim();
+    if(!name){ showToast('Skriv et navn.','error'); return; }
+    const phases=(state.phases||[]).map(p=>{
+      const startMin = p.start? (parseInt(p.start.slice(0,2),10)*60+parseInt(p.start.slice(3,5),10)) : null;
+      const endMin = p.end? (parseInt(p.end.slice(0,2),10)*60+parseInt(p.end.slice(3,5),10)) : null;
+      return {label:p.label, startOffsetMin:startMin, endOffsetMin:endMin};
+    });
+    const catalogItemIds=(state.eventCatalog||[]).map(c=>c.id);
+    const taskTemplates=(state.punkter||[]).map(p=>({title:p.titel, owner:p.ejer, daysBeforeEvent: p.frist? Math.round((new Date(state.eventDate+'T00:00:00')-new Date(p.frist+'T00:00:00'))/DAG): null}));
+    const approvalTypes=[...new Set((state.approvals||[]).map(a=>a.approval_type))];
+    const spec={phases, catalogItemIds, taskTemplates, approvalTypes, notes:''};
+    const {error}=await mutate(()=>sb.from('event_templates').insert({org_id:state.orgId, name, event_type:state.eventType, spec, created_by:state.userId}));
+    if(error){ showToast('Kunne ikke gemme skabelonen: '+error.message,'error'); return; }
+    await loadOrgTemplates(); closeModal();
+    showToast('Skabelon gemt. Find den under Admin → Arrangementsskabeloner.','ok');
+  };
+};
+MODAL_RENDERERS.duplicate = function(){
+  return `
+  <h2 style="font-family:'Instrument Serif',serif;font-style:italic;font-size:24px;font-weight:400;margin:0 0 14px">Duplikér arrangement</h2>
+  <div class="formgrid">
+    <div class="field" style="grid-column:span 2"><label for="dupTitle">Ny titel</label><input id="dupTitle" class="search" value="${esc((state.eventTitle||'')+' (kopi)')}" style="width:100%"></div>
+    <div class="field"><label for="dupDate">Ny dato</label><input id="dupDate" type="date" class="search" style="width:100%"></div>
+    <div class="field"><label for="dupVenue">Lokation</label><select id="dupVenue" class="search" style="width:100%">
+      ${(state.venues||[]).map(v=>`<option value="${v.id}" ${v.id===state.venueId?'selected':''}>${esc(v.name)}</option>`).join('')}
+    </select></div>
+  </div>
+  <div class="note" style="margin:10px 0 4px">Vælg hvad der skal kopieres:</div>
+  <div style="display:flex;flex-direction:column;gap:6px">
+    <label class="row" style="gap:6px"><input type="checkbox" id="dupPhases" checked>Faser, lokaler og tider</label>
+    <label class="row" style="gap:6px;margin-left:20px" id="dupShiftWrap"><input type="checkbox" id="dupShift"> Forskyd tidspunkter (minutter): <input type="number" id="dupShiftMin" class="search" value="0" style="width:80px;margin-left:6px"></label>
+    <label class="row" style="gap:6px"><input type="checkbox" id="dupCatalog" checked>Katalogvarer</label>
+    <label class="row" style="gap:6px"><input type="checkbox" id="dupAgenda" checked>Aftalepunkter (frister genberegnes til ny dato)</label>
+    <label class="row" style="gap:6px;margin-left:20px"><input type="checkbox" id="dupNotes">Noter uden filer (kræver aftalepunkter kopieret)</label>
+    <label class="row" style="gap:6px"><input type="checkbox" id="dupTaskTemplates">Anvend org'ens opgaveskabeloner friskt på den nye dato</label>
+    <label class="row" style="gap:6px"><input type="checkbox" id="dupStaff" checked>Medarbejdertilknytninger</label>
+    <label class="row" style="gap:6px"><input type="checkbox" id="dupApprovalTypes">Godkendelsestyper som nye kladder</label>
+  </div>
+  <div class="note" style="margin-top:10px">Kopieres ALDRIG: gæster, kundeadgange/magic links, beskeder, aktivitetslog, godkendelsesafgørelser, uploadede filer. Det nye arrangement starter altid som Kladde.</div>
+  <div class="row" style="margin-top:14px;justify-content:flex-end;gap:8px">
+    <button class="btn" data-modal-close>Annullér</button>
+    <button class="btn primary" id="dupGo">Duplikér</button>
+  </div>`;
+};
+MODAL_BINDERS.duplicate = function(){
+  document.getElementById('dupGo').onclick=async()=>{
+    const title=document.getElementById('dupTitle').value.trim();
+    const date=document.getElementById('dupDate').value;
+    const venueId=document.getElementById('dupVenue').value;
+    if(!title||!date||!venueId){ showToast('Udfyld titel, dato og lokation.','error'); return; }
+    const options={
+      phases: document.getElementById('dupPhases').checked,
+      shiftMinutes: document.getElementById('dupShift').checked ? (parseInt(document.getElementById('dupShiftMin').value,10)||0) : 0,
+      catalog: document.getElementById('dupCatalog').checked,
+      agenda: document.getElementById('dupAgenda').checked,
+      notes: document.getElementById('dupNotes').checked,
+      taskTemplates: document.getElementById('dupTaskTemplates').checked,
+      staff: document.getElementById('dupStaff').checked,
+      approvalTypes: document.getElementById('dupApprovalTypes').checked
+    };
+    const btn=document.getElementById('dupGo'); btn.disabled=true; btn.textContent='Duplikerer…';
+    const {data,error}=await mutate(()=>sb.rpc('duplicate_event',{p_source_id:state.eventId, p_new_title:title, p_new_date:date, p_new_venue_id:venueId, p_options:options}));
+    if(error){ btn.disabled=false; btn.textContent='Duplikér'; showToast('Kunne ikke duplikere: '+error.message,'error'); return; }
+    pushLog({area:'system', label:'Arrangement duplikeret', cust:false, friendly:'"'+state.eventTitle+'" blev duplikeret til "'+title+'"'});
+    closeModal();
+    showToast('Arrangement duplikeret.','ok');
+    await openEvent(data);
+  };
+};
 function logCloudView(){
   const a=currentActor();
   mutate(()=>sb.from('activity_log').insert(logToDb({ts:Date.now(), who:a.navn, side:a.side, type:'view', area:'system', label:'Åbnede arrangementet', from:'', to:'', cust:false, friendly:'', text:''}))
@@ -2426,6 +4004,7 @@ function showPicker(){
   loadPickerExceptions()
     .catch(()=>{ state.pickerExceptionsError=true; })
     .finally(()=>{ state.pickerExceptionsLoading=false; render(); });
+  loadOrgTemplates().then(render);
 }
 function goHome(){
   if(!state.actor) return;
@@ -2444,6 +4023,7 @@ function consoleNav(active){
     <button data-nav="venues" aria-pressed="${active==='venues'}">Lokationer</button>
     <button data-nav="katalog" aria-pressed="${active==='katalog'}">Katalog</button>
     <button data-nav="opgaver" aria-pressed="${active==='opgaver'}">Opgaveskabeloner</button>
+    <button data-nav="eventskabeloner" aria-pressed="${active==='eventskabeloner'}">Arrangementsskabeloner</button>
     <button data-nav="users" aria-pressed="${active==='users'}">Brugere</button>
   </nav>`;
 }
@@ -2601,29 +4181,82 @@ function actionRequiredSection(){
   }
   const ids=Object.keys(state.eventExceptions||{});
   if(!ids.length) return '';
-  const events=(state.events||[]).filter(e=>state.eventExceptions[e.id]&&state.eventExceptions[e.id].length);
+  let events=(state.events||[]).filter(e=>state.eventExceptions[e.id]&&state.eventExceptions[e.id].length);
   if(!events.length) return '';
+  const f=state.inboxFilter||{who:'alle',kind:'alle'};
+  const today=new Date().toISOString().slice(0,10), in7=addDays(today,7);
+  const reasonsMatchFilter = reasons => {
+    let rs=reasons;
+    if(f.who && f.who!=='alle'){
+      if(f.who==='mine') rs=rs; // "mine" filtres på event-niveau (owner_staff_id), se nedenfor
+      else rs=rs.filter(r=>r.who===f.who);
+    }
+    if(f.kind && f.kind!=='alle'){
+      const kindMap={overskredet:r=>r.tier===1, kommende:r=>r.tier===4, godkendelser:r=>r.kind==='godkendelse', pris:r=>r.kind==='pris', lokaler:r=>r.kind==='lokale', beskeder:()=>false};
+      rs=rs.filter(kindMap[f.kind]||(()=>true));
+    }
+    return rs;
+  };
+  events = events.filter(e=>{
+    if(f.who==='mine' && e.owner_staff_id!==state.userId) return false;
+    const rs=reasonsMatchFilter(state.eventExceptions[e.id]);
+    return rs.length>0;
+  });
+  if(!events.length){
+    return `<section class="card" style="border-left:3px solid var(--amber)">
+      <header><h2>Kræver handling</h2></header>
+      ${inboxFilterBar()}
+      <div class="empty">Intet matcher de valgte filtre.</div>
+    </section>`;
+  }
+  const minTier = e => Math.min(...reasonsMatchFilter(state.eventExceptions[e.id]).map(r=>r.tier||5));
   const sorted=[...events].sort((a,b)=>{
-    const au=state.eventExceptions[a.id].some(r=>r.urgent)?0:1, bu=state.eventExceptions[b.id].some(r=>r.urgent)?0:1;
-    if(au!==bu) return au-bu;
+    if(state.inboxSort==='dato') return (a.event_date||'').localeCompare(b.event_date||'');
+    const at=minTier(a), bt=minTier(b);
+    if(at!==bt) return at-bt;
     return (a.event_date||'').localeCompare(b.event_date||'');
   });
   return `<section class="card" style="border-left:3px solid var(--amber)">
     <header><h2>Kræver handling</h2><span class="note">${sorted.length} arrangement${sorted.length>1?'er':''}</span></header>
+    ${inboxFilterBar()}
     ${sorted.map(e=>{
-      const reasons=state.eventExceptions[e.id];
+      const reasons=reasonsMatchFilter(state.eventExceptions[e.id]).sort((a,b)=>(a.tier||5)-(b.tier||5));
       const d=dageTil(e.event_date);
-      return `<div class="item" data-open="${e.id}" style="cursor:pointer;flex-wrap:wrap">
-        <span class="stripe ${reasons.some(r=>r.urgent)?'kilden':'jer'}"></span>
+      const top=reasons[0];
+      return `<div class="item" style="flex-wrap:wrap">
+        <span class="stripe ${top.tier<=1?'kilden':(top.tier<=2?'warn':'jer')}"></span>
         <div style="flex:1;min-width:200px">
           <div class="name">${esc(e.title)}</div>
-          <div class="meta">${datoKort(e.event_date)} · ${d>=0?('om '+d+' dage'):(Math.abs(d)+' dage siden')}${e.venues?' · '+esc(e.venues.name):''}</div>
-          <div style="margin-top:6px">${reasons.map(r=>`<span class="chip ${r.urgent?'warn':''}" style="margin:0 6px 4px 0"><span class="dot"></span>${esc(r.txt)}</span>`).join('')}</div>
+          <div class="meta">${datoKort(e.event_date)} · ${d>=0?('om '+d+' dage'):(Math.abs(d)+' dage siden')}${e.venues?' · '+esc(e.venues.name):''}${e.event_type?' · '+esc(e.event_type):''}</div>
+          <div style="margin-top:6px">${reasons.map(r=>`<span class="chip ${r.urgent?'warn':''}" style="margin:0 6px 4px 0" title="${esc(INBOX_TIER_LABEL[r.tier]||'')}"><span class="dot"></span>${esc(r.txt)}</span>`).join('')}</div>
         </div>
-        <button class="btn primary" data-open="${e.id}">Åbn →</button>
+        <button class="btn primary" data-open="${e.id}" data-goto-inbox-tab="${esc(top.actionTab||'oversigt')}">${esc(top.actionLabel||'Åbn')} →</button>
       </div>`;
     }).join('')}
   </section>`;
+}
+function inboxFilterBar(){
+  const f=state.inboxFilter||{who:'alle',kind:'alle'};
+  return `<div class="row noprint" style="gap:8px;flex-wrap:wrap;margin-bottom:10px">
+    <select id="inboxWho" class="search" style="max-width:170px">
+      <option value="alle" ${f.who==='alle'?'selected':''}>Hele teamet</option>
+      <option value="mine" ${f.who==='mine'?'selected':''}>Mine</option>
+      <option value="kunde" ${f.who==='kunde'?'selected':''}>Afventer kunde</option>
+      <option value="organisationen" ${f.who==='organisationen'?'selected':''}>Kræver os</option>
+    </select>
+    <select id="inboxKind" class="search" style="max-width:170px">
+      <option value="alle" ${f.kind==='alle'?'selected':''}>Alle typer</option>
+      <option value="overskredet" ${f.kind==='overskredet'?'selected':''}>Overskredet</option>
+      <option value="kommende" ${f.kind==='kommende'?'selected':''}>Kommende 7 dage</option>
+      <option value="godkendelser" ${f.kind==='godkendelser'?'selected':''}>Godkendelser</option>
+      <option value="pris" ${f.kind==='pris'?'selected':''}>Pris</option>
+      <option value="lokaler" ${f.kind==='lokaler'?'selected':''}>Lokaler</option>
+    </select>
+    <select id="inboxSortSel" class="search" style="max-width:150px">
+      <option value="prioritet" ${state.inboxSort==='prioritet'?'selected':''}>Sortér: prioritet</option>
+      <option value="dato" ${state.inboxSort==='dato'?'selected':''}>Sortér: dato</option>
+    </select>
+  </div>`;
 }
 function viewPicker(){
   const q=state.pickerSearch.trim().toLowerCase();
@@ -2644,9 +4277,10 @@ function viewPicker(){
     <summary><h2><span class="fold-chev">▸</span>${titel}</h2><span class="note">(${liste.length})</span></summary>
     ${liste.map(e=>{
       const reasons=state.eventExceptions[e.id]||[];
+      const koord=(state.roster||[]).find(r=>r.id===e.owner_staff_id);
       return `<div class="item" data-open="${e.id}" style="cursor:pointer">
       <span class="stripe ${e.status!=='afviklet'?'jer':''}"></span>
-      <div><div class="name">${esc(e.title)}</div><div class="meta">${e.event_type?e.event_type+' · ':''}${e.venues?esc(e.venues.name):'ingen lokation'} · ${datoKort(e.event_date)}</div>${reasons.length?`<div class="meta" style="color:var(--amber);margin-top:2px">${esc(reasons[0].txt)}</div>`:''}</div>
+      <div><div class="name">${esc(e.title)}</div><div class="meta">${e.event_type?e.event_type+' · ':''}${e.venues?esc(e.venues.name):'ingen lokation'} · ${datoKort(e.event_date)} · ${koord?esc(koord.name):'ingen koordinator'}</div>${reasons.length?`<div class="meta" style="color:var(--amber);margin-top:2px">${esc(reasons[0].txt)}</div>`:''}</div>
       <span class="row" style="gap:6px">${eventStatusChip(e.status)}<span class="chip"><span class="dot"></span>${e.offer_total_kr?kr(e.offer_total_kr):'Intet tilbud'}</span></span></div>`;
     }).join('')}</details>`:'';
   const filterBar = (state.events||[]).length ? `
@@ -2680,6 +4314,10 @@ function viewPicker(){
       <div class="field"><label for="neType">Arrangementstype</label><select id="neType" class="search">
         ${CAT_EVENT_TYPES.map(t=>`<option value="${t}">${t}</option>`).join('')}
       </select></div>
+      ${(state.orgTemplates||[]).filter(t=>!t.archived).length?`<div class="field" style="grid-column:span 2"><label for="neTemplate">Fra skabelon (valgfri)</label><select id="neTemplate" class="search">
+        <option value="">— Ingen skabelon —</option>
+        ${(state.orgTemplates||[]).filter(t=>!t.archived).map(t=>`<option value="${t.id}" ${state.newEventFromTemplate===t.id?'selected':''}>${esc(t.name)}</option>`).join('')}
+      </select></div>`:''}
       <button class="btn primary" id="neCreate">Opret arrangement</button>
     </div>
     <label class="row" style="gap:6px;font-size:13px;margin-top:8px"><input type="checkbox" id="neTasks" checked>Tilføj standardopgaver</label>
