@@ -60,6 +60,16 @@ summary{list-style:none}
 summary::-webkit-details-marker{display:none}
 .fold-chev{display:inline-block;font-size:10px;color:var(--ink-40);transition:transform .15s ease;margin-right:6px}
 details[open] > summary .fold-chev,details[open] .fold-chev{transform:rotate(90deg)}
+/* Fælles stil for fold-ud-linjer, der ikke er den kompakte .notes-toggle-pille (fx "Uden frist",
+   "Udført (N)", grupperede kiggehændelser i loggen) — tidligere var disse kun den lille grå .note-tekst
+   med en 10px pil, hvilket gjorde både at man knap kunne SE at linjen kunne foldes ud, og at selve
+   klikfladen var alt for lille til at ramme præcist. */
+.fold-summary{display:flex;align-items:center;gap:8px;cursor:pointer;padding:9px 8px;margin:0 -8px;border-radius:var(--radius);
+  font-size:13px;font-weight:600;color:var(--ink-60);transition:background .1s ease,color .1s ease}
+.fold-summary:hover{color:var(--ink);background:rgba(18,21,27,.04)}
+.fold-summary:focus-visible{outline:2px solid var(--blue);outline-offset:-2px}
+.fold-summary .fold-chev{font-size:12px;color:inherit}
+.notes-toggle:focus-visible{outline:2px solid var(--blue);outline-offset:1px}
 
 nav.tabs{display:flex;gap:2px;margin:26px 0 20px;border-bottom:1px solid var(--line);overflow-x:auto;
   background:
@@ -267,6 +277,8 @@ input[type=file].search{padding:6px 8px;font-size:13px;min-width:0}
   .tbl td.c{ padding:4px 10px }
   .chkwrap{ display:inline-flex; align-items:center; justify-content:center; min-width:44px; min-height:44px; cursor:pointer }
   .sstep.interactive{ min-height:44px; display:inline-flex; align-items:center }
+  .fold-summary{ min-height:44px }
+  .notes-toggle{ min-height:44px }
 }
 .chkwrap{ cursor:pointer }
 .bulkbar{position:sticky;bottom:0;background:var(--ink);color:#fff;border-radius:var(--radius);padding:10px 14px;margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;z-index:20}
@@ -420,7 +432,7 @@ let state = { gaester:[], punkter:[], log:[],
               tab:'oversigt', soeg:'', rolle:'kilden', logType:'alle', logWho:'alle', logArea:'alle',
               logDays:'14', logFrom:'', logTo:'', logSearch:'', logShowTech:false,
               lastRead:{kilden:0, kunde:0}, phases:[], venueRooms:[], staffList:[], invitesList:[], venuesFull:[],
-              eventCatalog:[], orgCatalog:[], openRoomPickers:new Set(),
+              eventCatalog:[], orgCatalog:[], newCatalogItemRoomIds:[],
               openPickerGroups:new Set(['kladde','tilbud','bekræftet']),
               isSuperadmin:false, allOrgs:[], guestLink:'', guestLinkEventId:null, guestLinkBusy:false,
               guestWelcome:false, contactName:'', orgOnboardingDismissed:false, orgCatalogCount:0, orgStaffCount:0,
@@ -675,19 +687,18 @@ async function commitGuestField(guestId, f, el){
 const esc = s => String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 
 const TABS = {
-  kilden:[['live','I dag'],['oversigt','Oversigt'],['gaester','Gæster'],['punkter','Aftalepunkter'],['godkendelser','Godkendelser'],['koekken','Køkkenseddel'],['kalender','Lokalekalender'],['dokumenter','Dokumenter'],['log','Log'],['admin','Admin'],['beskeder','Beskeder']],
-  kunde: [['oversigt','Oversigt'],['gaester','Gæster'],['punkter','Aftalepunkter'],['godkendelser','Godkendelser'],['tidslinje','Tidslinje'],['beskeder','Beskeder']]
+  kilden:[['live','I dag'],['oversigt','Oversigt'],['gaester','Gæster'],['punkter','Opgaver'],['koekken','Køkkenseddel'],['dokumenter','Dokumenter'],['log','Log'],['admin','Admin'],['beskeder','Beskeder']],
+  kunde: [['oversigt','Oversigt'],['gaester','Gæster'],['punkter','Opgaver'],['tidslinje','Tidslinje'],['beskeder','Beskeder']]
 };
 const APPROVAL_TYPES = {tilbud:'Tilbud', menu:'Menu', bordplan:'Bordplan', deltagerantal:'Endeligt deltagerantal', prisaendring:'Prisændring', praktisk:'Praktisk aftale', andet:'Andet'};
 const APPROVAL_STATUS_LABEL = {kladde:'Kladde', afventer:'Afventer kunde', godkendt:'Godkendt', afvist:'Afvist', erstattet:'Erstattet af nyere version', tilbagekaldt:'Tilbagekaldt'};
 
 function renderTabs(){
-  const el=document.getElementById('tabs'), n=unread(state.rolle);
+  const el=document.getElementById('tabs'), n=unread(state.rolle), p=pendingApprovalsCount();
   el.innerHTML = TABS[state.rolle].map(([id,label])=>
-    `<button role="tab" data-tab="${id}" aria-selected="${state.tab===id}">${label}${id==='beskeder'&&n?`<span class="tabbadge">${n}</span>`:''}</button>`).join('');
+    `<button role="tab" data-tab="${id}" aria-selected="${state.tab===id}">${label}${id==='beskeder'&&n?`<span class="tabbadge">${n}</span>`:''}${id==='punkter'&&p?`<span class="tabbadge">${p}</span>`:''}</button>`).join('');
   el.querySelectorAll('button').forEach(b=>b.onclick=()=>{
     state.tab=b.dataset.tab; state.soeg='';
-    if(state.tab==='kalender') loadCalendarData().then(render);
     render();
   });
   const active=el.querySelector('button[aria-selected="true"]');
@@ -743,7 +754,7 @@ function heroChips(){
     <span class="chip"><span class="dot"></span><b class="num">${d}</b>&nbsp;dage til</span>
     <span class="chip ${jer?'warn':'ok'}"><span class="dot"></span>${jer?jer+' punkter afventer jer':'Intet afventer jer'}</span>
     ${kilden&&state.rolle==='kilden'?`<span class="chip warn"><span class="dot"></span>${kilden} afventer os</span>`:''}
-    ${pendingApprovalsCount()?`<span class="chip warn" data-goto-tab="godkendelser" style="cursor:pointer"><span class="dot"></span>${pendingApprovalsCount()} godkendelse${pendingApprovalsCount()>1?'r':''} afventer</span>`:''}
+    ${pendingApprovalsCount()?`<span class="chip warn" data-goto-tab="punkter" style="cursor:pointer"><span class="dot"></span>${pendingApprovalsCount()} godkendelse${pendingApprovalsCount()>1?'r':''} afventer</span>`:''}
     ${state.rolle==='kilden'?`<span class="chip"><span class="dot"></span>Koordinator: ${esc((((state.roster||[]).find(r=>r.id===state.ownerStaffId))||{}).name||'ingen')}</span>`:''}
     ${state.rolle==='kunde'&&state.contactName?`<span class="chip"><span class="dot"></span>Kontakt: ${esc(state.contactName)}</span>`:''}`;
 }
@@ -940,7 +951,7 @@ function viewOversigt(){
   const latestApproval=(state.approvals||[]).filter(approvalVisibleTo).sort((a,b)=>b.created_at.localeCompare(a.created_at))[0];
   const approvalStatusKort = latestApproval ? `
   <section class="card">
-    <header><h2>Seneste godkendelse</h2><span class="note"><a href="#" data-goto-tab="godkendelser" style="color:inherit">Se alle →</a></span></header>
+    <header><h2>Seneste godkendelse</h2><span class="note"><a href="#" data-goto-tab="punkter" style="color:inherit">Se alle →</a></span></header>
     <div class="stat"><span>${esc(latestApproval.title)} <span class="note">v${latestApproval.version}</span></span>
       <span class="chip ${latestApproval.status==='godkendt'?'ok':(latestApproval.status==='afvist'?'warn':'')}"><span class="dot"></span>${APPROVAL_STATUS_LABEL[latestApproval.status]}</span></div>
   </section>` : '';
@@ -1192,7 +1203,7 @@ async function createApprovalFromChangeRequest(id){
     description:changeRequestSummary(c).replace(/<[^>]+>/g,''),
     amount: c.price_after, send:true
   }, null);
-  if(id2){ state.tab='godkendelser'; render(); showToast('Godkendelse oprettet og sendt.','ok'); }
+  if(id2){ state.tab='punkter'; render(); showToast('Godkendelse oprettet og sendt.','ok'); }
 }
 
 /* =========================================================
@@ -1572,16 +1583,18 @@ function viewPunkter(){
   <section class="card">
     <header><h2>${titel}</h2><span class="note">${open.length+noDue.length} udestående</span></header>
     ${open.length?open.map(renderTask).join(''):(noDue.length?'':'<div class="empty">Ingen udestående opgaver.</div>')}
-    ${noDue.length?`<details style="margin-top:10px" open><summary class="note"><span class="fold-chev">▸</span>Uden frist (${noDue.length})</summary>
+    ${noDue.length?`<details style="margin-top:10px" open><summary class="fold-summary"><span class="fold-chev">▸</span>Uden frist (${noDue.length})</summary>
       <div style="margin-top:8px;display:flex;flex-direction:column;gap:8px">${noDue.map(renderTask).join('')}</div>
     </details>`:''}
     ${done.length?`<details data-done-group="${doneKey}" ${state.openDoneGroups.has(doneKey)?'open':''} style="margin-top:10px">
-      <summary class="note"><span class="fold-chev">▸</span>Udført (${done.length})</summary>
+      <summary class="fold-summary"><span class="fold-chev">▸</span>Udført (${done.length})</summary>
       <div style="margin-top:8px;display:flex;flex-direction:column;gap:8px">${done.map(renderTask).join('')}</div>
     </details>`:''}
   </section>`;
   }).join('');
-  return createKort + filterBar + groups;
+  return createKort + filterBar + groups
+    + `<div style="margin:24px 0 10px"><span class="eyebrow">Godkendelser</span></div>`
+    + godkendelserSection();
 }
 
 /* Action-first "på dagen"-visning til mobil — ikke desktop-kortene stablet lodret, men et enkelt overblik over
@@ -1590,6 +1603,10 @@ function viewPunkter(){
    den rigtige systemtid. Sæt den midlertidigt (fx via konsollen: state.debugNow='2026-09-04T14:30'; render())
    for at teste "I dag"-visningen på selve arrangementsdagen uden at vente på den rigtige dato/klokkeslæt. */
 function nowDate(){ return state.debugNow ? new Date(state.debugNow) : new Date(); }
+function greeting(){
+  const h=nowDate().getHours();
+  return h<10?'Godmorgen':h<18?'God eftermiddag':'Godaften';
+}
 function viewLive(){
   const now=nowDate();
   const todayStr=now.toISOString().slice(0,10);
@@ -1748,7 +1765,7 @@ function readApprovalForm(send){
     send
   };
 }
-function viewGodkendelser(){
+function godkendelserSection(){
   const kilden = state.rolle==='kilden';
   const all=(state.approvals||[]).filter(approvalVisibleTo);
   const afventer=all.filter(a=>a.status==='afventer').sort((a,b)=>(a.due_at||'9999').localeCompare(b.due_at||'9999'));
@@ -2215,7 +2232,7 @@ function logViewGroupHtml(g){
   const open=state.openLogViewGroups.has(g.key);
   const newest=g.entries[0], oldest=g.entries[g.entries.length-1];
   return `<details data-log-view-group="${g.key}" ${open?'open':''} class="logrow viewrow" style="display:block">
-    <summary style="cursor:pointer;display:flex;gap:10px;align-items:baseline"><span class="fold-chev">▸</span>
+    <summary class="fold-summary" style="align-items:baseline"><span class="fold-chev">▸</span>
       <span class="when">${tid(newest.ts)}</span>
       <span class="who"><span class="dot ${g.side}"></span>${esc(g.who.split(' (')[0])}</span>
       <span class="what"><span class="view">kiggede ind ${g.entries.length} gange</span> <span class="note">(${tid(oldest.ts)} – ${tid(newest.ts)})</span></span>
@@ -2282,6 +2299,97 @@ MODAL_RENDERERS.moreMenu = function(){
 MODAL_BINDERS.moreMenu = function(){
   document.querySelectorAll('[data-mbn-goto]').forEach(el=>el.onclick=()=>{ state.tab=el.dataset.mbnGoto; closeModal(); });
 };
+/* "Nyt arrangement" flyttet fra en altid-udfoldet kort på forsiden til en modal — formularen bruges
+   sjældnere end den daglige "Kræver handling"-oversigt, og tog uforholdsmæssig meget plads øverst på
+   siden hver gang. Samme felt-id'er og samme createEvent() som før, kun placeringen er ændret. */
+MODAL_RENDERERS.newEvent = function(){
+  return `
+  <h2 style="font-family:'Instrument Serif',serif;font-style:italic;font-size:24px;font-weight:400;margin:0 0 14px">Nyt arrangement</h2>
+  <div class="formgrid">
+    <div class="field" style="grid-column:span 2"><label for="neTitle">Titel</label><input id="neTitle" class="search" placeholder="Fx Sofie &amp; Anton" style="width:100%"></div>
+    <div class="field"><label for="neVenue">Lokation</label><select id="neVenue" class="search" style="width:100%">
+      <option value="">Vælg…</option>
+      ${(state.venues||[]).map(v=>`<option value="${v.id}">${esc(v.name)}</option>`).join('')}
+    </select></div>
+    <div class="field"><label for="neDate">Dato</label><input id="neDate" type="date" class="search" style="width:100%"></div>
+    <div class="field"><label for="neType">Arrangementstype</label><select id="neType" class="search" style="width:100%">
+      ${CAT_EVENT_TYPES.map(t=>`<option value="${t}">${t}</option>`).join('')}
+    </select></div>
+    ${(state.orgTemplates||[]).filter(t=>!t.archived).length?`<div class="field" style="grid-column:span 2"><label for="neTemplate">Fra skabelon (valgfri)</label><select id="neTemplate" class="search" style="width:100%">
+      <option value="">— Ingen skabelon —</option>
+      ${(state.orgTemplates||[]).filter(t=>!t.archived).map(t=>`<option value="${t.id}" ${state.newEventFromTemplate===t.id?'selected':''}>${esc(t.name)}</option>`).join('')}
+    </select></div>`:''}
+  </div>
+  <label class="row" style="gap:6px;font-size:13px;margin-top:10px"><input type="checkbox" id="neTasks" checked>Tilføj standardopgaver</label>
+  <div class="note" style="margin-top:8px">I sætter lokaler, tilbudsbeløb og katalogvarer op, når arrangementet er oprettet.</div>
+  <div class="row" style="margin-top:14px;justify-content:flex-end;gap:8px">
+    <button class="btn" data-modal-close>Annullér</button>
+    <button class="btn primary" id="neCreate">Opret arrangement</button>
+  </div>`;
+};
+MODAL_BINDERS.newEvent = function(){
+  const nc=document.getElementById('neCreate');
+  nc.onclick=createEvent;
+  onEnterSubmit(document.getElementById('neTitle'), ()=>nc.click());
+};
+/* Lokalevælger til katalogvarer — erstatter den tidligere inline fold-ud-liste over ALLE org'ens
+   lokaler direkte i katalogkortet, som blev uoverskuelig med mange lokationer/lokaler. state.modal.itemId
+   er enten et rigtigt katalogvare-id (skriver direkte til catalog_item_rooms ved hvert klik) eller den
+   særlige værdi 'new' for "Ny katalogvare"-formularen, hvor varen ikke findes i databasen endnu —
+   der samles valget i state.newCatalogItemRoomIds i stedet, og læses først ved selve oprettelsen. */
+MODAL_RENDERERS.roomPicker = function(){
+  const itemId=state.modal.itemId;
+  const item = itemId!=='new' ? (state.orgCatalog||[]).find(c=>c.id===itemId) : null;
+  const selected = itemId==='new' ? (state.newCatalogItemRoomIds||[]) : (item?item.roomIds:[])||[];
+  const q=(state.modal.search||'').trim().toLowerCase();
+  const groups = groupRoomsByVenue(state.orgRooms||[])
+    .map(g=>({...g, rooms:g.rooms.filter(r=>!q || r.name.toLowerCase().includes(q) || g.venueName.toLowerCase().includes(q))}))
+    .filter(g=>g.rooms.length);
+  return `
+  <h2 style="font-family:'Instrument Serif',serif;font-style:italic;font-size:24px;font-weight:400;margin:0 0 6px">Vælg lokaler</h2>
+  <p class="note" style="margin:0 0 12px">Intet valgt betyder, at varen kan bruges i alle lokaler.</p>
+  ${(state.orgRooms||[]).length>8?`<input class="search" id="rpSearch" placeholder="Søg lokale eller lokation…" value="${esc(state.modal.search||'')}" style="width:100%;margin-bottom:12px">`:''}
+  <div style="max-height:min(50vh,420px);overflow-y:auto">
+    ${groups.length?groups.map(g=>{
+      const allIn=g.rooms.every(r=>selected.includes(r.id));
+      return `<div style="margin-bottom:14px">
+      <div class="row" style="justify-content:space-between;align-items:center">
+        <span class="note" style="font-weight:600">${esc(g.venueName)}</span>
+        <button type="button" class="btn" data-rp-toggle-venue="${g.venueId}" style="font-size:11px;padding:3px 8px">${allIn?'Fjern alle':'Vælg alle'}</button>
+      </div>
+      <div class="row" style="gap:10px;flex-wrap:wrap;margin-top:6px">
+        ${g.rooms.map(r=>`<label class="row" style="gap:5px;font-size:13.5px"><input type="checkbox" class="rp-room" data-room="${r.id}" ${selected.includes(r.id)?'checked':''}>${esc(r.name)}</label>`).join('')}
+      </div>
+    </div>`;}).join(''):'<div class="empty">Ingen lokaler matcher søgningen.</div>'}
+  </div>
+  <div class="row" style="margin-top:14px;justify-content:space-between;align-items:center">
+    <span class="note">${roomPickerSummary(selected,(state.orgRooms||[]).length)}</span>
+    <button class="btn primary" data-modal-close>Færdig</button>
+  </div>`;
+};
+MODAL_BINDERS.roomPicker = function(){
+  const itemId=state.modal.itemId;
+  const rpSearch=document.getElementById('rpSearch');
+  if(rpSearch) rpSearch.oninput=()=>{ state.modal=Object.assign({},state.modal,{search:rpSearch.value}); render();
+    const el=document.getElementById('rpSearch'); if(el){ const p=rpSearch.value.length; el.focus(); el.setSelectionRange(p,p); } };
+  const applyToggle=(roomIds, checked)=>{
+    if(itemId==='new'){
+      const set=new Set(state.newCatalogItemRoomIds||[]);
+      roomIds.forEach(id=> checked ? set.add(id) : set.delete(id));
+      state.newCatalogItemRoomIds=[...set];
+      render();
+    } else if(checked) addCatalogItemRooms(itemId, roomIds);
+    else removeCatalogItemRooms(itemId, roomIds);
+  };
+  document.querySelectorAll('.rp-room').forEach(el=>el.onchange=()=>applyToggle([el.dataset.room], el.checked));
+  document.querySelectorAll('[data-rp-toggle-venue]').forEach(el=>el.onclick=()=>{
+    const venueId=el.dataset.rpToggleVenue;
+    const groupIds=(state.orgRooms||[]).filter(r=>r.venue_id===venueId).map(r=>r.id);
+    const selected = itemId==='new' ? (state.newCatalogItemRoomIds||[]) : (((state.orgCatalog||[]).find(c=>c.id===itemId)||{}).roomIds||[]);
+    const allIn=groupIds.every(id=>selected.includes(id));
+    applyToggle(groupIds, !allIn);
+  });
+};
 function renderBigModal(){
   const host=document.getElementById('bigModal');
   const box=document.getElementById('bigModalBox');
@@ -2314,12 +2422,12 @@ function renderInner(){
     if(ctx){ fab.textContent=ctx.label; fab.onclick=ctx.onClick; }
   }
 
-  if(state.view==='picker' || state.view==='users' || state.view==='venues' || state.view==='katalog' || state.view==='opgaver' || state.view==='eventskabeloner' || state.view==='superadmin' || state.view==='guestPicker'){
+  if(state.view==='picker' || state.view==='users' || state.view==='venues' || state.view==='katalog' || state.view==='skabeloner' || state.view==='kalender' || state.view==='superadmin' || state.view==='guestPicker'){
     document.title = 'Verta';
     document.getElementById('whoami').textContent = state.actor?('Logget ind som '+state.actor.navn):'';
     document.getElementById('orgName').textContent = state.view==='superadmin' ? '' : (state.orgName||'');
     document.getElementById('eventLoc').innerHTML='';
-    document.getElementById('heroTitle').textContent = state.view==='superadmin' ? 'Kontrolrum' : (state.view==='users' ? 'Brugere' : (state.view==='venues' ? 'Lokationer' : (state.view==='katalog' ? 'Katalog' : (state.view==='opgaver' ? 'Opgaveskabeloner' : (state.view==='eventskabeloner' ? 'Arrangementsskabeloner' : (state.view==='guestPicker' ? 'Vælg arrangement' : 'Arrangementer'))))));
+    document.getElementById('heroTitle').textContent = state.view==='superadmin' ? 'Kontrolrum' : (state.view==='users' ? 'Brugere' : (state.view==='venues' ? 'Lokationer' : (state.view==='katalog' ? 'Katalog' : (state.view==='skabeloner' ? 'Skabeloner' : (state.view==='kalender' ? 'Lokalekalender' : (state.view==='guestPicker' ? 'Vælg arrangement' : 'Arrangementer'))))));
     document.getElementById('heroChips').innerHTML='';
     document.getElementById('tabs').innerHTML='';
     const v=document.getElementById('view');
@@ -2377,47 +2485,35 @@ function renderInner(){
         onEnterSubmit(document.getElementById('ciPrice'), ()=>cc.click());
       }
       v.querySelectorAll('[data-delete-catalog-item]').forEach(el=>el.onclick=()=>deleteCatalogItem(el.dataset.deleteCatalogItem));
-      v.querySelectorAll('.item-room').forEach(el=>el.onchange=()=>{
-        if(el.checked) addCatalogItemRoom(el.dataset.item, el.dataset.room);
-        else removeCatalogItemRoom(el.dataset.item, el.dataset.room);
-      });
-      v.querySelectorAll('[data-toggle-venue-rooms]').forEach(el=>el.onclick=()=>{
-        const [itemId,venueId]=el.dataset.toggleVenueRooms.split('|');
-        const groupIds=(state.orgRooms||[]).filter(r=>r.venue_id===venueId).map(r=>r.id);
-        const item=(state.orgCatalog||[]).find(c=>c.id===itemId);
-        const allIn=groupIds.every(id=>(item.roomIds||[]).includes(id));
-        if(allIn) removeCatalogItemRooms(itemId, groupIds);
-        else addCatalogItemRooms(itemId, groupIds.filter(id=>!(item.roomIds||[]).includes(id)));
-      });
-      v.querySelectorAll('[data-ci-toggle-venue]').forEach(el=>el.onclick=()=>{
-        const boxes=[...document.querySelectorAll(`.ci-room[data-venue="${el.dataset.ciToggleVenue}"]`)];
-        const allChecked=boxes.length&&boxes.every(b=>b.checked);
-        boxes.forEach(b=>b.checked=!allChecked);
-      });
-      v.querySelectorAll('[data-picker]').forEach(el=>el.ontoggle=()=>{
-        if(el.open) state.openRoomPickers.add(el.dataset.picker);
-        else state.openRoomPickers.delete(el.dataset.picker);
-      });
-    } else if(state.view==='opgaver'){
-      v.innerHTML=viewOpgaver();
-      const tc=document.getElementById('ttCreate'); if(tc){ tc.onclick=createTaskTemplate;
-        onEnterSubmit(document.getElementById('ttTitle'), ()=>tc.click());
-        onEnterSubmit(document.getElementById('ttDays'), ()=>tc.click());
-        onEnterSubmit(document.getElementById('ttNote'), ()=>tc.click());
-      }
-      v.querySelectorAll('[data-delete-task-template]').forEach(el=>el.onclick=()=>deleteTaskTemplate(el.dataset.deleteTaskTemplate));
-    } else if(state.view==='eventskabeloner'){
-      v.innerHTML=viewEventTemplates();
+      v.querySelectorAll('[data-open-room-picker]').forEach(el=>el.onclick=()=>openModal('roomPicker',{itemId:el.dataset.openRoomPicker}));
+    } else if(state.view==='skabeloner'){
+      v.innerHTML=viewSkabeloner();
       const etc=document.getElementById('etCreate'); if(etc) etc.onclick=()=>openModal('template',{templateId:null});
       v.querySelectorAll('[data-edit-template]').forEach(el=>el.onclick=()=>openModal('template',{templateId:el.dataset.editTemplate}));
       v.querySelectorAll('[data-duplicate-template]').forEach(el=>el.onclick=()=>duplicateTemplate(el.dataset.duplicateTemplate));
       v.querySelectorAll('[data-archive-template]').forEach(el=>el.onclick=()=>archiveTemplate(el.dataset.archiveTemplate, true));
       v.querySelectorAll('[data-unarchive-template]').forEach(el=>el.onclick=()=>archiveTemplate(el.dataset.unarchiveTemplate, false));
       v.querySelectorAll('[data-use-template]').forEach(el=>el.onclick=()=>{ state.view='picker'; state.newEventFromTemplate=el.dataset.useTemplate; render(); });
+      const tc=document.getElementById('ttCreate'); if(tc){ tc.onclick=createTaskTemplate;
+        onEnterSubmit(document.getElementById('ttTitle'), ()=>tc.click());
+        onEnterSubmit(document.getElementById('ttDays'), ()=>tc.click());
+        onEnterSubmit(document.getElementById('ttNote'), ()=>tc.click());
+      }
+      v.querySelectorAll('[data-delete-task-template]').forEach(el=>el.onclick=()=>deleteTaskTemplate(el.dataset.deleteTaskTemplate));
+    } else if(state.view==='kalender'){
+      v.innerHTML = `<div class="row noprint" style="margin:20px 0 10px"><button class="btn" data-nav="picker">← Til forsiden</button></div>` + viewKalender();
+      const calRange=document.getElementById('calRange'); if(calRange) calRange.onchange=()=>{ state.calendarRange=calRange.value; loadCalendarData().then(render); };
+      const calDate=document.getElementById('calDate'); if(calDate) calDate.onchange=()=>{ state.calendarDate=calDate.value; loadCalendarData().then(render); };
+      const calPrev=document.getElementById('calPrev'); if(calPrev) calPrev.onclick=()=>{ state.calendarDate=addDays(calendarRangeStart(), state.calendarRange==='dag'?-1:-7); loadCalendarData().then(render); };
+      const calNext=document.getElementById('calNext'); if(calNext) calNext.onclick=()=>{ state.calendarDate=addDays(calendarRangeStart(), state.calendarRange==='dag'?1:7); loadCalendarData().then(render); };
+      const calToday=document.getElementById('calToday'); if(calToday) calToday.onclick=()=>{ state.calendarDate=todayIso(); loadCalendarData().then(render); };
+      const calRoomSel=document.getElementById('calRoomSel'); if(calRoomSel) calRoomSel.onchange=()=>{ state.calendarRoomId=calRoomSel.value; render(); };
+      const calRetry=document.getElementById('calRetry'); if(calRetry) calRetry.onclick=()=>loadCalendarData().then(render);
     } else {
       v.innerHTML=viewPicker();
       v.querySelectorAll('[data-open]').forEach(el=>el.onclick=()=>openEvent(el.dataset.open));
-      const nc=document.getElementById('neCreate'); if(nc){ nc.onclick=createEvent; onEnterSubmit(document.getElementById('neTitle'), ()=>nc.click()); }
+      const newEventBtn=document.getElementById('newEventBtn'); if(newEventBtn) newEventBtn.onclick=()=>openModal('newEvent',{});
+      const openKalenderBtn=document.getElementById('openKalenderBtn'); if(openKalenderBtn) openKalenderBtn.onclick=()=>{ state.view='kalender'; loadCalendarData().then(render); };
       const sd=document.getElementById('setupDismiss'); if(sd) sd.onclick=async()=>{
         await mutate(()=>sb.from('organisations').update({onboarding_dismissed:true}).eq('id',state.orgId));
         state.orgOnboardingDismissed=true; render();
@@ -2444,8 +2540,7 @@ function renderInner(){
       if(state.view==='users') await loadUsers();
       if(state.view==='venues') await loadVenuesFull();
       if(state.view==='katalog') await loadOrgCatalog();
-      if(state.view==='opgaver') await loadTaskTemplates();
-      if(state.view==='eventskabeloner') await loadOrgTemplates();
+      if(state.view==='skabeloner'){ await Promise.all([loadTaskTemplates(), loadOrgTemplates()]); }
       render();
     });
     return;
@@ -2461,7 +2556,7 @@ function renderInner(){
   if(state.tab==='beskeder') state.lastRead[state.rolle]=Date.now();
   document.getElementById('whoami').textContent='Logget ind som '+currentActor().navn;
   heroChips(); renderTabs();
-  const map={live:viewLive,oversigt:viewOversigt,gaester:viewGaester,punkter:viewPunkter,godkendelser:viewGodkendelser,koekken:viewKoekken,kalender:viewKalender,dokumenter:viewDokumenter,log:viewLog,admin:viewAdmin,tidslinje:viewTidslinje,beskeder:viewBeskeder};
+  const map={live:viewLive,oversigt:viewOversigt,gaester:viewGaester,punkter:viewPunkter,koekken:viewKoekken,dokumenter:viewDokumenter,log:viewLog,admin:viewAdmin,tidslinje:viewTidslinje,beskeder:viewBeskeder};
   /* "I dag"/Køkkenseddel/Log/Admin er kilden-only faner. Uden dette tjek kan et skifte til "Forhåndsvis
      som kunde" (som ændrer state.rolle, men ikke state.tab) lade en tidligere valgt kilden-fane blive
      stående og rendere sit staff-only indhold under kundens rolle — fx "I dag"s "✓ Udført"/"Registrér
@@ -2595,13 +2690,6 @@ function bind(){
   const apCancelRevise=document.getElementById('apCancelRevise'); if(apCancelRevise) apCancelRevise.onclick=()=>{ state.approvalRevisingId=null; render(); };
   document.querySelectorAll('[data-approve]').forEach(el=>el.onclick=()=>decideApprovalWithComment(el.dataset.approve,'godkendt'));
   document.querySelectorAll('[data-reject]').forEach(el=>el.onclick=()=>decideApprovalWithComment(el.dataset.reject,'afvist'));
-  const calRange=document.getElementById('calRange'); if(calRange) calRange.onchange=()=>{ state.calendarRange=calRange.value; loadCalendarData().then(render); };
-  const calDate=document.getElementById('calDate'); if(calDate) calDate.onchange=()=>{ state.calendarDate=calDate.value; loadCalendarData().then(render); };
-  const calPrev=document.getElementById('calPrev'); if(calPrev) calPrev.onclick=()=>{ state.calendarDate=addDays(calendarRangeStart(), state.calendarRange==='dag'?-1:-7); loadCalendarData().then(render); };
-  const calNext=document.getElementById('calNext'); if(calNext) calNext.onclick=()=>{ state.calendarDate=addDays(calendarRangeStart(), state.calendarRange==='dag'?1:7); loadCalendarData().then(render); };
-  const calToday=document.getElementById('calToday'); if(calToday) calToday.onclick=()=>{ state.calendarDate=todayIso(); loadCalendarData().then(render); };
-  const calRoomSel=document.getElementById('calRoomSel'); if(calRoomSel) calRoomSel.onchange=()=>{ state.calendarRoomId=calRoomSel.value; render(); };
-  const calRetry=document.getElementById('calRetry'); if(calRetry) calRetry.onclick=()=>loadCalendarData().then(render);
 
   document.querySelectorAll('[data-doc-open]').forEach(el=>el.onclick=()=>{ state.docPreview=el.dataset.docOpen; render(); });
   const docBack=document.querySelector('[data-doc-back]'); if(docBack) docBack.onclick=()=>{ state.docPreview=null; render(); };
@@ -3267,17 +3355,6 @@ async function loadOrgCatalog(){
   const {data:rms}=await sb.from('rooms').select('id,name,venue_id').order('sort_order');
   state.orgRooms=(rms||[]).map(r=>({...r, venueName:(vens||[]).find(v=>v.id===r.venue_id)?.name||''}));
 }
-async function addCatalogItemRoom(itemId, roomId){
-  if(!roomId) return;
-  const {error}=await mutate(()=>sb.from('catalog_item_rooms').insert({catalog_item_id:itemId, room_id:roomId}));
-  if(error){ showToast('Kunne ikke tilføje lokale: '+error.message,'error'); return; }
-  await loadOrgCatalog(); render();
-}
-async function removeCatalogItemRoom(itemId, roomId){
-  const {error}=await mutate(()=>sb.from('catalog_item_rooms').delete().eq('catalog_item_id',itemId).eq('room_id',roomId));
-  if(error){ showToast('Kunne ikke fjerne lokale: '+error.message,'error'); return; }
-  await loadOrgCatalog(); render();
-}
 async function addCatalogItemRooms(itemId, roomIds){
   if(!roomIds.length) return;
   const {error}=await mutate(()=>sb.from('catalog_item_rooms').insert(roomIds.map(rid=>({catalog_item_id:itemId, room_id:rid}))));
@@ -3309,7 +3386,7 @@ async function createCatalogItem(){
   const basis=document.getElementById('ciBasis').value;
   const childHalf=document.getElementById('ciChildHalf').checked;
   const eventType=document.getElementById('ciEventType').value||null;
-  const roomIds=[...document.querySelectorAll('.ci-room:checked')].map(el=>el.value);
+  const roomIds=state.newCatalogItemRoomIds||[];
   if(!name){ showToast('Skriv et navn.','error'); return; }
   const btn=document.getElementById('ciCreate'), orig=btn.textContent;
   btn.disabled=true; btn.textContent='Opretter…';
@@ -3321,6 +3398,7 @@ async function createCatalogItem(){
     if(created) await mutate(()=>sb.from('catalog_item_rooms').insert(roomIds.map(rid=>({catalog_item_id:created.id, room_id:rid}))));
   }
   btn.disabled=false; btn.textContent=orig;
+  state.newCatalogItemRoomIds=[];
   await loadOrgCatalog(); render();
   showToast('Katalogvare oprettet.','ok');
 }
@@ -3374,18 +3452,24 @@ async function loadPickerExceptions(){
   const ids=(state.events||[]).map(e=>e.id);
   state.eventExceptions={};
   if(!ids.length) return;
-  const [{data:tasks},{data:rooms},{data:access},{data:guests},{data:catLinks},{data:approvals},{data:changeReqs}] = await Promise.all([
+  const [{data:tasks},{data:rooms},{data:access},{data:guests},{data:catLinks},{data:approvals},{data:changeReqs},{data:msgs}] = await Promise.all([
     sb.from('agenda_items').select('event_id,status,due_date,assigned_staff_id,priority').in('event_id',ids),
     sb.from('event_rooms').select('event_id,room_id,start_time,end_time').in('event_id',ids),
     sb.from('event_access').select('event_id').in('event_id',ids),
     sb.from('guests').select('event_id,category,reception,dinner').in('event_id',ids),
     sb.from('event_catalog_items').select('event_id,catalog_items(price_kr,basis,child_half)').in('event_id',ids),
     sb.from('event_approvals').select('event_id,status,title,due_at').in('event_id',ids),
-    sb.from('event_change_requests').select('event_id,status').in('event_id',ids)
+    sb.from('event_change_requests').select('event_id,status').in('event_id',ids),
+    sb.from('activity_log').select('event_id,actor_side,ts').eq('entry_type','message').in('event_id',ids).order('ts',{ascending:false})
   ]);
   const byEvent = (rows,key) => { const m={}; (rows||[]).forEach(r=>{ (m[r.event_id]=m[r.event_id]||[]).push(key?r[key]:r); }); return m; };
   const tasksByEvent=byEvent(tasks), roomsByEvent=byEvent(rooms), accessByEvent=byEvent(access), guestsByEvent=byEvent(guests), catByEvent=byEvent(catLinks);
   const approvalsByEvent=byEvent(approvals), crByEvent=byEvent(changeReqs);
+  /* "Beskeder der mangler svar" uden skemaændring: der findes ingen persisteret "sidst læst af
+     medarbejder"-markør pr. arrangement (kun state.lastRead, som er lokal UI-state der nulstilles ved
+     genindlæsning) — men da beskeder er en tovejs-tråd, er "hvem skrev sidst" et pålideligt signal uden
+     at kræve en. Er den seneste besked i tråden fra kunden, har staff endnu ikke svaret. */
+  const latestMsgByEvent={}; (msgs||[]).forEach(m=>{ if(!latestMsgByEvent[m.event_id]) latestMsgByEvent[m.event_id]=m; });
   const today=new Date().toISOString().slice(0,10);
   const in7=addDays(today,7);
   const out={}; const nextDue={};
@@ -3398,12 +3482,17 @@ async function loadPickerExceptions(){
     if(overdue.length) reasons.push({txt:overdue.length+' opgave'+(overdue.length>1?'r':'')+' er overskredet', urgent:true, tier:1, kind:'task', who:'organisationen', actionLabel:'Se opgaver', actionTab:'punkter'});
     else if(soon.length) reasons.push({txt:soon.length+' opgave'+(soon.length>1?'r':'')+' har frist inden for 7 dage', urgent:false, tier:4, kind:'task', who:'organisationen', actionLabel:'Se opgaver', actionTab:'punkter'});
     if(!ev.owner_staff_id) reasons.push({txt:'Ingen ansvarlig medarbejder', urgent:true, tier:2, kind:'ejer', who:'organisationen', actionLabel:'Tilknyt medarbejder', actionTab:'admin'});
+    const lastMsg=latestMsgByEvent[ev.id];
+    if(lastMsg && lastMsg.actor_side==='kunde'){
+      const hoursOld=(Date.now()-new Date(lastMsg.ts).getTime())/3600000;
+      reasons.push({txt:'Kunden venter på svar', urgent:hoursOld>24, tier:2, kind:'besked', who:'organisationen', actionLabel:'Åbn beskeder', actionTab:'beskeder'});
+    }
     (approvalsByEvent[ev.id]||[]).forEach(a=>{
       if(a.status==='afventer'){
         const dueSoon = a.due_at && a.due_at.slice(0,10)<=in7;
-        reasons.push({txt:'Godkendelse afventer kunden: '+a.title, urgent:!!(a.due_at&&a.due_at.slice(0,10)<today), tier:dueSoon?3:4, kind:'godkendelse', who:'kunde', actionLabel:'Åbn godkendelse', actionTab:'godkendelser'});
+        reasons.push({txt:'Godkendelse afventer kunden: '+a.title, urgent:!!(a.due_at&&a.due_at.slice(0,10)<today), tier:dueSoon?3:4, kind:'godkendelse', who:'kunde', actionLabel:'Åbn godkendelse', actionTab:'punkter'});
       } else if(a.status==='afvist'){
-        reasons.push({txt:'Godkendelse afvist: '+a.title, urgent:true, tier:2, kind:'godkendelse', who:'organisationen', actionLabel:'Åbn godkendelse', actionTab:'godkendelser'});
+        reasons.push({txt:'Godkendelse afvist: '+a.title, urgent:true, tier:2, kind:'godkendelse', who:'organisationen', actionLabel:'Åbn godkendelse', actionTab:'punkter'});
       }
     });
     const pendingCr=(crByEvent[ev.id]||[]).filter(c=>c.status==='pending');
@@ -3783,6 +3872,7 @@ async function createEvent(){
     if(templateId) await applyTemplateToEvent(templateId, created.id, date);
     else if(useTasks) await applyTaskTemplates(created.id, date, eventType);
     state.newEventFromTemplate=null;
+    state.modal=null;
     await openEvent(created.id);
   } else { btn.disabled=false; btn.textContent=orig; render(); }
 }
@@ -3836,13 +3926,16 @@ function viewEventTemplates(){
       ${t.archived?`<button class="btn" data-unarchive-template="${t.id}">Genaktivér</button>`:`<button class="btn" data-archive-template="${t.id}">Arkivér</button>`}
     </span>
   </div>`;
-  return `${consoleNav('eventskabeloner')}
+  return `
   <div style="margin:20px 0 10px"><span class="eyebrow">Arrangementsskabeloner</span></div>
   <section class="card">
     <header><h2>Aktive skabeloner</h2><span class="note">${active.length}</span><button class="btn primary" id="etCreate">Ny skabelon</button></header>
     ${active.length?active.map(row).join(''):'<div class="empty">Ingen skabeloner endnu. Opret en fra bunden, eller gem et eksisterende arrangement som skabelon fra dets Admin-fane.</div>'}
   </section>
   ${archived.length?`<section class="card"><header><h2>Arkiverede</h2><span class="note">${archived.length}</span></header>${archived.map(row).join('')}</section>`:''}`;
+}
+function viewSkabeloner(){
+  return `${consoleNav('skabeloner')}${viewEventTemplates()}${opgaveskabelonerSection()}`;
 }
 async function duplicateTemplate(id){
   const t=(state.orgTemplates||[]).find(x=>x.id===id); if(!t) return;
@@ -4022,14 +4115,13 @@ function consoleNav(active){
     <button data-nav="picker" aria-pressed="${active==='picker'}">Arrangementer</button>
     <button data-nav="venues" aria-pressed="${active==='venues'}">Lokationer</button>
     <button data-nav="katalog" aria-pressed="${active==='katalog'}">Katalog</button>
-    <button data-nav="opgaver" aria-pressed="${active==='opgaver'}">Opgaveskabeloner</button>
-    <button data-nav="eventskabeloner" aria-pressed="${active==='eventskabeloner'}">Arrangementsskabeloner</button>
+    <button data-nav="skabeloner" aria-pressed="${active==='skabeloner'}">Skabeloner</button>
     <button data-nav="users" aria-pressed="${active==='users'}">Brugere</button>
   </nav>`;
 }
-function viewOpgaver(){
-  return `${consoleNav('opgaver')}
-  <div style="margin:20px 0 10px"><span class="eyebrow">Opgaveskabeloner for ${esc(state.orgName||'organisationen')}</span></div>
+function opgaveskabelonerSection(){
+  return `
+  <div style="margin:24px 0 10px"><span class="eyebrow">Opgaveskabeloner</span></div>
   <section class="card">
     <header><h2>Skabeloner</h2><span class="note">${(state.taskTemplates||[]).length}</span></header>
     <div class="note" style="margin-bottom:12px">Skabeloner kan automatisk tilføjes til nye arrangementer og beregner fristen i forhold til arrangementsdatoen — de er ikke selve aftalepunkterne (dem finder du inde på hvert arrangement, under fanen "Aftalepunkter").</div>
@@ -4057,6 +4149,9 @@ function viewOpgaver(){
     <div class="note" style="margin-top:10px">"Dage før arrangement" er en relativ frist (fx 14 dage før) i stedet for en fast dato — så samme skabelon kan bruges på tværs af arrangementer med forskellige datoer.</div>
   </section>`;
 }
+function roomPickerSummary(roomIds, totalRooms){
+  return (roomIds||[]).length ? `${roomIds.length} af ${totalRooms} lokaler valgt` : `Alle ${totalRooms} lokaler`;
+}
 function viewKatalog(){
   return `${consoleNav('katalog')}
   <div style="margin:20px 0 10px"><span class="eyebrow">Priskatalog for ${esc(state.orgName||'organisationen')}</span></div>
@@ -4069,24 +4164,10 @@ function viewKatalog(){
         <span class="note">${c.price_kr} kr ${c.basis==='fast'?'(fast)':'/person'+(c.child_half?' · børn halv pris':'')}</span>
         <button class="btn" data-delete-catalog-item="${c.id}">Slet</button>
       </span>
-      <details style="width:100%;margin-top:4px" data-picker="${c.id}" ${state.openRoomPickers.has(c.id)?'open':''}>
-        <summary class="note"><span class="fold-chev">▸</span>Lokaler ${(c.roomIds||[]).length?`(${(c.roomIds||[]).length}/${(state.orgRooms||[]).length})`:`(${(state.orgRooms||[]).length}, alle)`}</summary>
-        <div style="margin-top:8px">
-          ${groupRoomsByVenue(state.orgRooms).map(g=>{
-            const allIn=g.rooms.every(r=>(c.roomIds||[]).includes(r.id));
-            return `<div style="margin-bottom:10px">
-            <div class="row" style="justify-content:space-between;align-items:center;max-width:380px">
-              <span class="note" style="font-weight:600">${esc(g.venueName)}</span>
-              <button class="btn" data-toggle-venue-rooms="${c.id}|${g.venueId}" style="font-size:11px;padding:3px 8px">${allIn?'Fjern alle':'Vælg alle'}</button>
-            </div>
-            <div class="row" style="gap:10px;flex-wrap:wrap;margin-top:4px">
-              ${g.rooms.map(r=>`<label class="row" style="gap:4px;font-size:13px">
-                <input type="checkbox" class="item-room" data-item="${c.id}" data-room="${r.id}" ${(c.roomIds||[]).includes(r.id)?'checked':''}>${esc(r.name)}
-              </label>`).join('')}
-            </div>
-          </div>`;}).join('')}
-        </div>
-      </details>
+      <div class="row" style="width:100%;justify-content:space-between;align-items:center;margin-top:4px">
+        <span class="note">${roomPickerSummary(c.roomIds, (state.orgRooms||[]).length)}</span>
+        <button class="btn" data-open-room-picker="${c.id}">Vælg lokaler</button>
+      </div>
     </div>`;}).join(''):'<div class="empty">Ingen katalogvarer endnu.</div>'}
   </section>
   <section class="card">
@@ -4112,20 +4193,10 @@ function viewKatalog(){
       Pr. person (middag) beregnes ud fra gæster markeret til middag. Pr. person (reception) beregnes ud fra gæster markeret til reception. Fast beløb lægges kun til én gang, uanset antal gæster.<br>
       Intet valgt lokale herunder betyder, at varen kan bruges i alle lokaler.
     </div>
-    <details style="margin-top:10px">
-      <summary class="note"><span class="fold-chev">▸</span>Lokaler (${(state.orgRooms||[]).length}) — intet valgt = alle</summary>
-      <div style="margin-top:8px">
-        ${groupRoomsByVenue(state.orgRooms).map(g=>`<div style="margin-bottom:10px">
-          <div class="row" style="justify-content:space-between;align-items:center;max-width:380px">
-            <span class="note" style="font-weight:600">${esc(g.venueName)}</span>
-            <button type="button" class="btn" data-ci-toggle-venue="${g.venueId}" style="font-size:11px;padding:3px 8px">Vælg alle</button>
-          </div>
-          <div class="row" style="gap:10px;flex-wrap:wrap;margin-top:4px">
-            ${g.rooms.map(r=>`<label class="row" style="gap:4px;font-size:13px"><input type="checkbox" class="ci-room" data-venue="${g.venueId}" value="${r.id}">${esc(r.name)}</label>`).join('')}
-          </div>
-        </div>`).join('')}
-      </div>
-    </details>
+    <div class="row" style="margin-top:10px;justify-content:space-between;align-items:center">
+      <span class="note">${roomPickerSummary(state.newCatalogItemRoomIds, (state.orgRooms||[]).length)}</span>
+      <button type="button" class="btn" data-open-room-picker="new">Vælg lokaler</button>
+    </div>
     <div class="row" style="margin-top:10px">
       <button class="btn primary" id="ciCreate">Opret katalogvare</button>
     </div>
@@ -4192,7 +4263,7 @@ function actionRequiredSection(){
       else rs=rs.filter(r=>r.who===f.who);
     }
     if(f.kind && f.kind!=='alle'){
-      const kindMap={overskredet:r=>r.tier===1, kommende:r=>r.tier===4, godkendelser:r=>r.kind==='godkendelse', pris:r=>r.kind==='pris', lokaler:r=>r.kind==='lokale', beskeder:()=>false};
+      const kindMap={overskredet:r=>r.tier===1, kommende:r=>r.tier===4, godkendelser:r=>r.kind==='godkendelse', pris:r=>r.kind==='pris', lokaler:r=>r.kind==='lokale', beskeder:r=>r.kind==='besked'};
       rs=rs.filter(kindMap[f.kind]||(()=>true));
     }
     return rs;
@@ -4249,6 +4320,7 @@ function inboxFilterBar(){
       <option value="overskredet" ${f.kind==='overskredet'?'selected':''}>Overskredet</option>
       <option value="kommende" ${f.kind==='kommende'?'selected':''}>Kommende 7 dage</option>
       <option value="godkendelser" ${f.kind==='godkendelser'?'selected':''}>Godkendelser</option>
+      <option value="beskeder" ${f.kind==='beskeder'?'selected':''}>Beskeder</option>
       <option value="pris" ${f.kind==='pris'?'selected':''}>Pris</option>
       <option value="lokaler" ${f.kind==='lokaler'?'selected':''}>Lokaler</option>
     </select>
@@ -4296,33 +4368,6 @@ function viewPicker(){
       ${EVENT_STATUSES.map(([v,l])=>`<option value="${v}" ${state.pickerFilterStatus===v?'selected':''}>${l}</option>`).join('')}
     </select>
   </div>` : '';
-  const nyKort = (state.venues||[]).length===0 ? `
-  <section class="card">
-    <header><h2>Nyt arrangement</h2></header>
-    <div class="empty">I skal have mindst én lokation, før I kan oprette et arrangement.</div>
-    <button class="btn primary" data-nav="venues">Tilføj jeres første lokation →</button>
-  </section>` : `
-  <section class="card">
-    <header><h2>Nyt arrangement</h2></header>
-    <div class="formgrid">
-      <div class="field" style="grid-column:span 2"><label for="neTitle">Titel</label><input id="neTitle" class="search" placeholder="Fx Sofie &amp; Anton"></div>
-      <div class="field"><label for="neVenue">Lokation</label><select id="neVenue" class="search">
-        <option value="">Vælg…</option>
-        ${(state.venues||[]).map(v=>`<option value="${v.id}">${esc(v.name)}</option>`).join('')}
-      </select></div>
-      <div class="field"><label for="neDate">Dato</label><input id="neDate" type="date" class="search"></div>
-      <div class="field"><label for="neType">Arrangementstype</label><select id="neType" class="search">
-        ${CAT_EVENT_TYPES.map(t=>`<option value="${t}">${t}</option>`).join('')}
-      </select></div>
-      ${(state.orgTemplates||[]).filter(t=>!t.archived).length?`<div class="field" style="grid-column:span 2"><label for="neTemplate">Fra skabelon (valgfri)</label><select id="neTemplate" class="search">
-        <option value="">— Ingen skabelon —</option>
-        ${(state.orgTemplates||[]).filter(t=>!t.archived).map(t=>`<option value="${t.id}" ${state.newEventFromTemplate===t.id?'selected':''}>${esc(t.name)}</option>`).join('')}
-      </select></div>`:''}
-      <button class="btn primary" id="neCreate">Opret arrangement</button>
-    </div>
-    <label class="row" style="gap:6px;font-size:13px;margin-top:8px"><input type="checkbox" id="neTasks" checked>Tilføj standardopgaver</label>
-    <div class="note" style="margin-top:8px">I sætter lokaler, tilbudsbeløb og katalogvarer op, når arrangementet er oprettet.</div>
-  </section>`;
   const setup = {
     venues:(state.venues||[]).length, events:(state.events||[]).length,
     catalog:(state.orgCatalog&&state.orgCatalog.length)||state.orgCatalogCount||0,
@@ -4336,10 +4381,19 @@ function viewPicker(){
     {done:setup.events>0, label:'Opret jeres første arrangement'}
   ], '<div class="row" style="margin-top:12px"><button class="btn" id="setupDismiss">Skjul denne guide</button></div>') : '';
   return `${consoleNav('picker')}
-    <div style="margin:20px 0 10px"><span class="eyebrow">${state.isAdmin?'Admin · alle arrangementer':'Dine arrangementer'}</span></div>
+    <div class="row" style="justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:10px;margin:20px 0 16px">
+      <div>
+        <div class="eyebrow">${esc(nowDate().toLocaleDateString('da-DK',{weekday:'long',day:'numeric',month:'long'}))}</div>
+        <h1 style="font-family:'Instrument Serif',serif;font-style:italic;font-weight:400;font-size:28px;margin:2px 0 0">${greeting()}, ${esc(currentActor().navn)}</h1>
+      </div>
+      <div class="row noprint" style="gap:8px">
+        <button class="btn" id="openKalenderBtn">Lokalekalender</button>
+        ${(state.venues||[]).length?'<button class="btn primary" id="newEventBtn">+ Nyt arrangement</button>':''}
+      </div>
+    </div>
     ${setupKort}
-    ${nyKort}
     ${actionRequiredSection()}
+    <div style="margin:24px 0 10px"><span class="eyebrow">${state.isAdmin?'Admin · alle arrangementer':'Dine arrangementer'}</span></div>
     ${filterBar}
     ${EVENT_STATUSES.map(([v,l])=>sec(v,l,grp[v])).join('')}
     ${state.events.length?'':'<div class="empty">Ingen arrangementer endnu.</div>'}
