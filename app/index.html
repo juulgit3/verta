@@ -71,7 +71,8 @@ details[open] > summary .fold-chev,details[open] .fold-chev{transform:rotate(90d
 .fold-summary .fold-chev{font-size:12px;color:inherit}
 .notes-toggle:focus-visible{outline:2px solid var(--blue);outline-offset:1px}
 
-nav.tabs{display:flex;gap:2px;margin:26px 0 20px;border-bottom:1px solid var(--line);overflow-x:auto;
+nav.tabs{display:flex;gap:2px;margin:26px 0 20px;border-bottom:1px solid var(--line);overflow-x:auto;overflow-y:hidden;
+  scrollbar-width:none;-ms-overflow-style:none;
   background:
     linear-gradient(to right, var(--paper) 50%, rgba(234,237,230,0)),
     linear-gradient(to left, var(--paper) 50%, rgba(234,237,230,0)) 100% 0,
@@ -82,6 +83,10 @@ nav.tabs{display:flex;gap:2px;margin:26px 0 20px;border-bottom:1px solid var(--l
   background-position:0 0, 100% 0, 0 0, 100% 0;
   background-attachment:local, local, scroll, scroll;
 }
+/* Native scrollbar skjules bevidst — kant-gradienterne ovenfor er selve skrolle-indikatoren. En synlig
+   OS-scrollbar her lagde ekstra højde ind under fanerne, så bunden af fanebjælken ikke ramte kortets
+   border-bottom præcist (det så ud som om "noget med højden ikke passede"). */
+nav.tabs::-webkit-scrollbar{display:none}
 nav.tabs button{background:none;border:0;padding:10px 14px;cursor:pointer;font-weight:600;font-size:14px;color:var(--ink-60);border-bottom:2px solid transparent;white-space:nowrap;margin-bottom:-1px}
 nav.tabs button:hover{color:var(--ink)}
 nav.tabs button[aria-selected="true"]{color:var(--blue);border-bottom-color:var(--blue)}
@@ -686,9 +691,12 @@ async function commitGuestField(guestId, f, el){
    ========================================================= */
 const esc = s => String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 
+/* Beskeder ligger bevidst tidligt i begge lister — det er den fane, der oftest kræver et hurtigt svar
+   (jf. "Kunden venter på svar" i arbejdsindbakken), og skulle ikke gemmes bagerst efter de faner, man
+   kun tjekker lejlighedsvis (Log, Admin, Dokumenter). */
 const TABS = {
-  kilden:[['live','I dag'],['oversigt','Oversigt'],['gaester','Gæster'],['punkter','Opgaver'],['koekken','Køkkenseddel'],['dokumenter','Dokumenter'],['log','Log'],['admin','Admin'],['beskeder','Beskeder']],
-  kunde: [['oversigt','Oversigt'],['gaester','Gæster'],['punkter','Opgaver'],['tidslinje','Tidslinje'],['beskeder','Beskeder']]
+  kilden:[['live','I dag'],['oversigt','Oversigt'],['beskeder','Beskeder'],['gaester','Gæster'],['punkter','Opgaver'],['koekken','Køkkenseddel'],['dokumenter','Dokumenter'],['log','Log'],['admin','Admin']],
+  kunde: [['oversigt','Oversigt'],['beskeder','Beskeder'],['gaester','Gæster'],['punkter','Opgaver'],['tidslinje','Tidslinje']]
 };
 const APPROVAL_TYPES = {tilbud:'Tilbud', menu:'Menu', bordplan:'Bordplan', deltagerantal:'Endeligt deltagerantal', prisaendring:'Prisændring', praktisk:'Praktisk aftale', andet:'Andet'};
 const APPROVAL_STATUS_LABEL = {kladde:'Kladde', afventer:'Afventer kunde', godkendt:'Godkendt', afvist:'Afvist', erstattet:'Erstattet af nyere version', tilbagekaldt:'Tilbagekaldt'};
@@ -710,8 +718,8 @@ function renderTabs(){
    skærme. "Dag" findes kun for medarbejdere (kunden har ingen "I dag"-fane) — kunden får Oversigt i
    samme plads i stedet, så bundbjælken altid har fire meningsfulde destinationer. */
 const MOBILE_NAV_PRIMARY = {
-  kilden:[['live','Dag','📋'],['punkter','Opgaver','✓'],['beskeder','Beskeder','💬']],
-  kunde: [['oversigt','Oversigt','🏠'],['punkter','Opgaver','✓'],['beskeder','Beskeder','💬']]
+  kilden:[['live','Dag','📋'],['beskeder','Beskeder','💬'],['punkter','Opgaver','✓']],
+  kunde: [['oversigt','Oversigt','🏠'],['beskeder','Beskeder','💬'],['punkter','Opgaver','✓']]
 };
 /* Kontekstafhængig FAB: samme knap, men label/handling følger den aktive fane i stedet for altid at
    være "+ Opgave" — en gæsteliste-fane har mest brug for at kunne tilføje en gæst med det samme, en
@@ -765,7 +773,7 @@ function viewAdmin(){
   return `
   <section class="card">
     <header><h2>Arrangementdetaljer</h2></header>
-    <div class="row" style="gap:8px;flex-wrap:wrap;align-items:flex-end">
+    <div class="row" style="gap:14px 8px;flex-wrap:wrap;align-items:flex-start">
       <div class="field" style="flex:2;min-width:180px"><label for="edTitle">Titel</label><input id="edTitle" class="search" placeholder="Titel" value="${esc(state.eventTitle||'')}" style="width:100%"></div>
       <div class="field" style="flex:1;min-width:140px"><label for="edVenue">Lokation</label><select id="edVenue" class="search" style="width:100%">
         ${(state.venues||[]).map(v=>`<option value="${v.id}" ${v.id===state.venueId?'selected':''}>${esc(v.name)}</option>`).join('')}
@@ -775,7 +783,7 @@ function viewAdmin(){
       <div class="field" style="flex:1;min-width:130px"><label for="edType">Arrangementstype</label><select id="edType" class="search" style="width:100%">
         ${CAT_EVENT_TYPES.map(t=>`<option value="${t}" ${t===state.eventType?'selected':''}>${t}</option>`).join('')}
       </select></div>
-      <button class="btn primary" id="edSave">Gem</button>
+      <div class="field" style="flex:0 0 auto"><label style="visibility:hidden">Gem</label><button class="btn primary" id="edSave">Gem</button></div>
     </div>
     <div class="row" style="margin-top:12px;gap:8px;flex-wrap:wrap">
       <button class="btn" id="duplicateEventBtn">Duplikér arrangement</button>
@@ -849,6 +857,18 @@ function viewOversigt(){
       {done:hasPrice, label:'Sæt tilbudsbeløb', action:hasPrice?'':'<button class="btn" data-goto-tab="admin">Gå til →</button>'},
       {done:hasCatalog, label:'Tilføj katalogvarer', action:hasCatalog?'':'<button class="btn" data-goto-tab="admin">Gå til →</button>'}
     ], '<div class="note" style="margin-top:8px">Guiden forsvinder, når I skifter status fra Kladde til Tilbud.</div>');
+  })() : '';
+  const lukKort = (state.rolle==='kilden' && state.status==='bekræftet') ? (()=>{
+    const openTasks=(state.punkter||[]).filter(p=>p.status!=='aftalt').length;
+    const pendingApprovals=(state.approvals||[]).filter(a=>a.status==='afventer').length;
+    const pendingCr=(state.changeRequests||[]).filter(c=>c.status==='pending').length;
+    const items=[
+      {done:!openTasks, label:openTasks?openTasks+' åben'+(openTasks>1?'e':'')+' opgave'+(openTasks>1?'r':''):'Ingen åbne opgaver', action:openTasks?'<button class="btn" data-goto-tab="punkter">Gå til →</button>':''},
+      {done:!pendingApprovals, label:pendingApprovals?pendingApprovals+' afventende godkendelse'+(pendingApprovals>1?'r':''):'Ingen afventende godkendelser', action:pendingApprovals?'<button class="btn" data-goto-tab="punkter">Gå til →</button>':''},
+      {done:!pendingCr, label:pendingCr?pendingCr+' ubehandlet'+(pendingCr>1?'e':'')+' ændringsforslag':'Ingen ubehandlede ændringsforslag', action:pendingCr?'<button class="btn" data-goto-tab="gaester">Gå til →</button>':''}
+    ];
+    return checklistHtml('Klar til at lukke?', items.filter(i=>i.done).length+'/3', items,
+      '<div class="note" style="margin-top:8px">Ren information — I kan stadig sætte status til Afviklet uanset dette.</div>');
   })() : '';
   const statusKort = (state.rolle==='kilden') ? `
   <section class="card">
@@ -962,6 +982,7 @@ function viewOversigt(){
   ${welcomeKort}
   ${setupKort}
   ${statusKort}
+  ${lukKort}
   ${approvalStatusKort}
   ${deleKort}
   ${lokaleKort}
@@ -1647,11 +1668,12 @@ function viewLive(){
     </div>`).join(''):'<div class="empty">Alt er klaret. Intet udestående.</div>'}
   </section>
   <section class="card">
-    <header><h2>Registrér problem</h2><span class="note">sendes som besked</span></header>
+    <header><h2>Registrér problem</h2></header>
     <div class="row" style="gap:8px;flex-wrap:wrap">
       <input class="search" id="liveProblem" placeholder="Fx: Projektor virker ikke i Konferencesalen" style="flex:1;min-width:200px">
       <button class="btn" id="liveProblemSend">Registrér</button>
     </div>
+    <label class="row" style="gap:6px;margin-top:8px"><input type="checkbox" id="liveProblemInternal">Kun intern note (send ikke til kunden)</label>
   </section>
   <section class="card">
     <header><h2>Kontakt og beskeder</h2></header>
@@ -2705,10 +2727,11 @@ function bind(){
       const inp=document.getElementById('liveProblem');
       const txt=inp.value.trim();
       if(!txt) return;
-      pushMessage('⚠️ Problem: '+txt);
+      const internal=document.getElementById('liveProblemInternal').checked;
+      pushMessage('⚠️ Problem: '+txt, internal);
       inp.value='';
       render();
-      showToast('Registreret og sendt som besked.','ok');
+      showToast(internal?'Registreret som intern note.':'Registreret og sendt som besked.','ok');
     };
     onEnterSubmit(document.getElementById('liveProblem'), ()=>liveSend.click());
   }
@@ -3611,7 +3634,8 @@ async function updateEventOwnership(field, staffId){
    owner_staff_id), ikke af selve overdragelsesfunktionen. Overdragelse er derfor blot et ejerskifte;
    adgangen for andre admins er upåvirket og kræver ingen særskilt "mindst én admin tilbage"-logik her. */
 async function handoverEvent(newOwnerId, moveTasks, note){
-  const oldOwnerName=(state.roster.find(r=>r.id===state.ownerStaffId)||{}).name||'ingen';
+  const oldOwnerId=state.ownerStaffId;
+  const oldOwnerName=(state.roster.find(r=>r.id===oldOwnerId)||{}).name||'ingen';
   const newOwnerName=(state.roster.find(r=>r.id===newOwnerId)||{}).name||'—';
   const {error}=await mutate(()=>sb.from('events').update({owner_staff_id:newOwnerId}).eq('id',state.eventId));
   if(error){ showToast('Kunne ikke overdrage: '+error.message,'error'); return false; }
@@ -3619,7 +3643,9 @@ async function handoverEvent(newOwnerId, moveTasks, note){
   if(staffErr) console.error('handover event_staff', staffErr);
   state.ownerStaffId=newOwnerId;
   if(moveTasks){
-    const openIds=state.punkter.filter(p=>p.status!=='aftalt').map(p=>p.id);
+    /* Kun opgaver, der rent faktisk var tildelt den AFGIVENDE ejer, flyttes — ikke alle åbne opgaver på
+       arrangementet (en tidligere fejl flyttede fx også en sekundær koordinators egne opgaver). */
+    const openIds=state.punkter.filter(p=>p.status!=='aftalt' && p.assignedStaffId===oldOwnerId).map(p=>p.id);
     if(openIds.length){
       const {error:taskErr}=await mutate(()=>sb.from('agenda_items').update({assigned_staff_id:newOwnerId}).in('id',openIds));
       if(taskErr) showToast('Overdraget, men kunne ikke flytte alle åbne opgaver: '+taskErr.message,'error');
@@ -3639,7 +3665,7 @@ MODAL_RENDERERS.handover = function(){
     <option value="">Vælg…</option>
     ${(state.roster||[]).filter(r=>r.id!==state.ownerStaffId).map(r=>`<option value="${r.id}">${esc(r.name)}</option>`).join('')}
   </select></div>
-  <label class="row" style="gap:6px;margin-top:10px"><input type="checkbox" id="hoMoveTasks" checked>Flyt også åbne opgaver til den nye ejer</label>
+  <label class="row" style="gap:6px;margin-top:10px"><input type="checkbox" id="hoMoveTasks" checked>Flyt også ${esc(currentName)}s åbne opgaver til den nye ejer</label>
   <div class="field" style="margin-top:10px"><label for="hoNote">Note (valgfri)</label><input id="hoNote" class="search" style="width:100%"></div>
   <div class="row" style="margin-top:14px;justify-content:flex-end;gap:8px">
     <button class="btn" data-modal-close>Annullér</button>
@@ -3653,7 +3679,8 @@ MODAL_BINDERS.handover = function(){
     const moveTasks=document.getElementById('hoMoveTasks').checked;
     const note=document.getElementById('hoNote').value.trim();
     const newOwnerName=(state.roster.find(r=>r.id===newOwnerId)||{}).name||'';
-    if(!(await appConfirm('Overdrag arrangementet til '+newOwnerName+'?'+(moveTasks?' Åbne opgaver flyttes også.':'')))) return;
+    const currentName=(state.roster.find(r=>r.id===state.ownerStaffId)||{}).name||'';
+    if(!(await appConfirm('Overdrag arrangementet til '+newOwnerName+'?'+(moveTasks?' '+currentName+'s åbne opgaver flyttes også.':'')))) return;
     const ok=await handoverEvent(newOwnerId, moveTasks, note);
     if(ok){ closeModal(); showToast('Arrangement overdraget.','ok'); }
   };
@@ -4358,12 +4385,12 @@ function viewPicker(){
   const filterBar = (state.events||[]).length ? `
   <div class="row noprint" style="margin:14px 0 2px;gap:8px;flex-wrap:wrap">
     <input class="search" id="pickerSearch" placeholder="Søg arrangement, type eller lokation" value="${esc(state.pickerSearch)}" style="flex:2;min-width:200px">
-    <select id="pickerSort">
+    <select id="pickerSort" class="search" style="max-width:170px">
       <option value="dato" ${state.pickerSort==='dato'?'selected':''}>Sortér: dato</option>
       <option value="titel" ${state.pickerSort==='titel'?'selected':''}>Sortér: titel</option>
       <option value="frist" ${state.pickerSort==='frist'?'selected':''}>Sortér: næste frist</option>
     </select>
-    <select id="pickerFilterStatus">
+    <select id="pickerFilterStatus" class="search" style="max-width:170px">
       <option value="alle" ${state.pickerFilterStatus==='alle'?'selected':''}>Alle statusser</option>
       ${EVENT_STATUSES.map(([v,l])=>`<option value="${v}" ${state.pickerFilterStatus===v?'selected':''}>${l}</option>`).join('')}
     </select>

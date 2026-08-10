@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Funktioner — Verta</title>
-<meta name="description" content="Alt det, en koordinator faktisk bruger tiden på — samlet ét sted, opdateret i realtid.">
+<meta name="description" content="Fra tilbud til afviklet arrangement: gæster, pris, lokaler, godkendelser og drift — samlet ét sted, opdateret i realtid.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Familjen+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -63,6 +63,20 @@ section{padding:64px 0;border-top:1px solid var(--line)}
 .feat .fi span{width:8px;height:8px;border-radius:99px;background:var(--blue)}
 .feat h3{font-size:15.5px;font-weight:700}
 .feat p{margin-top:9px;font-size:14px;color:var(--ink-70);line-height:1.55}
+.feat ul{margin:12px 0 0;padding:0;list-style:none;display:flex;flex-direction:column;gap:7px}
+.feat ul li{font-size:13.5px;color:var(--ink-70);line-height:1.5;padding-left:15px;position:relative}
+.feat ul li:before{content:"—";position:absolute;left:0;color:var(--blue)}
+
+.audiencegrid{display:grid;grid-template-columns:repeat(3,1fr);gap:0;border-top:1px solid var(--line-strong)}
+@media(max-width:760px){.audiencegrid{grid-template-columns:1fr}}
+.audience{padding:26px 26px 0 0;border-right:1px solid var(--line)}
+.audience:last-child{border-right:0}
+@media(max-width:760px){.audience{border-right:0;border-bottom:1px solid var(--line);padding:26px 0}}
+.audience .role{font-size:11.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--blue);font-weight:700}
+.audience h3{margin-top:8px;font-size:17px;font-weight:700;font-family:'Instrument Serif',Georgia,serif;font-style:italic}
+.audience ul{margin:14px 0 0;padding:0;list-style:none;display:flex;flex-direction:column;gap:10px}
+.audience li{font-size:14px;color:var(--ink-70);line-height:1.5;padding-left:16px;position:relative}
+.audience li:before{content:"✓";position:absolute;left:0;color:var(--moss);font-weight:700}
 
 .finalcta{background:var(--ink);color:var(--paper);border-radius:var(--radius);padding:64px 44px;text-align:center}
 .finalcta h2{font-family:'Instrument Serif',Georgia,serif;font-style:italic;font-weight:400;
@@ -97,10 +111,10 @@ footer.site .fnote{margin-top:10px;font-size:12.5px;color:var(--ink-45);line-hei
   <section class="pagehero" style="border-top:0">
     <div class="wrap">
       <span class="eyebrow">Funktioner</span>
-      <h1>Alt det, en koordinator faktisk bruger tiden på.</h1>
-      <p class="sub">Ikke en liste af generiske "features" — men de konkrete ting, der i dag
-        foregår i mailtråde, regneark og løse PDF'er hos de fleste catering- og
-        venue-virksomheder.</p>
+      <h1>Alt det, en arrangementsseddel over mail ikke kan.</h1>
+      <p class="sub">Bygget om den måde en catering- eller venue-virksomhed rent faktisk arbejder —
+        fra ejerens overblik på tværs af lokationer, til koordinatorens hverdag, til driftsholdets
+        sidste tjek, før gæsterne kommer.</p>
     </div>
   </section>
 
@@ -109,57 +123,103 @@ footer.site .fnote{margin-top:10px;font-size:12.5px;color:var(--ink-45);line-hei
       <div class="featgrid">
         <div class="feat">
           <div class="fi"><span></span></div>
-          <h3>Fælles arrangementsside</h3>
-          <p>Gæsteliste, aftalepunkter, program og beskeder samlet ét sted — opdateret i realtid
-            for både jeres team og kunden. Ingen af jer sidder med en forældet version.</p>
+          <h3>Ét levende arrangement, ikke et dokument</h3>
+          <p>Én side pr. arrangement, delt mellem jeres team og kunden — altid samme version.</p>
+          <ul>
+            <li>Status i klare trin: kladde → tilbud → bekræftet → afviklet</li>
+            <li>Faser sat op frit — reception, middag, fest, eller jeres egne navne</li>
+            <li>Dubléring og skabeloner, når arrangementer ligner hinanden</li>
+          </ul>
         </div>
         <div class="feat">
           <div class="fi"><span></span></div>
-          <h3>Automatisk prisberegning</h3>
-          <p>Prisen genberegnes med det samme, gæstelisten ændrer sig — ud fra jeres eget
-            priskatalog, ikke et hardkodet regneark, der skal opdateres manuelt.</p>
+          <h3>Gæsteliste der regner selv</h3>
+          <p>Prisen genberegnes automatisk, hver gang gæstelisten ændrer sig.</p>
+          <ul>
+            <li>Eget priskatalog pr. lokation — menuer, pakker, tilvalg</li>
+            <li>Importér gæster fra CSV, redigér og opdatér i bulk</li>
+            <li>Kostbehov og allergier samlet i ét overblik</li>
+          </ul>
         </div>
         <div class="feat">
           <div class="fi"><span></span></div>
-          <h3>Lokalebooking uden kollisioner</h3>
-          <p>Hver fase af arrangementet (reception, middag, fest) bookes med eget tidsrum —
-            systemet forhindrer automatisk, at samme lokale bookes dobbelt.</p>
+          <h3>Godkendelser med papirspor</h3>
+          <p>Kunden godkender direkte i systemet — intet forsvinder i en mailtråd.</p>
+          <ul>
+            <li>Tilbud, menu, bordplan, deltagerantal — typet og versioneret</li>
+            <li>Efter bekræftelse går ændringer via forslag, I selv godkender</li>
+            <li>Fuld historik: hvem besluttede hvad, og hvornår</li>
+          </ul>
         </div>
         <div class="feat">
           <div class="fi"><span></span></div>
-          <h3>Rollestyret adgang</h3>
-          <p>Admin, koordinator og kunde ser hver især kun det, der vedrører dem. Kunden ser
-            aldrig jeres interne kigge-tider eller noter.</p>
+          <h3>Lokaler uden dobbeltbookinger</h3>
+          <p>Automatisk konfliktkontrol — også med opsætnings- og oprydningstid regnet med.</p>
+          <ul>
+            <li>Ét lokalekalender på tværs af alle jeres lokationer</li>
+            <li>Kapacitetstjek, før I gemmer en booking</li>
+            <li>Bookingstatus pr. fase: tentativ, reserveret, bekræftet</li>
+          </ul>
         </div>
         <div class="feat">
           <div class="fi"><span></span></div>
-          <h3>Fleksibelt priskatalog</h3>
-          <p>Menuer, pakker og tilvalg pr. arrangementstype — genbruges på tværs af alle jeres
-            lokationer, og kan begrænses til bestemte lokaler.</p>
+          <h3>Et overblik der viser, hvad der kræver jer</h3>
+          <p>Én arbejdsindbakke på tværs af alle arrangementer, prioriteret efter det, der haster.</p>
+          <ul>
+            <li>Overskredne frister, ubesvarede kundebeskeder, manglende lokale</li>
+            <li>"I dag"-visning til selve arrangementsdagen: næste fase og ansvarlig</li>
+            <li>Aktivitetslog over alle ændringer og beskeder, altid til at slå op</li>
+          </ul>
         </div>
         <div class="feat">
           <div class="fi"><span></span></div>
-          <h3>Køkkenseddel og gæsteoverblik</h3>
-          <p>Antal kuverter, særlig kost og lokaleplan trukket direkte af gæstelisten — klar til
-            print, samme dag som I skal bruge den.</p>
+          <h3>Drift og overdragelse uden huller</h3>
+          <p>De ark, driftsholdet rent faktisk bruger — klar til print, samme dag.</p>
+          <ul>
+            <li>Køreplan, lokalebestilling, personaleoversigt, kontaktliste</li>
+            <li>Skift ansvarlig koordinator uden at opgaver falder mellem to stole</li>
+            <li>Roller for admin, koordinator og kunde — hver ser kun sit eget</li>
+          </ul>
         </div>
-        <div class="feat">
-          <div class="fi"><span></span></div>
-          <h3>Status pr. arrangement</h3>
-          <p>Kladde → tilbud → bekræftet → afviklet. Overblikket viser med det samme, hvor hvert
-            arrangement står i processen.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <div class="section-head">
+        <span class="eyebrow">Til hele virksomheden</span>
+        <h2>Ikke kun endnu et koordinatorværktøj.</h2>
+        <p>Tre forskellige mennesker i jeres virksomhed åbner Verta med tre forskellige behov —
+          alle dækket af den samme side.</p>
+      </div>
+      <div class="audiencegrid">
+        <div class="audience">
+          <span class="role">Ejer / admin</span>
+          <h3>Overblik uden at ringe rundt</h3>
+          <ul>
+            <li>Se alle lokationer og arrangementer samlet, uanset hvem der koordinerer dem</li>
+            <li>Priskatalog og skabeloner styret centralt, brugt af alle koordinatorer</li>
+            <li>Adgang og ansvar håndhævet i databasen, ikke kun i en aftale om god opførsel</li>
+          </ul>
         </div>
-        <div class="feat">
-          <div class="fi"><span></span></div>
-          <h3>Aktivitetslog</h3>
-          <p>Alle ændringer og beskeder samles i én tidslinje. I kan altid se, hvad der blev
-            ændret, af hvem, og hvornår.</p>
+        <div class="audience">
+          <span class="role">Driftsfolk</span>
+          <h3>De rigtige oplysninger, den rigtige dag</h3>
+          <ul>
+            <li>Køkkenseddel og lokalebestilling trukket direkte af den faktiske gæsteliste</li>
+            <li>"I dag"-visningen viser næste fase, ansvarlig og udestående opgaver</li>
+            <li>Lokalekalenderen forhindrer, at to arrangementer kolliderer i samme lokale</li>
+          </ul>
         </div>
-        <div class="feat">
-          <div class="fi"><span></span></div>
-          <h3>Flere lokationer, ét overblik</h3>
-          <p>Organisation → lokation → lokaler. Admin ser alle arrangementer på tværs af jeres
-            lokationer; koordinatorer ser deres egne.</p>
+        <div class="audience">
+          <span class="role">Koordinator</span>
+          <h3>Mindre tastearbejde, mere kundekontakt</h3>
+          <ul>
+            <li>Prisen regner sig selv, hver gang gæstelisten ændrer sig</li>
+            <li>Beskeder, godkendelser og aftalepunkter samlet — ikke spredt i mailtråde</li>
+            <li>En daglig forside der selv peger på, hvad der kræver handling først</li>
+          </ul>
         </div>
       </div>
     </div>
