@@ -50,6 +50,12 @@ npm test
 - `test_log_grouping.js` — loggruppering af gentagne "kiggede ind"-hændelser: kun konsekutive
   hændelser fra samme person grupperes, en rigtig ændring/besked midt i en stribe bryder grupperingen,
   forskellige personers kigge-hændelser blandes aldrig, og hele funktionen kan slås fra.
+- `test_handover_tasks.js` — regressionstest for en reel fejl fundet under koordinator-gennemgangen:
+  `handoverEvent()` flyttede tidligere ALLE åbne opgaver til den nye ejer ved overdragelse, ikke kun dem
+  der rent faktisk var tildelt den afgivende ejer — en kollegas egne opgaver blev fejlagtigt fjernet fra
+  dem ved enhver overdragelse. Testen bekræfter, at kun den afgivende ejers opgaver flyttes, at en
+  tredje kollegas og uassignerede opgaver ikke røres, at allerede udførte opgaver ikke er med, og at
+  `moveTasks=false` slet ikke rører `agenda_items`.
 
 ## Kendte begrænsninger
 

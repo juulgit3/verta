@@ -850,6 +850,18 @@ function viewOversigt(){
       {done:hasCatalog, label:'Tilføj katalogvarer', action:hasCatalog?'':'<button class="btn" data-goto-tab="admin">Gå til →</button>'}
     ], '<div class="note" style="margin-top:8px">Guiden forsvinder, når I skifter status fra Kladde til Tilbud.</div>');
   })() : '';
+  const lukKort = (state.rolle==='kilden' && state.status==='bekræftet') ? (()=>{
+    const openTasks=(state.punkter||[]).filter(p=>p.status!=='aftalt').length;
+    const pendingApprovals=(state.approvals||[]).filter(a=>a.status==='afventer').length;
+    const pendingCr=(state.changeRequests||[]).filter(c=>c.status==='pending').length;
+    const items=[
+      {done:!openTasks, label:openTasks?openTasks+' åben'+(openTasks>1?'e':'')+' opgave'+(openTasks>1?'r':''):'Ingen åbne opgaver', action:openTasks?'<button class="btn" data-goto-tab="punkter">Gå til →</button>':''},
+      {done:!pendingApprovals, label:pendingApprovals?pendingApprovals+' afventende godkendelse'+(pendingApprovals>1?'r':''):'Ingen afventende godkendelser', action:pendingApprovals?'<button class="btn" data-goto-tab="punkter">Gå til →</button>':''},
+      {done:!pendingCr, label:pendingCr?pendingCr+' ubehandlet'+(pendingCr>1?'e':'')+' ændringsforslag':'Ingen ubehandlede ændringsforslag', action:pendingCr?'<button class="btn" data-goto-tab="gaester">Gå til →</button>':''}
+    ];
+    return checklistHtml('Klar til at lukke?', items.filter(i=>i.done).length+'/3', items,
+      '<div class="note" style="margin-top:8px">Ren information — I kan stadig sætte status til Afviklet uanset dette.</div>');
+  })() : '';
   const statusKort = (state.rolle==='kilden') ? `
   <section class="card">
     <header><h2>Status</h2><span class="note">klik for at ændre</span></header>
@@ -962,6 +974,7 @@ function viewOversigt(){
   ${welcomeKort}
   ${setupKort}
   ${statusKort}
+  ${lukKort}
   ${approvalStatusKort}
   ${deleKort}
   ${lokaleKort}
@@ -1647,11 +1660,12 @@ function viewLive(){
     </div>`).join(''):'<div class="empty">Alt er klaret. Intet udestående.</div>'}
   </section>
   <section class="card">
-    <header><h2>Registrér problem</h2><span class="note">sendes som besked</span></header>
+    <header><h2>Registrér problem</h2></header>
     <div class="row" style="gap:8px;flex-wrap:wrap">
       <input class="search" id="liveProblem" placeholder="Fx: Projektor virker ikke i Konferencesalen" style="flex:1;min-width:200px">
       <button class="btn" id="liveProblemSend">Registrér</button>
     </div>
+    <label class="row" style="gap:6px;margin-top:8px"><input type="checkbox" id="liveProblemInternal">Kun intern note (send ikke til kunden)</label>
   </section>
   <section class="card">
     <header><h2>Kontakt og beskeder</h2></header>
@@ -2705,10 +2719,11 @@ function bind(){
       const inp=document.getElementById('liveProblem');
       const txt=inp.value.trim();
       if(!txt) return;
-      pushMessage('⚠️ Problem: '+txt);
+      const internal=document.getElementById('liveProblemInternal').checked;
+      pushMessage('⚠️ Problem: '+txt, internal);
       inp.value='';
       render();
-      showToast('Registreret og sendt som besked.','ok');
+      showToast(internal?'Registreret som intern note.':'Registreret og sendt som besked.','ok');
     };
     onEnterSubmit(document.getElementById('liveProblem'), ()=>liveSend.click());
   }
@@ -3611,7 +3626,8 @@ async function updateEventOwnership(field, staffId){
    owner_staff_id), ikke af selve overdragelsesfunktionen. Overdragelse er derfor blot et ejerskifte;
    adgangen for andre admins er upåvirket og kræver ingen særskilt "mindst én admin tilbage"-logik her. */
 async function handoverEvent(newOwnerId, moveTasks, note){
-  const oldOwnerName=(state.roster.find(r=>r.id===state.ownerStaffId)||{}).name||'ingen';
+  const oldOwnerId=state.ownerStaffId;
+  const oldOwnerName=(state.roster.find(r=>r.id===oldOwnerId)||{}).name||'ingen';
   const newOwnerName=(state.roster.find(r=>r.id===newOwnerId)||{}).name||'—';
   const {error}=await mutate(()=>sb.from('events').update({owner_staff_id:newOwnerId}).eq('id',state.eventId));
   if(error){ showToast('Kunne ikke overdrage: '+error.message,'error'); return false; }
@@ -3619,7 +3635,9 @@ async function handoverEvent(newOwnerId, moveTasks, note){
   if(staffErr) console.error('handover event_staff', staffErr);
   state.ownerStaffId=newOwnerId;
   if(moveTasks){
-    const openIds=state.punkter.filter(p=>p.status!=='aftalt').map(p=>p.id);
+    /* Kun opgaver, der rent faktisk var tildelt den AFGIVENDE ejer, flyttes — ikke alle åbne opgaver på
+       arrangementet (en tidligere fejl flyttede fx også en sekundær koordinators egne opgaver). */
+    const openIds=state.punkter.filter(p=>p.status!=='aftalt' && p.assignedStaffId===oldOwnerId).map(p=>p.id);
     if(openIds.length){
       const {error:taskErr}=await mutate(()=>sb.from('agenda_items').update({assigned_staff_id:newOwnerId}).in('id',openIds));
       if(taskErr) showToast('Overdraget, men kunne ikke flytte alle åbne opgaver: '+taskErr.message,'error');
@@ -3639,7 +3657,7 @@ MODAL_RENDERERS.handover = function(){
     <option value="">Vælg…</option>
     ${(state.roster||[]).filter(r=>r.id!==state.ownerStaffId).map(r=>`<option value="${r.id}">${esc(r.name)}</option>`).join('')}
   </select></div>
-  <label class="row" style="gap:6px;margin-top:10px"><input type="checkbox" id="hoMoveTasks" checked>Flyt også åbne opgaver til den nye ejer</label>
+  <label class="row" style="gap:6px;margin-top:10px"><input type="checkbox" id="hoMoveTasks" checked>Flyt også ${esc(currentName)}s åbne opgaver til den nye ejer</label>
   <div class="field" style="margin-top:10px"><label for="hoNote">Note (valgfri)</label><input id="hoNote" class="search" style="width:100%"></div>
   <div class="row" style="margin-top:14px;justify-content:flex-end;gap:8px">
     <button class="btn" data-modal-close>Annullér</button>
@@ -3653,7 +3671,8 @@ MODAL_BINDERS.handover = function(){
     const moveTasks=document.getElementById('hoMoveTasks').checked;
     const note=document.getElementById('hoNote').value.trim();
     const newOwnerName=(state.roster.find(r=>r.id===newOwnerId)||{}).name||'';
-    if(!(await appConfirm('Overdrag arrangementet til '+newOwnerName+'?'+(moveTasks?' Åbne opgaver flyttes også.':'')))) return;
+    const currentName=(state.roster.find(r=>r.id===state.ownerStaffId)||{}).name||'';
+    if(!(await appConfirm('Overdrag arrangementet til '+newOwnerName+'?'+(moveTasks?' '+currentName+'s åbne opgaver flyttes også.':'')))) return;
     const ok=await handoverEvent(newOwnerId, moveTasks, note);
     if(ok){ closeModal(); showToast('Arrangement overdraget.','ok'); }
   };
