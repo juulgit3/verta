@@ -45,14 +45,20 @@ input,select,textarea{font:inherit;color:inherit}
 .chip.ok{border-color:rgba(62,107,76,.35);color:var(--moss)} .chip.ok .dot{background:var(--moss)}
 .chip.blue{border-color:rgba(20,53,214,.3);color:var(--blue)} .chip.blue .dot{background:var(--blue)}
 
-.statussteps{display:flex;gap:5px;flex-wrap:wrap;margin-top:6px}
+/* Ét sammenhængende forløb, ikke fire løse tags — segmenterne er visuelt fusioneret i én bar
+   (border-radius sidder på selve .statussteps, ikke på de enkelte .sstep), med tynde skillelinjer
+   mellem trinene i stedet for mellemrum. Adskiller bevidst status-forløbet fra .chip-stilen, som
+   ellers altid betyder "én isoleret tilstand" — fire chips ved siden af hinanden så ud som fire
+   uafhængige tags, ikke ét forløb, og skjulte at trinnene rent faktisk er klikbare. */
+.statussteps{display:flex;margin-top:6px;border:1px solid var(--line);border-radius:99px;overflow:hidden;width:fit-content;max-width:100%}
 .sstep{appearance:none;-webkit-appearance:none;font-family:inherit;line-height:normal;font-size:10.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;
-  padding:4px 9px;border-radius:99px;border:1px solid var(--line);color:var(--ink-40);background:var(--card)}
-.sstep.done{border-color:rgba(62,107,76,.4);color:var(--moss);background:rgba(62,107,76,.08)}
-.sstep.current{border-color:var(--blue);color:#fff;background:var(--blue)}
+  padding:6px 12px;border:0;border-right:1px solid var(--line);color:var(--ink-40);background:var(--card);white-space:nowrap}
+.sstep:last-child{border-right:0}
+.sstep.done{color:var(--moss);background:rgba(62,107,76,.08)}
+.sstep.current{color:#fff;background:var(--blue)}
 .sstep.interactive{cursor:pointer;font:inherit;letter-spacing:inherit;text-transform:inherit}
-.sstep.interactive:hover{border-color:var(--ink)}
-.sstep.current.interactive:hover{filter:brightness(1.1)}
+.sstep.interactive:hover{background:rgba(18,21,27,.08)}
+.sstep.current.interactive:hover{filter:brightness(1.1);background:var(--blue)}
 .sstep.interactive:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
 
 .card > summary{display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin-bottom:14px;cursor:pointer}
@@ -446,7 +452,7 @@ let state = { gaester:[], punkter:[], log:[],
               openPickerGroups:new Set(['kladde','tilbud','bekræftet']),
               isSuperadmin:false, isSuperadminOwner:false, viewAsCoordinator:false, allOrgs:[], superadmins:[], superadminInvites:[], guestLink:'', guestLinkEventId:null, guestLinkBusy:false,
               guestWelcome:false, contactName:'', orgOnboardingDismissed:false, orgCatalogCount:0, orgStaffCount:0,
-              taskTemplates:[], agendaNotes:{}, openTaskNotes:new Set(), openDoneGroups:new Set(),
+              taskTemplates:[], agendaNotes:{}, openTaskNotes:new Set(), openDoneGroups:new Set(), openSetupFolds:new Set(),
               superadminActor:null, impersonating:null, roster:[],
               previewMode:false, previewPriorRolle:null,
               eventExceptions:{}, eventNextDue:{}, pickerSort:'dato', pickerSearch:'', pickerFilterStatus:'alle',
@@ -863,7 +869,11 @@ function viewOversigt(){
       {done:hasCatalog, label:'Tilføj katalogvarer', action:hasCatalog?'':'<button class="btn" data-goto-tab="admin">Gå til →</button>'}
     ], '<div class="note" style="margin-top:8px">Guiden forsvinder, når I skifter status fra Kladde til Tilbud.</div>');
   })() : '';
-  const lukKort = (state.rolle==='kilden' && state.status==='bekræftet') ? (()=>{
+  /* Omdøbt fra "Klar til at lukke?" — det navn stillede et spørgsmål, der reelt ikke var relevant
+     størstedelen af tiden, arrangementet er bekræftet (kan sagtens være måneder). Vises derfor kun
+     fra og med selve arrangementsdatoen, hvor lukning faktisk begynder at være en overvejelse — ikke
+     hele det (ofte lange) bekræftede tidsrum op til. Stadig ren information, blokerer intet. */
+  const looseEndsKort = (state.rolle==='kilden' && state.status==='bekræftet' && state.eventDate && state.eventDate<=todayIso()) ? (()=>{
     const openTasks=(state.punkter||[]).filter(p=>p.status!=='aftalt').length;
     const pendingApprovals=(state.approvals||[]).filter(a=>a.status==='afventer').length;
     const pendingCr=(state.changeRequests||[]).filter(c=>c.status==='pending').length;
@@ -872,7 +882,7 @@ function viewOversigt(){
       {done:!pendingApprovals, label:pendingApprovals?pendingApprovals+' afventende godkendelse'+(pendingApprovals>1?'r':''):'Ingen afventende godkendelser', action:pendingApprovals?'<button class="btn" data-goto-tab="punkter">Gå til →</button>':''},
       {done:!pendingCr, label:pendingCr?pendingCr+' ubehandlet'+(pendingCr>1?'e':'')+' ændringsforslag':'Ingen ubehandlede ændringsforslag', action:pendingCr?'<button class="btn" data-goto-tab="gaester">Gå til →</button>':''}
     ];
-    return checklistHtml('Klar til at lukke?', items.filter(i=>i.done).length+'/3', items,
+    return checklistHtml('Løse ender', items.filter(i=>i.done).length+'/3', items,
       '<div class="note" style="margin-top:8px">Ren information — I kan stadig sætte status til Afviklet uanset dette.</div>');
   })() : '';
   const statusKort = (state.rolle==='kilden') ? `
@@ -880,69 +890,75 @@ function viewOversigt(){
     <header><h2>Status</h2><span class="note">klik for at ændre</span></header>
     ${statusStepsHtml(state.status, state.eventId, true)}
   </section>` : '';
-  const deleKort = (state.rolle==='kilden') ? `
+  /* "Del med gæsten" og "Lokaler pr. fase" er begge opsætningsopgaver, der typisk klares tidligt og
+     sjældent revisiteres bagefter — samlet i ét kort, foldet sammen som standard, så de ikke tager
+     fast plads fra det, en koordinator rent faktisk vender tilbage til hele arrangementets levetid
+     (Udestående, Gæster/Pris). */
+  const opsaetningKort = (state.rolle==='kilden') ? `
   <section class="card">
-    <header><h2>Del med gæsten</h2><span class="note">magisk login-link</span></header>
-    ${(state.guestLink && state.guestLinkEventId===state.eventId) ? `
-    <div class="stat" style="flex-wrap:wrap;gap:8px">
-      <span class="note" style="word-break:break-all;flex:1 1 260px">${esc(state.guestLink)}</span>
-      <button class="btn" id="guestLinkCopy">Kopiér</button>
-      <button class="btn" id="guestLinkNew">Nyt link</button>
-    </div>
-    <div class="note" style="display:block;margin-top:6px;font-size:12px">Linket logger gæsten direkte ind på dette arrangement. Del det kun med kunden.</div>
-    ` : `
-    <div class="row" style="gap:8px;flex-wrap:wrap">
-      <input class="search" id="guestLinkName" placeholder="Navn (fx Sofie &amp; Anton)" style="flex:1 1 160px">
-      <input class="search" id="guestLinkEmail" placeholder="Mail" type="email" style="flex:1 1 160px">
-      <select class="search" id="guestLinkExpiry" style="max-width:150px">
-        <option value="">Udløber aldrig</option>
-        <option value="7">Udløber om 7 dage</option>
-        <option value="30">Udløber om 30 dage</option>
-      </select>
-      <button class="btn primary" id="guestLinkGen" ${state.guestLinkBusy?'disabled':''}>${state.guestLinkBusy?'Genererer…':'Generér link'}</button>
-    </div>
-    `}
-    <div class="row" style="margin-top:10px">
-      <button class="btn" id="previewAsCustomer">Forhåndsvis som kunde</button>
-      <span class="note">Se arrangementet, som kunden ser det — uden at oprette en gæst eller sende en mail.</span>
-    </div>
-    ${(state.eventGuestAccesses||[]).length?`
-    <div style="margin-top:14px;border-top:1px solid var(--line);padding-top:12px">
-      <div class="note" style="margin-bottom:6px">Aktive gæsteadgange</div>
-      ${state.eventGuestAccesses.map(a=>`<div class="stat" style="flex-wrap:wrap;gap:8px">
-        <div><b>${esc(a.display_name)}</b><br><span class="note">${esc(a.email||'—')} · oprettet ${datoKort(a.created_at.slice(0,10))}${a.last_seen_at?' · sidst set '+datoKort(a.last_seen_at.slice(0,10)):''}${a.expires_at?' · udløber '+datoKort(a.expires_at.slice(0,10)):''}</span></div>
-        <button class="btn" data-revoke-access="${a.id}">Tilbagekald</button>
-      </div>`).join('')}
-    </div>` : ''}
-  </section>` : '';
-  const lokaleKort = (state.rolle==='kilden') ? `
-  <section class="card">
-    <header><h2>Lokaler pr. fase</h2><span class="note">${esc(state.venueName||'')}</span></header>
-    ${(state.phases||[]).length?(state.phases||[]).map(p=>`<div class="stat" style="flex-wrap:wrap;gap:6px">
-      <input class="search" style="max-width:150px" data-phase-field="label" data-phase="${p.id}" value="${esc(p.label)}" placeholder="Fasenavn">
-      <span class="row" style="gap:6px;flex-wrap:wrap">
-        <select class="status" data-phase-field="room" data-phase="${p.id}">
-          <option value="">— ikke valgt —</option>
-          ${(state.venueRooms||[]).map(r=>`<option value="${r.id}" ${p.roomId===r.id?'selected':''}>${esc(r.name)}</option>`).join('')}
+    <header><h2>Opsætning</h2><span class="note">gæstelink · lokaler pr. fase</span></header>
+    <details data-setup-fold="gaestelink" ${state.openSetupFolds.has('gaestelink')?'open':''}>
+      <summary class="fold-summary"><span class="fold-chev">▸</span>Del med gæsten<span class="note" style="margin-left:auto">magisk login-link</span></summary>
+      ${(state.guestLink && state.guestLinkEventId===state.eventId) ? `
+      <div class="stat" style="flex-wrap:wrap;gap:8px">
+        <span class="note" style="word-break:break-all;flex:1 1 260px">${esc(state.guestLink)}</span>
+        <button class="btn" id="guestLinkCopy">Kopiér</button>
+        <button class="btn" id="guestLinkNew">Nyt link</button>
+      </div>
+      <div class="note" style="display:block;margin-top:6px;font-size:12px">Linket logger gæsten direkte ind på dette arrangement. Del det kun med kunden.</div>
+      ` : `
+      <div class="row" style="gap:8px;flex-wrap:wrap">
+        <input class="search" id="guestLinkName" placeholder="Navn (fx Sofie &amp; Anton)" style="flex:1 1 160px">
+        <input class="search" id="guestLinkEmail" placeholder="Mail" type="email" style="flex:1 1 160px">
+        <select class="search" id="guestLinkExpiry" style="max-width:150px">
+          <option value="">Udløber aldrig</option>
+          <option value="7">Udløber om 7 dage</option>
+          <option value="30">Udløber om 30 dage</option>
         </select>
-        <input type="time" class="search" style="width:88px" data-phase-field="start" data-phase="${p.id}" value="${p.start||''}">
+        <button class="btn primary" id="guestLinkGen" ${state.guestLinkBusy?'disabled':''}>${state.guestLinkBusy?'Genererer…':'Generér link'}</button>
+      </div>
+      `}
+      <div class="row" style="margin-top:10px">
+        <button class="btn" id="previewAsCustomer">Forhåndsvis som kunde</button>
+        <span class="note">Se arrangementet, som kunden ser det — uden at oprette en gæst eller sende en mail.</span>
+      </div>
+      ${(state.eventGuestAccesses||[]).length?`
+      <div style="margin-top:14px;border-top:1px solid var(--line);padding-top:12px">
+        <div class="note" style="margin-bottom:6px">Aktive gæsteadgange</div>
+        ${state.eventGuestAccesses.map(a=>`<div class="stat" style="flex-wrap:wrap;gap:8px">
+          <div><b>${esc(a.display_name)}</b><br><span class="note">${esc(a.email||'—')} · oprettet ${datoKort(a.created_at.slice(0,10))}${a.last_seen_at?' · sidst set '+datoKort(a.last_seen_at.slice(0,10)):''}${a.expires_at?' · udløber '+datoKort(a.expires_at.slice(0,10)):''}</span></div>
+          <button class="btn" data-revoke-access="${a.id}">Tilbagekald</button>
+        </div>`).join('')}
+      </div>` : ''}
+    </details>
+    <details data-setup-fold="lokaler" ${state.openSetupFolds.has('lokaler')?'open':''} style="margin-top:6px">
+      <summary class="fold-summary"><span class="fold-chev">▸</span>Lokaler pr. fase<span class="note" style="margin-left:auto">${esc(state.venueName||'')}</span></summary>
+      ${(state.phases||[]).length?(state.phases||[]).map(p=>`<div class="stat" style="flex-wrap:wrap;gap:6px">
+        <input class="search" style="max-width:150px" data-phase-field="label" data-phase="${p.id}" value="${esc(p.label)}" placeholder="Fasenavn">
+        <span class="row" style="gap:6px;flex-wrap:wrap">
+          <select class="status" data-phase-field="room" data-phase="${p.id}">
+            <option value="">— ikke valgt —</option>
+            ${(state.venueRooms||[]).map(r=>`<option value="${r.id}" ${p.roomId===r.id?'selected':''}>${esc(r.name)}</option>`).join('')}
+          </select>
+          <input type="time" class="search" style="width:88px" data-phase-field="start" data-phase="${p.id}" value="${p.start||''}">
+          <span class="note">–</span>
+          <input type="time" class="search" style="width:88px" data-phase-field="end" data-phase="${p.id}" value="${p.end||''}">
+          <button class="btn" data-phase-save="${p.id}">Gem</button>
+          <button class="btn" data-phase-remove="${p.id}">Slet</button>
+        </span>
+      </div>`).join(''):'<div class="empty">Ingen faser oprettet endnu — arrangementet har ikke nødvendigvis brug for alle tre klassiske faser.</div>'}
+      <div class="row" style="margin-top:10px;gap:6px;flex-wrap:wrap">
+        <input class="search" id="newPhaseLabel" placeholder="Ny fase, fx Frokost" style="max-width:160px">
+        <select class="search" id="newPhaseRoom">
+          <option value="">— lokale —</option>
+          ${(state.venueRooms||[]).map(r=>`<option value="${r.id}">${esc(r.name)}</option>`).join('')}
+        </select>
+        <input type="time" class="search" id="newPhaseStart" style="width:88px">
         <span class="note">–</span>
-        <input type="time" class="search" style="width:88px" data-phase-field="end" data-phase="${p.id}" value="${p.end||''}">
-        <button class="btn" data-phase-save="${p.id}">Gem</button>
-        <button class="btn" data-phase-remove="${p.id}">Slet</button>
-      </span>
-    </div>`).join(''):'<div class="empty">Ingen faser oprettet endnu — arrangementet har ikke nødvendigvis brug for alle tre klassiske faser.</div>'}
-    <div class="row" style="margin-top:10px;gap:6px;flex-wrap:wrap">
-      <input class="search" id="newPhaseLabel" placeholder="Ny fase, fx Frokost" style="max-width:160px">
-      <select class="search" id="newPhaseRoom">
-        <option value="">— lokale —</option>
-        ${(state.venueRooms||[]).map(r=>`<option value="${r.id}">${esc(r.name)}</option>`).join('')}
-      </select>
-      <input type="time" class="search" id="newPhaseStart" style="width:88px">
-      <span class="note">–</span>
-      <input type="time" class="search" id="newPhaseEnd" style="width:88px">
-      <button class="btn primary" id="addPhaseBtn">Tilføj fase</button>
-    </div>
+        <input type="time" class="search" id="newPhaseEnd" style="width:88px">
+        <button class="btn primary" id="addPhaseBtn">Tilføj fase</button>
+      </div>
+    </details>
   </section>` : '';
   const udestaaendeKort = `
   <section class="card">
@@ -987,12 +1003,11 @@ function viewOversigt(){
   ${welcomeKort}
   ${setupKort}
   ${statusKort}
-  ${lukKort}
-  ${approvalStatusKort}
-  ${deleKort}
-  ${lokaleKort}
+  ${udestaaendeKort}
   ${gaesterPrisKort}
-  ${udestaaendeKort}`;
+  ${approvalStatusKort}
+  ${opsaetningKort}
+  ${looseEndsKort}`;
 }
 async function matchOfferToComputed(){
   const t=total();
@@ -2745,6 +2760,10 @@ function bind(){
   document.querySelectorAll('[data-done-group]').forEach(el=>el.ontoggle=()=>{
     if(el.open) state.openDoneGroups.add(el.dataset.doneGroup);
     else state.openDoneGroups.delete(el.dataset.doneGroup);
+  });
+  document.querySelectorAll('[data-setup-fold]').forEach(el=>el.ontoggle=()=>{
+    if(el.open) state.openSetupFolds.add(el.dataset.setupFold);
+    else state.openSetupFolds.delete(el.dataset.setupFold);
   });
   document.querySelectorAll('[data-task-notes]').forEach(el=>el.ontoggle=()=>{
     if(el.open) state.openTaskNotes.add(el.dataset.taskNotes);
