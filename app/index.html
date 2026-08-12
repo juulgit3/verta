@@ -98,6 +98,9 @@ nav.tabs button:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
 .card .note{font-size:13px;color:var(--ink-60)}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
 @media(max-width:720px){.grid2{grid-template-columns:1fr}}
+.kpigrid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
+@media(max-width:720px){.kpigrid{grid-template-columns:1fr 1fr}}
+.venuegrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;margin-bottom:16px}
 
 .num{font-variant-numeric:tabular-nums}
 .stat{display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px dotted var(--line);font-size:14px}
@@ -437,9 +440,10 @@ let state = { gaester:[], punkter:[], log:[],
               tab:'oversigt', soeg:'', rolle:'kilden', logType:'alle', logWho:'alle', logArea:'alle',
               logDays:'14', logFrom:'', logTo:'', logSearch:'', logShowTech:false,
               lastRead:{kilden:0, kunde:0}, phases:[], venueRooms:[], staffList:[], invitesList:[], venuesFull:[],
+              venueDetailId:null, venueUpcomingCounts:{}, venueDetailEvents:[], venueDetailRoomEvents:{},
               eventCatalog:[], orgCatalog:[], newCatalogItemRoomIds:[],
               openPickerGroups:new Set(['kladde','tilbud','bekræftet']),
-              isSuperadmin:false, allOrgs:[], guestLink:'', guestLinkEventId:null, guestLinkBusy:false,
+              isSuperadmin:false, isSuperadminOwner:false, allOrgs:[], superadmins:[], superadminInvites:[], guestLink:'', guestLinkEventId:null, guestLinkBusy:false,
               guestWelcome:false, contactName:'', orgOnboardingDismissed:false, orgCatalogCount:0, orgStaffCount:0,
               taskTemplates:[], agendaNotes:{}, openTaskNotes:new Set(), openDoneGroups:new Set(),
               superadminActor:null, impersonating:null, roster:[],
@@ -2459,12 +2463,10 @@ function renderInner(){
     } else if(state.view==='superadmin'){
       v.innerHTML=viewSuperadminHome();
       v.querySelectorAll('[data-enter-org]').forEach(el=>el.onclick=()=>enterOrgAsSuperadmin(el.dataset.enterOrg));
-      const dc=document.getElementById('doCreate'); if(dc){ dc.onclick=createDemoOrg; onEnterSubmit(document.getElementById('doName'), ()=>dc.click()); }
-      const ncc=document.getElementById('ncCreate'); if(ncc){ ncc.onclick=createRealCustomer;
-        onEnterSubmit(document.getElementById('ncOrgName'), ()=>ncc.click());
-        onEnterSubmit(document.getElementById('ncAdminName'), ()=>ncc.click());
-        onEnterSubmit(document.getElementById('ncAdminEmail'), ()=>ncc.click());
-      }
+      const nob=document.getElementById('newOrgBtn'); if(nob) nob.onclick=()=>openModal('newOrg',{});
+      const isb=document.getElementById('inviteSuperadminBtn'); if(isb) isb.onclick=()=>openModal('inviteSuperadmin',{});
+      v.querySelectorAll('[data-revoke-superadmin]').forEach(el=>el.onclick=()=>revokeSuperadmin(el.dataset.revokeSuperadmin));
+      v.querySelectorAll('[data-cancel-superadmin-invite]').forEach(el=>el.onclick=()=>cancelSuperadminInvite(el.dataset.cancelSuperadminInvite));
     } else if(state.view==='users'){
       v.innerHTML=viewBrugere();
       const is=document.getElementById('invSend'); if(is){ is.onclick=inviteStaff;
@@ -2476,7 +2478,10 @@ function renderInner(){
       v.querySelectorAll('[data-role-user]').forEach(el=>el.onchange=()=>changeStaffRole(el.dataset.roleUser, el.value));
     } else if(state.view==='venues'){
       v.innerHTML=viewLokationer();
-      const vc=document.getElementById('venCreate'); if(vc){ vc.onclick=createVenue; onEnterSubmit(document.getElementById('venName'), ()=>vc.click()); }
+      const nvb=document.getElementById('newVenueBtn'); if(nvb) nvb.onclick=()=>openModal('newVenue',{});
+      v.querySelectorAll('[data-open-venue]').forEach(el=>el.onclick=()=>{ state.venueDetailId=el.dataset.openVenue; loadVenueDetail(state.venueDetailId).then(render); });
+      v.querySelectorAll('[data-back-to-venues]').forEach(el=>el.onclick=()=>{ state.venueDetailId=null; render(); });
+      v.querySelectorAll('[data-open]').forEach(el=>el.onclick=()=>openEvent(el.dataset.open));
       v.querySelectorAll('[data-venue-name]').forEach(el=>{
         const before=el.value;
         el.onblur=()=>{ if(el.value!==before) renameVenue(el.dataset.venueName, el.value); };
@@ -2560,7 +2565,7 @@ function renderInner(){
     v.querySelectorAll('[data-nav]').forEach(el=>el.onclick=async()=>{
       state.view=el.dataset.nav;
       if(state.view==='users') await loadUsers();
-      if(state.view==='venues') await loadVenuesFull();
+      if(state.view==='venues'){ state.venueDetailId=null; await loadVenuesFull(); }
       if(state.view==='katalog') await loadOrgCatalog();
       if(state.view==='skabeloner'){ await Promise.all([loadTaskTemplates(), loadOrgTemplates()]); }
       render();
@@ -2996,9 +3001,9 @@ async function reloadGaester(){
 
 async function cloudBoot(user){
   state.userEmail=user.email; state.userId=user.id;
-  const {data:sa}=await sb.from('superadmins').select('name').eq('id',user.id).maybeSingle();
+  const {data:sa}=await sb.from('superadmins').select('name,role').eq('id',user.id).maybeSingle();
   if(sa){
-    state.isSuperadmin=true; state.isAdmin=true; state.rolle='kilden';
+    state.isSuperadmin=true; state.isAdmin=true; state.rolle='kilden'; state.isSuperadminOwner=sa.role==='ejer';
     state.actor={navn:(sa.name||'Superadmin')+' (Verta)', side:'kilden'};
     state.superadminActor=state.actor;
     state.view='superadmin';
@@ -3102,9 +3107,18 @@ async function loadSuperadminHome(){
   const {data:orgs}=await sb.from('organisations').select('id,name').order('created_at');
   const {data:evs}=await sb.from('events').select('id,org_id');
   const {data:vens}=await sb.from('venues').select('id,org_id');
+  const {count:staffCount}=await sb.from('staff').select('id',{count:'exact',head:true});
   state.allOrgs=(orgs||[]).map(o=>({...o,
     eventCount:(evs||[]).filter(e=>e.org_id===o.id).length,
     venueCount:(vens||[]).filter(v=>v.org_id===o.id).length}));
+  state.kpiTotals={orgs:(orgs||[]).length, events:(evs||[]).length, venues:(vens||[]).length, staff:staffCount||0};
+  if(state.isSuperadminOwner){
+    const [{data:sas},{data:sinvs}]=await Promise.all([
+      sb.from('superadmins').select('id,name,role').order('created_at'),
+      sb.from('superadmin_invites').select('*').order('created_at')
+    ]);
+    state.superadmins=sas||[]; state.superadminInvites=sinvs||[];
+  }
 }
 async function enterOrgAsSuperadmin(orgId){
   const org=(state.allOrgs||[]).find(o=>o.id===orgId);
@@ -3140,7 +3154,7 @@ async function createRealCustomer(){
     const {error:invErr}=await mutate(()=>sb.from('invites').insert({org_id:org.id, name:adminName, email:adminEmail, role:'admin'}));
     if(invErr){ btn.disabled=false; btn.textContent=orig; showToast('Organisationen blev oprettet, men invitationen fejlede: '+invErr.message,'error'); await loadSuperadminHome(); render(); return; }
   }
-  btn.disabled=false; btn.textContent=orig;
+  state.modal=null;
   showToast('Oprettet. Bed '+adminName+' logge ind med '+adminEmail+' på vertacph.netlify.app/app.','ok');
   await loadSuperadminHome(); render();
 }
@@ -3156,6 +3170,32 @@ async function createDemoOrg(){
   const {data:org}=await sb.from('organisations').select('id').eq('name',name).order('created_at',{ascending:false}).limit(1).maybeSingle();
   if(seed && org) await seedDemoOrg(org.id);
   btn.disabled=false; btn.textContent=orig;
+  state.modal=null;
+  await loadSuperadminHome(); render();
+}
+async function createSuperadminInvite(){
+  const name=document.getElementById('siName').value.trim();
+  const email=document.getElementById('siEmail').value.trim();
+  const role=document.getElementById('siRole').value;
+  if(!name||!email){ showToast('Udfyld navn og mail.','error'); return; }
+  const btn=document.getElementById('siCreate'), orig=btn.textContent;
+  btn.disabled=true; btn.textContent='Inviterer…';
+  const {error}=await mutate(()=>sb.from('superadmin_invites').upsert({name, email, role}, {onConflict:'email'}));
+  if(error){ btn.disabled=false; btn.textContent=orig; showToast('Kunne ikke invitere: '+error.message,'error'); return; }
+  btn.disabled=false; btn.textContent=orig;
+  state.modal=null;
+  showToast('Inviteret. '+name+' bliver Verta-bruger, første gang de logger ind med '+email+'.','ok');
+  await loadSuperadminHome(); render();
+}
+async function revokeSuperadmin(id){
+  if(!(await appConfirm('Fjern denne person som Verta-bruger? De mister øjeblikkeligt adgang til kontrolrummet.'))) return;
+  const {error}=await mutate(()=>sb.from('superadmins').delete().eq('id',id));
+  if(error){ showToast('Kunne ikke fjerne: '+error.message,'error'); return; }
+  await loadSuperadminHome(); render();
+}
+async function cancelSuperadminInvite(id){
+  const {error}=await mutate(()=>sb.from('superadmin_invites').delete().eq('id',id));
+  if(error){ showToast('Kunne ikke annullere: '+error.message,'error'); return; }
   await loadSuperadminHome(); render();
 }
 async function seedDemoOrg(orgId){
@@ -3175,35 +3215,82 @@ async function seedDemoOrg(orgId){
     event_date:'2027-06-12', offer_total_kr:0, status:'tilbud', event_type:'bryllup'}));
 }
 function viewSuperadminHome(){
+  const kpi=state.kpiTotals||{orgs:0,events:0,venues:0,staff:0};
+  const kpiCard=(label,val)=>`<div class="card" style="text-align:center;padding:16px 10px"><div class="num" style="font-size:26px;font-weight:700">${val}</div><div class="note" style="margin-top:2px">${label}</div></div>`;
+  const brugereKort = state.isSuperadminOwner ? `
+  <section class="card">
+    <header><h2>Verta-brugere</h2><span class="row" style="gap:8px"><span class="note">${(state.superadmins||[]).length}</span><button class="btn" id="inviteSuperadminBtn">+ Inviter bruger</button></span></header>
+    ${(state.superadmins||[]).map(s=>`<div class="stat"><span>${esc(s.name)}${s.role==='ejer'?' · ejer':''}</span>${s.role!=='ejer'?`<button class="btn" data-revoke-superadmin="${s.id}">Fjern</button>`:''}</div>`).join('')}
+    ${(state.superadminInvites||[]).map(i=>`<div class="stat"><span>${esc(i.name)} <span class="note">(${esc(i.email)} · afventer)</span></span><button class="btn" data-cancel-superadmin-invite="${i.id}">Annullér</button></div>`).join('')}
+    ${!(state.superadmins||[]).length && !(state.superadminInvites||[]).length?'<div class="empty">Ingen Verta-brugere endnu.</div>':''}
+  </section>` : '';
   return `
   <div style="margin:20px 0 10px"><span class="eyebrow">Verta kontrolrum</span></div>
+  <div class="kpigrid">
+    ${kpiCard('Organisationer',kpi.orgs)}
+    ${kpiCard('Arrangementer i alt',kpi.events)}
+    ${kpiCard('Lokationer i alt',kpi.venues)}
+    ${kpiCard('Medarbejdere i alt',kpi.staff)}
+  </div>
   <section class="card">
-    <header><h2>Organisationer</h2><span class="note">${(state.allOrgs||[]).length}</span></header>
+    <header><h2>Organisationer</h2><span class="row" style="gap:8px"><span class="note">${(state.allOrgs||[]).length}</span><button class="btn primary" id="newOrgBtn">+ Ny organisation</button></span></header>
     ${(state.allOrgs||[]).length?(state.allOrgs||[]).map(o=>`<div class="item" data-enter-org="${o.id}" style="cursor:pointer">
       <span class="stripe jer"></span>
       <div><div class="name">${esc(o.name)}</div><div class="meta">${o.venueCount} lokation${o.venueCount===1?'':'er'} · ${o.eventCount} arrangement${o.eventCount===1?'':'er'}</div></div>
       <span class="chip"><span class="dot"></span>Åbn →</span></div>`).join(''):'<div class="empty">Ingen organisationer endnu.</div>'}
   </section>
-  <section class="card">
-    <header><h2>Ny kunde</h2><span class="note">rigtig organisation</span></header>
-    <div class="row" style="gap:8px;flex-wrap:wrap;margin-top:4px">
-      <input id="ncOrgName" class="search" placeholder="Organisationens navn" style="flex:2;min-width:200px">
-      <input id="ncAdminName" class="search" placeholder="Admins navn" style="flex:1;min-width:160px">
-      <input id="ncAdminEmail" type="email" class="search" placeholder="Admins mail" style="flex:1;min-width:180px">
-      <button class="btn primary" id="ncCreate">Opret kunde</button>
-    </div>
-    <div class="note" style="margin-top:10px">Opretter organisationen tomt. Admin-mailen bliver automatisk admin, første gang personen logger ind på vertacph.netlify.app/app — de bliver mødt af en trin-for-trin guide til at sætte organisationen op.</div>
-  </section>
-  <section class="card">
-    <header><h2>Ny demo-organisation</h2></header>
-    <div class="row" style="gap:8px;flex-wrap:wrap;margin-top:4px">
-      <input id="doName" class="search" placeholder="Navn, fx Demo — Prospect A" style="flex:2;min-width:220px">
-      <label class="row" style="gap:6px;font-size:13px"><input type="checkbox" id="doSeed" checked>Fyld med fiktive eksempeldata</label>
-      <button class="btn primary" id="doCreate">Opret demo</button>
-    </div>
-    <div class="note" style="margin-top:10px">Eksempeldata er ét opdigtet arrangement ("Sofie &amp; Anton"), én lokation med to lokaler og et lille priskatalog — aldrig rigtige kundedata. Lad boksen være tom, hvis I hellere vil bygge den live på et møde.</div>
-  </section>`;
+  ${brugereKort}`;
 }
+MODAL_RENDERERS.newOrg = function(){
+  return `
+  <h2 style="font-family:'Instrument Serif',serif;font-style:italic;font-size:24px;font-weight:400;margin:0 0 14px">Ny organisation</h2>
+  <div class="eyebrow">Rigtig kunde</div>
+  <div class="row" style="gap:8px;flex-wrap:wrap;margin-top:8px">
+    <input id="ncOrgName" class="search" placeholder="Organisationens navn" style="flex:2;min-width:200px">
+    <input id="ncAdminName" class="search" placeholder="Admins navn" style="flex:1;min-width:160px">
+    <input id="ncAdminEmail" type="email" class="search" placeholder="Admins mail" style="flex:1;min-width:180px">
+  </div>
+  <div class="note" style="margin-top:8px">Opretter organisationen tomt. Admin-mailen bliver automatisk admin, første gang personen logger ind på vertacph.netlify.app/app.</div>
+  <div class="row" style="margin-top:10px"><button class="btn primary" id="ncCreate">Opret kunde</button></div>
+  <div class="eyebrow" style="margin-top:22px">Demo-organisation</div>
+  <div class="row" style="gap:8px;flex-wrap:wrap;margin-top:8px">
+    <input id="doName" class="search" placeholder="Navn, fx Demo — Prospect A" style="flex:2;min-width:220px">
+    <label class="row" style="gap:6px;font-size:13px"><input type="checkbox" id="doSeed" checked>Fyld med fiktive eksempeldata</label>
+  </div>
+  <div class="note" style="margin-top:8px">Eksempeldata er ét opdigtet arrangement, én lokation med to lokaler og et lille priskatalog — aldrig rigtige kundedata.</div>
+  <div class="row" style="margin-top:10px"><button class="btn primary" id="doCreate">Opret demo</button></div>
+  <div class="row" style="margin-top:18px;justify-content:flex-end"><button class="btn" data-modal-close>Annullér</button></div>`;
+};
+MODAL_BINDERS.newOrg = function(){
+  const ncc=document.getElementById('ncCreate'); ncc.onclick=createRealCustomer;
+  onEnterSubmit(document.getElementById('ncOrgName'), ()=>ncc.click());
+  onEnterSubmit(document.getElementById('ncAdminName'), ()=>ncc.click());
+  onEnterSubmit(document.getElementById('ncAdminEmail'), ()=>ncc.click());
+  const dc=document.getElementById('doCreate'); dc.onclick=createDemoOrg;
+  onEnterSubmit(document.getElementById('doName'), ()=>dc.click());
+};
+MODAL_RENDERERS.inviteSuperadmin = function(){
+  return `
+  <h2 style="font-family:'Instrument Serif',serif;font-style:italic;font-size:24px;font-weight:400;margin:0 0 14px">Inviter Verta-bruger</h2>
+  <div class="row" style="gap:8px;flex-wrap:wrap">
+    <input id="siName" class="search" placeholder="Navn" style="flex:1;min-width:160px">
+    <input id="siEmail" type="email" class="search" placeholder="Mail" style="flex:1;min-width:180px">
+    <select id="siRole" class="search" style="max-width:140px">
+      <option value="admin">Admin</option>
+      <option value="ejer">Ejer</option>
+    </select>
+  </div>
+  <div class="note" style="margin-top:8px">Personen bliver automatisk Verta-bruger, første gang de logger ind med denne mail. "Ejer" kan selv invitere/fjerne andre Verta-brugere.</div>
+  <div class="row" style="margin-top:14px;justify-content:flex-end;gap:8px">
+    <button class="btn" data-modal-close>Annullér</button>
+    <button class="btn primary" id="siCreate">Send invitation</button>
+  </div>`;
+};
+MODAL_BINDERS.inviteSuperadmin = function(){
+  const sc=document.getElementById('siCreate'); sc.onclick=createSuperadminInvite;
+  onEnterSubmit(document.getElementById('siName'), ()=>sc.click());
+  onEnterSubmit(document.getElementById('siEmail'), ()=>sc.click());
+};
 
 async function openEvent(id){
   state.eventId=id;
@@ -3305,6 +3392,29 @@ async function loadVenuesFull(){
   state.venues=vens||[];
   const {data:rms}=await sb.from('rooms').select('id,name,venue_id,sort_order,capacity_max').order('sort_order');
   state.venuesFull=(vens||[]).map(v=>({...v, rooms:(rms||[]).filter(r=>r.venue_id===v.id)}));
+  /* Billig bulk-forespørgsel (samme mønster som loadPickerExceptions) til "X kommende arrangementer"
+     på hvert lokations-kort, uden en forespørgsel pr. lokation. */
+  const {data:evs}=await sb.from('events').select('id,venue_id').eq('org_id',state.orgId).gte('event_date',todayIso()).neq('status','afviklet');
+  state.venueUpcomingCounts={};
+  (evs||[]).forEach(e=>{ state.venueUpcomingCounts[e.venue_id]=(state.venueUpcomingCounts[e.venue_id]||0)+1; });
+}
+/* Hentes først når en koordinator/admin klikker ind på én bestemt lokation — de faktiske
+   arrangementer og pr.-lokale-tilknytninger er for tunge til at hente for alle lokationer på forhånd. */
+async function loadVenueDetail(venueId){
+  const {data:events}=await sb.from('events').select('id,title,event_date,status').eq('venue_id',venueId).order('event_date',{ascending:false});
+  state.venueDetailEvents=events||[];
+  state.venueDetailRoomEvents={};
+  const eventIds=(events||[]).map(e=>e.id);
+  if(eventIds.length){
+    const {data:ers}=await sb.from('event_rooms').select('room_id,event_id').in('event_id',eventIds);
+    (ers||[]).forEach(er=>{
+      if(!er.room_id) return;
+      const ev=(events||[]).find(e=>e.id===er.event_id);
+      if(!ev) return;
+      if(!state.venueDetailRoomEvents[er.room_id]) state.venueDetailRoomEvents[er.room_id]=[];
+      state.venueDetailRoomEvents[er.room_id].push(ev);
+    });
+  }
 }
 async function createVenue(){
   const el=document.getElementById('venName'); const name=el.value.trim();
@@ -3314,6 +3424,7 @@ async function createVenue(){
   const {error}=await mutate(()=>sb.from('venues').insert({org_id:state.orgId, name}));
   btn.disabled=false; btn.textContent=orig;
   if(error){ showToast('Kunne ikke oprette lokation: '+error.message,'error'); return; }
+  state.modal=null;
   await loadVenuesFull(); render();
 }
 async function renameVenue(id, name){
@@ -4229,36 +4340,83 @@ function viewKatalog(){
     </div>
   </section>`;
 }
+/* Lokationer er en oversigt til at kigge på, ikke et redigeringsark — de fleste lokationer
+   redigeres sjældent, når de først er sat op. Kort giver et hurtigt overblik (lokaler, kommende
+   arrangementer); redigering og "hvilke arrangementer bruger hvilket lokale" ligger bag et klik,
+   i viewLokationDetail(). */
 function viewLokationer(){
+  if(state.venueDetailId) return viewLokationDetail();
+  const venues=state.venuesFull||[];
   return `${consoleNav('venues')}
-  <div style="margin:20px 0 10px"><span class="eyebrow">Lokationer i ${esc(state.orgName||'organisationen')}</span></div>
-  ${(state.venuesFull||[]).map(v=>`
+  <div class="row" style="justify-content:space-between;align-items:baseline;margin:20px 0 10px">
+    <span class="eyebrow">Lokationer i ${esc(state.orgName||'organisationen')}</span>
+    <button class="btn primary" id="newVenueBtn">+ Ny lokation</button>
+  </div>
+  <div class="venuegrid">
+    ${venues.map(v=>{
+      const upcoming=(state.venueUpcomingCounts||{})[v.id]||0;
+      return `<div class="card" data-open-venue="${v.id}" style="cursor:pointer">
+      <div style="font-weight:700;font-size:15px">${esc(v.name)}</div>
+      <div class="note" style="margin-top:4px">${esc(v.address||'Ingen adresse angivet')}</div>
+      <div class="row" style="gap:6px;margin-top:12px;flex-wrap:wrap">
+        <span class="chip"><span class="dot"></span>${v.rooms.length} lokale${v.rooms.length===1?'':'r'}</span>
+        <span class="chip ${upcoming?'ok':''}"><span class="dot"></span>${upcoming} kommende arrangement${upcoming===1?'':'er'}</span>
+      </div>
+    </div>`;
+    }).join('')}
+  </div>
+  ${venues.length?'':'<div class="empty">Ingen lokationer endnu.</div>'}`;
+}
+function viewLokationDetail(){
+  const v=(state.venuesFull||[]).find(x=>x.id===state.venueDetailId);
+  if(!v) return `${consoleNav('venues')}<div class="row noprint" style="margin:20px 0 10px"><button class="btn" data-back-to-venues>← Til lokationer</button></div><div class="empty">Lokationen findes ikke længere.</div>`;
+  const roomEvents=state.venueDetailRoomEvents||{};
+  const evs=state.venueDetailEvents||[];
+  return `${consoleNav('venues')}
+  <div class="row noprint" style="margin:20px 0 10px"><button class="btn" data-back-to-venues>← Til lokationer</button></div>
   <section class="card">
     <header>
       <input class="search" data-venue-name="${v.id}" value="${esc(v.name)}" style="font-weight:700;border:0;background:transparent;padding:0;font-size:15px;flex:1">
       <span class="note">${v.rooms.length} lokale${v.rooms.length===1?'':'r'}</span>
     </header>
     <input class="search" data-venue-address="${v.id}" value="${esc(v.address||'')}" placeholder="Adresse…" style="width:100%;margin-bottom:10px;font-size:13px">
-    ${v.rooms.length?v.rooms.map(r=>`<div class="stat" style="flex-wrap:wrap;gap:6px;align-items:center">
+    ${v.rooms.length?v.rooms.map(r=>{
+      const re=roomEvents[r.id]||[];
+      return `<div class="stat" style="flex-wrap:wrap;gap:6px;align-items:center">
       <input class="search" data-room-name="${r.id}" value="${esc(r.name)}" style="flex:1;min-width:140px">
       <input type="number" min="0" class="search" data-room-capacity="${r.id}" value="${r.capacity_max??''}" placeholder="Max antal gæster" style="flex:1;min-width:160px;font-size:13px">
+      ${re.length?`<span class="chip"><span class="dot"></span>${re.length} arrangement${re.length===1?'':'er'}</span>`:''}
       <button class="btn" data-delete-room="${r.id}">Slet</button>
-    </div>`).join(''):'<div class="empty">Ingen lokaler endnu.</div>'}
+    </div>`;
+    }).join(''):'<div class="empty">Ingen lokaler endnu.</div>'}
     <div class="row" style="margin-top:12px;gap:8px">
       <input class="search" placeholder="Nyt lokale…" data-new-room="${v.id}" style="flex:1">
       <button class="btn" data-add-room="${v.id}">Tilføj lokale</button>
       <button class="btn" data-delete-venue="${v.id}" style="margin-left:auto">Slet lokation</button>
     </div>
-  </section>`).join('')}
-  ${(state.venuesFull||[]).length?'':'<div class="empty">Ingen lokationer endnu.</div>'}
+  </section>
   <section class="card">
-    <header><h2>Ny lokation</h2></header>
-    <div class="row" style="gap:8px">
-      <input id="venName" class="search" placeholder="Navn, fx Havnelageret" style="flex:1">
-      <button class="btn primary" id="venCreate">Opret lokation</button>
-    </div>
+    <header><h2>Arrangementer på denne lokation</h2><span class="note">${evs.length}</span></header>
+    ${evs.length?evs.map(e=>`<div class="item" data-open="${e.id}" style="cursor:pointer">
+      <span class="stripe ${e.status!=='afviklet'?'jer':''}"></span>
+      <div><div class="name">${esc(e.title)}</div><div class="meta">${datoKort(e.event_date)}</div></div>
+      ${eventStatusChip(e.status)}
+    </div>`).join(''):'<div class="empty">Ingen arrangementer på denne lokation endnu.</div>'}
   </section>`;
 }
+MODAL_RENDERERS.newVenue = function(){
+  return `
+  <h2 style="font-family:'Instrument Serif',serif;font-style:italic;font-size:24px;font-weight:400;margin:0 0 14px">Ny lokation</h2>
+  <div class="field"><label for="venName">Navn</label><input id="venName" class="search" placeholder="Fx Havnelageret" style="width:100%"></div>
+  <div class="row" style="margin-top:14px;justify-content:flex-end;gap:8px">
+    <button class="btn" data-modal-close>Annullér</button>
+    <button class="btn primary" id="venCreate">Opret lokation</button>
+  </div>`;
+};
+MODAL_BINDERS.newVenue = function(){
+  const vc=document.getElementById('venCreate'); vc.onclick=createVenue;
+  onEnterSubmit(document.getElementById('venName'), ()=>vc.click());
+};
 function eventStatusChip(status){
   const label=(EVENT_STATUSES.find(([v])=>v===status)||[])[1]||status;
   const cls = status==='bekræftet'?'ok':status==='tilbud'?'blue':status==='kladde'?'warn':'';
@@ -4357,7 +4515,11 @@ function inboxFilterBar(){
     </select>
   </div>`;
 }
-function viewPicker(){
+/* Fælles for admin- og koordinatorforsiden: søg/sortér/filtrér + status-grupperet liste. `state.events`
+   er allerede korrekt afgrænset af RLS (event_read via is_org_staff) — en koordinator får kun de
+   arrangementer, de reelt er tilknyttet (owner/sekundær/event_staff), en admin ser alle i org'en.
+   Denne funktion skal derfor IKKE selv filtrere på ejerskab; kun de to forsider omkring den varierer. */
+function pickerEventListHtml(){
   const q=state.pickerSearch.trim().toLowerCase();
   let filtered=(state.events||[]).filter(e=>{
     if(state.pickerFilterStatus!=='alle' && e.status!==state.pickerFilterStatus) return false;
@@ -4395,19 +4557,13 @@ function viewPicker(){
       ${EVENT_STATUSES.map(([v,l])=>`<option value="${v}" ${state.pickerFilterStatus===v?'selected':''}>${l}</option>`).join('')}
     </select>
   </div>` : '';
-  const setup = {
-    venues:(state.venues||[]).length, events:(state.events||[]).length,
-    catalog:(state.orgCatalog&&state.orgCatalog.length)||state.orgCatalogCount||0,
-    staff:(state.staffList&&state.staffList.length)||state.orgStaffCount||0
-  };
-  const showSetup = state.isAdmin && !state.orgOnboardingDismissed && !(setup.venues>0 && setup.events>0);
-  const setupKort = showSetup ? checklistHtml('Kom godt i gang', `${[setup.venues>0,setup.catalog>0,setup.staff>1,setup.events>0].filter(Boolean).length}/4`, [
-    {done:setup.venues>0, label:'Opret jeres første lokation (+ mindst ét lokale)', action:setup.venues>0?'':'<button class="btn" data-nav="venues">Gå til →</button>'},
-    {done:setup.catalog>0, label:'Byg jeres priskatalog', optional:true, action:setup.catalog>0?'':'<button class="btn" data-nav="katalog">Gå til →</button>'},
-    {done:setup.staff>1, label:'Inviter kolleger', optional:true, action:setup.staff>1?'':'<button class="btn" data-nav="users">Gå til →</button>'},
-    {done:setup.events>0, label:'Opret jeres første arrangement'}
-  ], '<div class="row" style="margin-top:12px"><button class="btn" id="setupDismiss">Skjul denne guide</button></div>') : '';
-  return `${consoleNav('picker')}
+  return `${filterBar}
+    ${EVENT_STATUSES.map(([v,l])=>sec(v,l,grp[v])).join('')}
+    ${state.events.length?'':'<div class="empty">Ingen arrangementer endnu.</div>'}
+    ${(state.events.length && !filtered.length)?'<div class="empty">Ingen arrangementer matcher søgning/filter.</div>':''}`;
+}
+function pickerHeaderHtml(){
+  return `
     <div class="row" style="justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:10px;margin:20px 0 16px">
       <div>
         <div class="eyebrow">${esc(nowDate().toLocaleDateString('da-DK',{weekday:'long',day:'numeric',month:'long'}))}</div>
@@ -4417,14 +4573,57 @@ function viewPicker(){
         <button class="btn" id="openKalenderBtn">Lokalekalender</button>
         ${(state.venues||[]).length?'<button class="btn primary" id="newEventBtn">+ Nyt arrangement</button>':''}
       </div>
-    </div>
+    </div>`;
+}
+function viewPicker(){
+  return state.isAdmin ? viewAdminHome() : viewCoordinatorHome();
+}
+/* Admins forside: styringsværktøjer (consoleNav) fremhævet, KPI-tiles for HELE organisationen, og
+   "Kræver handling" uden indskrænkning — det hurtige, overordnede overblik admin bad om, klart
+   adskilt fra koordinatorens personlige arbejdsliste nedenfor. */
+function viewAdminHome(){
+  const evs=state.events||[];
+  const today=todayIso(), in7=addDays(today,7);
+  const kpi = {
+    total: evs.length,
+    kraeverHandling: Object.values(state.eventExceptions||{}).filter(rs=>rs&&rs.length).length,
+    kommende7: evs.filter(e=>e.event_date>=today && e.event_date<=in7).length,
+    bekraeftet: evs.filter(e=>e.status==='bekræftet').length
+  };
+  const kpiCard=(label,val)=>`<div class="card" style="text-align:center;padding:16px 10px"><div class="num" style="font-size:26px;font-weight:700">${val}</div><div class="note" style="margin-top:2px">${label}</div></div>`;
+  const setup = {
+    venues:(state.venues||[]).length, events:evs.length,
+    catalog:(state.orgCatalog&&state.orgCatalog.length)||state.orgCatalogCount||0,
+    staff:(state.staffList&&state.staffList.length)||state.orgStaffCount||0
+  };
+  const showSetup = !state.orgOnboardingDismissed && !(setup.venues>0 && setup.events>0);
+  const setupKort = showSetup ? checklistHtml('Kom godt i gang', `${[setup.venues>0,setup.catalog>0,setup.staff>1,setup.events>0].filter(Boolean).length}/4`, [
+    {done:setup.venues>0, label:'Opret jeres første lokation (+ mindst ét lokale)', action:setup.venues>0?'':'<button class="btn" data-nav="venues">Gå til →</button>'},
+    {done:setup.catalog>0, label:'Byg jeres priskatalog', optional:true, action:setup.catalog>0?'':'<button class="btn" data-nav="katalog">Gå til →</button>'},
+    {done:setup.staff>1, label:'Inviter kolleger', optional:true, action:setup.staff>1?'':'<button class="btn" data-nav="users">Gå til →</button>'},
+    {done:setup.events>0, label:'Opret jeres første arrangement'}
+  ], '<div class="row" style="margin-top:12px"><button class="btn" id="setupDismiss">Skjul denne guide</button></div>') : '';
+  return `${consoleNav('picker')}
+    ${pickerHeaderHtml()}
     ${setupKort}
+    <div class="kpigrid">
+      ${kpiCard('Arrangementer i alt',kpi.total)}
+      ${kpiCard('Kræver handling',kpi.kraeverHandling)}
+      ${kpiCard('Kommende 7 dage',kpi.kommende7)}
+      ${kpiCard('Bekræftet',kpi.bekraeftet)}
+    </div>
     ${actionRequiredSection()}
-    <div style="margin:24px 0 10px"><span class="eyebrow">${state.isAdmin?'Admin · alle arrangementer':'Dine arrangementer'}</span></div>
-    ${filterBar}
-    ${EVENT_STATUSES.map(([v,l])=>sec(v,l,grp[v])).join('')}
-    ${state.events.length?'':'<div class="empty">Ingen arrangementer endnu.</div>'}
-    ${(state.events.length && !filtered.length)?'<div class="empty">Ingen arrangementer matcher søgning/filter.</div>':''}`;
+    <div style="margin:24px 0 10px"><span class="eyebrow">Admin · alle arrangementer</span></div>
+    ${pickerEventListHtml()}`;
+}
+/* Koordinatorens forside: ingen styringsværktøjer, ingen org-KPI'er — kun det, der er personligt
+   relevant. "Kræver handling" og listen nedenfor viser i forvejen kun koordinatorens egne
+   arrangementer (RLS-afgrænset via state.events), så ingen ekstra filtrering er nødvendig her. */
+function viewCoordinatorHome(){
+  return `${pickerHeaderHtml()}
+    ${actionRequiredSection()}
+    <div style="margin:24px 0 10px"><span class="eyebrow">Dine arrangementer</span></div>
+    ${pickerEventListHtml()}`;
 }
 function viewBrugere(){
   return `${consoleNav('users')}

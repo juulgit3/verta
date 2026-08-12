@@ -26,6 +26,7 @@ drop table if exists staff              cascade;
 drop table if exists rooms              cascade;
 drop table if exists venues             cascade;
 drop table if exists superadmins        cascade;
+drop table if exists superadmin_invites cascade;
 drop table if exists organisations      cascade;
 
 -- =====================================================================
@@ -39,10 +40,22 @@ create table organisations (
 );
 
 -- Verta-medarbejdere: organisationsuafhængig adgang på tværs af alle kunde-/demo-organisationer.
--- Ingen org_id — det er hele pointen. Tilføjes manuelt via SQL, ikke selvbetjening.
+-- Ingen org_id — det er hele pointen. role='ejer' kan invitere/fjerne andre superadmins (kun én
+-- burde reelt have den rolle); 'admin' kan alt det praktiske i kontrolrummet, men ikke det.
 create table superadmins (
   id uuid primary key references auth.users(id) on delete cascade,
   name text not null,
+  role text not null default 'admin' check (role in ('ejer','admin')),
+  created_at timestamptz not null default now()
+);
+
+-- Ventende invitationer til at blive Verta-medarbejder — samme mønster som `invites` nedenfor
+-- for org-medarbejdere, men org-uafhængig (superadmins har ingen org_id).
+create table superadmin_invites (
+  id uuid primary key default gen_random_uuid(),
+  email text not null unique,
+  name text not null,
+  role text not null default 'admin' check (role in ('ejer','admin')),
   created_at timestamptz not null default now()
 );
 
@@ -349,6 +362,13 @@ returns boolean language sql security definer stable set search_path = public as
   select exists (select 1 from superadmins where id = auth.uid())
 $$;
 
+-- Er denne bruger specifikt 'ejer' blandt superadmins? Styrer alene retten til at invitere/fjerne
+-- andre Verta-medarbejdere — ikke adgang til selve kontrolrummets øvrige funktioner.
+create or replace function is_superadmin_owner()
+returns boolean language sql security definer stable set search_path = public as $$
+  select exists (select 1 from superadmins where id = auth.uid() and role = 'ejer')
+$$;
+
 -- Admin i en bestemt organisation? (superadmin tæller altid med)
 create or replace function is_org_admin(target_org uuid)
 returns boolean language sql security definer stable set search_path = public as $$
@@ -567,10 +587,11 @@ $$;
 -- =====================================================================
 --  3. TRIGGERE
 -- =====================================================================
--- Ny auth-bruger med en ventende invitation → bliv medarbejder automatisk.
+-- Ny auth-bruger med en ventende invitation → bliv medarbejder automatisk. Tjekker begge
+-- invitationstyper (org-medarbejder og Verta-superadmin) — en person kan i princippet være begge.
 create or replace function handle_new_user()
 returns trigger language plpgsql security definer set search_path = public as $$
-declare inv invites%rowtype;
+declare inv invites%rowtype; sinv superadmin_invites%rowtype;
 begin
   select * into inv from invites where lower(email) = lower(new.email) limit 1;
   if found then
@@ -578,6 +599,14 @@ begin
       values (new.id, inv.org_id, inv.name, inv.role)
       on conflict (id) do nothing;
     delete from invites where id = inv.id;
+  end if;
+
+  select * into sinv from superadmin_invites where lower(email) = lower(new.email) limit 1;
+  if found then
+    insert into superadmins (id, name, role)
+      values (new.id, sinv.name, sinv.role)
+      on conflict (id) do nothing;
+    delete from superadmin_invites where id = sinv.id;
   end if;
   return new;
 end;
@@ -759,9 +788,18 @@ alter table task_templates      enable row level security;
 alter table event_approvals     enable row level security;
 alter table event_change_requests enable row level security;
 alter table event_templates     enable row level security;
+alter table superadmin_invites  enable row level security;
 
--- Superadmin: kun læsbar for sig selv. Tilføjes/fjernes manuelt via SQL.
+-- Superadmin: læsbar for sig selv, og fuldt læsbar for 'ejer' (til "Verta-brugere"-listen i
+-- kontrolrummet). Kun 'ejer' kan fjerne en anden superadmin — og aldrig sig selv (undgår at man
+-- ved en fejl låser sig selv ude af kontrolrummet).
 create policy superadmins_read_self on superadmins for select using (id = auth.uid());
+create policy superadmins_read_owner on superadmins for select using (is_superadmin_owner());
+create policy superadmins_delete_owner on superadmins for delete using (is_superadmin_owner() and id <> auth.uid());
+
+-- Invitationer til at blive Verta-medarbejder: udelukkende 'ejer' må oprette/se/fjerne dem.
+create policy sinvites_all_owner on superadmin_invites for all
+  using (is_superadmin_owner()) with check (is_superadmin_owner());
 
 -- Organisation / lokationer
 create policy org_read on organisations for select using (
@@ -1077,8 +1115,9 @@ insert into activity_log (event_id, ts, actor_name, actor_side, entry_type, area
 --  8. BOOTSTRAP — kør, når du har logget ind via magic link mindst én gang.
 --     Find dit UUID under Authentication → Users.
 -- =====================================================================
--- -- Gør dig selv til SUPERADMIN (Verta-medarbejder, organisationsuafhængig):
--- insert into superadmins (id, name) values ('DIT-AUTH-UUID','Dit navn');
+-- -- Gør dig selv til SUPERADMIN-EJER (Verta-medarbejder, organisationsuafhængig — kan invitere
+-- -- andre Verta-brugere fra kontrolrummet bagefter, så dette bootstrap-trin kun skal køres én gang):
+-- insert into superadmins (id, name, role) values ('DIT-AUTH-UUID','Dit navn','ejer');
 --
 -- -- Eller: gør dig selv til ADMIN i Madkastellet (almindelig org-scoped admin):
 -- insert into staff (id, org_id, name, role) values
