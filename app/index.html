@@ -3183,7 +3183,7 @@ async function createRealCustomer(){
     if(invErr){ btn.disabled=false; btn.textContent=orig; showToast('Organisationen blev oprettet, men invitationen fejlede: '+invErr.message,'error'); await loadSuperadminHome(); render(); return; }
   }
   state.modal=null;
-  showToast('Oprettet. Bed '+adminName+' logge ind med '+adminEmail+' på vertacph.netlify.app/app.','ok');
+  showToast('Oprettet. Bed '+adminName+' logge ind med '+adminEmail+' på verta.dk/app.','ok');
   await loadSuperadminHome(); render();
 }
 async function createDemoOrg(){
@@ -3277,7 +3277,7 @@ MODAL_RENDERERS.newCustomer = function(){
     <input id="ncAdminName" class="search" placeholder="Admins navn" style="flex:1;min-width:160px">
     <input id="ncAdminEmail" type="email" class="search" placeholder="Admins mail" style="flex:1;min-width:180px">
   </div>
-  <div class="note" style="margin-top:8px">Opretter organisationen tomt. Admin-mailen bliver automatisk admin, første gang personen logger ind på vertacph.netlify.app/app.</div>
+  <div class="note" style="margin-top:8px">Opretter organisationen tomt. Admin-mailen bliver automatisk admin, første gang personen logger ind på verta.dk/app.</div>
   <div class="row" style="margin-top:14px;justify-content:flex-end;gap:8px">
     <button class="btn" data-modal-close>Annullér</button>
     <button class="btn primary" id="ncCreate">Opret kunde</button>
