@@ -4,7 +4,13 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Kontakt — Verta</title>
-<meta name="description" content="Klar til at se Verta med jeres egne arrangementer? Book en uforpligtende demo.">
+<meta name="description" content="Ofte stillede spørgsmål om Verta. Direkte kontaktvej er under opsætning.">
+<link rel="canonical" href="https://verta.dk/kontakt">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Verta">
+<meta property="og:url" content="https://verta.dk/kontakt">
+<meta property="og:title" content="Kontakt — Verta">
+<meta property="og:description" content="Ofte stillede spørgsmål om Verta. Direkte kontaktvej er under opsætning.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Familjen+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -28,12 +34,23 @@ a{color:inherit;text-decoration:none}
 .eyebrow{font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-45);font-weight:700}
 
 header.site{position:sticky;top:0;z-index:20;background:rgba(234,237,230,.88);backdrop-filter:blur(6px);border-bottom:1px solid var(--line)}
-.nav{display:flex;align-items:center;justify-content:space-between;padding:16px 0;gap:20px}
+.nav{position:relative;display:flex;align-items:center;justify-content:space-between;padding:16px 0;gap:20px}
 .nav .mark{font-size:23px;color:var(--blue)}
 .nav-links{display:flex;gap:26px;font-size:14.5px;font-weight:600;color:var(--ink-70)}
 .nav-links a:hover{color:var(--ink)}
 .nav-links a.active{color:var(--blue)}
-@media(max-width:760px){.nav-links{display:none}}
+.nav-toggle{display:none;align-items:center;justify-content:center;width:44px;height:44px;
+  background:transparent;border:1px solid var(--line-strong);border-radius:var(--radius);cursor:pointer;color:var(--ink)}
+.nav-actions{display:flex;align-items:center;gap:10px}
+@media(max-width:760px){
+  .nav-links{display:none}
+  .nav-links.open{display:flex;flex-direction:column;position:absolute;top:100%;left:0;right:0;
+    background:var(--paper);border-bottom:1px solid var(--line);padding:6px 22px 18px;gap:2px;
+    box-shadow:0 10px 18px rgba(18,21,27,.10)}
+  .nav-links.open a{padding:13px 4px;font-size:15.5px;border-bottom:1px solid var(--line)}
+  .nav-links.open a:last-child{border-bottom:0}
+  .nav-toggle{display:inline-flex}
+}
 
 .btn{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--line-strong);background:var(--card);
   border-radius:var(--radius);padding:10px 18px;font-size:14px;font-weight:700;cursor:pointer;
@@ -77,14 +94,18 @@ footer.site .fnote{margin-top:10px;font-size:12.5px;color:var(--ink-45);line-hei
 <header class="site">
   <div class="wrap nav">
     <a href="/" class="serif-i mark">Verta</a>
-    <nav class="nav-links">
+    <nav class="nav-links" id="siteNav">
       <a href="/funktioner">Funktioner</a>
       <a href="/saadan-virker-det">Sådan virker det</a>
       <a href="/sikkerhed">Sikkerhed</a>
       <a href="/pris">Pris</a>
       <a href="/kontakt" class="active">Kontakt</a>
     </nav>
-    <button class="btn primary" type="button">Book en demo</button>
+    <div class="nav-actions">
+      <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="siteNav" aria-label="Åbn menu" onclick="toggleNav(this)">
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true"><path d="M2 5h14M2 9h14M2 13h14" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+      </button>
+    </div>
   </div>
 </header>
 
@@ -93,9 +114,9 @@ footer.site .fnote{margin-top:10px;font-size:12.5px;color:var(--ink-45);line-hei
   <section class="pagehero" style="border-top:0">
     <div class="wrap">
       <span class="eyebrow">Kontakt</span>
-      <h1>Klar til at se det med jeres egne arrangementer?</h1>
-      <p class="sub">Vi tager gerne en uforpligtende snak om, hvordan Verta ville se ud hos jer
-        — uanset om I har én lokation eller ni.</p>
+      <h1>Vi er ved at sætte en direkte kontaktvej op.</h1>
+      <p class="sub">Der er endnu ingen kontaktformular, telefon eller mailadresse offentliggjort
+        her på siden. Indtil da kan du finde svar på de mest almindelige spørgsmål herunder.</p>
     </div>
   </section>
 
@@ -138,12 +159,8 @@ footer.site .fnote{margin-top:10px;font-size:12.5px;color:var(--ink-45);line-hei
   <section>
     <div class="wrap">
       <div class="finalcta">
-        <h2 class="serif-i">Lad os tage en snak.</h2>
-        <p>Ingen forpligtelser — bare en ærlig snak om, hvordan Verta ville passe til jeres arbejdsgang.</p>
-        <div class="ctas">
-          <button class="btn primary" type="button">Book en demo</button>
-          <button class="btn ghost" type="button">Skriv til os</button>
-        </div>
+        <h2 class="serif-i">Kontaktvejen er under opsætning.</h2>
+        <p>Vi arbejder på en fungerende måde at tage imod henvendelser her på siden. Tjek tilbage snart.</p>
       </div>
     </div>
   </section>
@@ -158,5 +175,38 @@ footer.site .fnote{margin-top:10px;font-size:12.5px;color:var(--ink-45);line-hei
   </div>
 </footer>
 
+<script>
+function toggleNav(btn){
+  var nav = document.getElementById('siteNav');
+  var open = nav.classList.toggle('open');
+  btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+}
+document.addEventListener('keydown', function(e){
+  if(e.key === 'Escape'){
+    var nav = document.getElementById('siteNav');
+    var btn = document.querySelector('.nav-toggle');
+    if(nav && nav.classList.contains('open')){
+      nav.classList.remove('open');
+      if(btn) btn.setAttribute('aria-expanded','false');
+    }
+  }
+});
+document.addEventListener('click', function(e){
+  var nav = document.getElementById('siteNav');
+  var btn = document.querySelector('.nav-toggle');
+  if(!nav || !nav.classList.contains('open')) return;
+  if(nav.contains(e.target) || (btn && btn.contains(e.target))) return;
+  nav.classList.remove('open');
+  if(btn) btn.setAttribute('aria-expanded','false');
+});
+document.querySelectorAll('#siteNav a').forEach(function(a){
+  a.addEventListener('click', function(){
+    var nav = document.getElementById('siteNav');
+    var btn = document.querySelector('.nav-toggle');
+    nav.classList.remove('open');
+    if(btn) btn.setAttribute('aria-expanded','false');
+  });
+});
+</script>
 </body>
 </html>

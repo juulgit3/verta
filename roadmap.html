@@ -32,6 +32,7 @@ details[open] .fold-chev{transform:rotate(90deg)}
 .dot.idea{background:var(--ink-40)}
 .dot.planned{background:var(--amber)}
 .dot.done{background:var(--moss)}
+.dot.parked{background:var(--blue)}
 section.col{margin:34px 0}
 .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:12px 16px;margin:12px 0}
 .card .t{font-weight:600;font-size:14.5px}
@@ -68,7 +69,78 @@ footer{margin-top:40px;font-size:12px;color:var(--ink-40)}
       <b>Teknisk skitse (ikke bygget):</b> endnu en Edge Function + maildienst-nøgle (samme sikkerhedsmønster som service_role — kun i Edge Function-miljøet), udløst server-side af et Database Webhook ved insert på agenda_items/activity_log — ikke klienten, der selv skal huske at kalde noget.<br><br>
       <b>Bevidst udenfor scope nu:</b> mail til koordinator ved ny besked fra kunden (de sidder allerede i værktøjet i åbningstiden, og realtime findes i forvejen) · digest-mails · fravalgs-center.
     </div></div>
-    <div class="card"><div class="t">Marketing-forside: rigtigt indhold</div><div class="d">Første udkast er bygget (se Udført) — mangler stadig: rigtig prismodel (i stedet for "kontakt for tilbud"), rigtigt domænenavn (nuværende vertacph giver ikke mening bredt), og at "Book en demo"-knapperne kobles til noget rigtigt (mailto, kalenderlink eller formular).</div></div>
+    <div class="card"><div class="t">Marketing-forside: rigtigt indhold</div><div class="d">Domænenavn er på plads (se Udført). De døde "Book en demo"-knapper er fjernet i den seneste gennemgang — CTA'er linker nu reelt til /kontakt, og kontakt-siden viser ærligt, at der endnu ikke er en fungerende kontaktvej. Mangler stadig: en reel kontaktkanal (mailto til en bestemt adresse, kalenderlink eller formular — ejerbeslutning) og en rigtig prismodel i stedet for "skriv til os for tilbud".</div></div>
+  </details>
+
+  <details class="col" open>
+    <summary class="eyebrow"><span class="fold-chev">▸</span><span class="dot parked"></span>Parkeret — kræver mailinfrastruktur<span class="foldcount"></span></summary>
+    <div class="card"><div class="t">Kontaktformular med levering til Verta</div><div class="d">
+      <b>Formål:</b> lade en besøgende på /kontakt sende en henvendelse uden at forlade siden.<br>
+      <b>Afhængighed:</b> en maildienst (fx Resend/Postmark) + en Edge Function til at sende formularindholdet videre — samme sikkerhedsmønster som service_role-nøglen i <code>invite-guest</code>.<br>
+      <b>Kræver beslutning:</b> hvilken adresse/indbakke skal modtage henvendelser, og hvilken maildienst der vælges.<br>
+      <b>Tilsigtet brugeroplevelse:</b> udfyld navn/mail/besked → "Sendt ✓" med det samme, uden at afsløre en bagvedliggende mailadresse i browseren.
+    </div></div>
+    <div class="card"><div class="t">Bekræftelse efter kontakt/booking</div><div class="d">
+      <b>Formål:</b> kvittere afsenderen med en mail, så de ved, henvendelsen kom frem.<br>
+      <b>Afhængighed:</b> samme maildienst som kontaktformularen ovenfor.<br>
+      <b>Kræver beslutning:</b> afsenderadresse/-navn, og om bekræftelsen skal indeholde næste skridt (fx forventet svartid).<br>
+      <b>Tilsigtet brugeroplevelse:</b> en kort, personlig kvitteringsmail inden for få minutter.
+    </div></div>
+    <div class="card"><div class="t">"Få et eksempel-arrangement tilsendt"</div><div class="d">
+      <b>Formål:</b> en lav-tærskel CTA til besøgende, der ikke er klar til en snak endnu — send et eksempel på, hvordan en Verta-side ser ud.<br>
+      <b>Afhængighed:</b> mail-udsendelse (samme som ovenfor) + et konkret, fiktivt eksempel-arrangement klar til at blive delt (må ikke være rigtig kundedata).<br>
+      <b>Kræver beslutning:</b> om dette er ønsket som marketingtiltag, og hvem der bygger eksempel-arrangementet.<br>
+      <b>Tilsigtet brugeroplevelse:</b> indtast mail → modtag et link til en read-only fiktiv arrangementsside.
+    </div></div>
+    <div class="card"><div class="t">Automatiske kundeinvitationer via mail</div><div class="d">
+      <b>Vigtig skelnen:</b> selve login-mekanismen (magic link via Supabase Auth, <code>invite-guest</code>) findes og virker allerede — det er IKKE parkeret. Det, der mangler, er at appen selv sender invitationen automatisk, i stedet for at koordinator trykker "Kopiér" og selv sender linket videre (nuværende, fungerende flow).<br>
+      <b>Formål:</b> spare koordinator det manuelle "kopiér og send"-trin.<br>
+      <b>Afhængighed:</b> maildienst til udgående mail fra Edge Function'en.<br>
+      <b>Kræver beslutning:</b> om det overhovedet er ønsket — det manuelle trin er i dag bevidst en kontrolmulighed for koordinator (de ser og kan rette navn/mail, før linket sendes).<br>
+      <b>Tilsigtet brugeroplevelse:</b> koordinator udfylder gæstens navn/mail og trykker "Send invitation" — gæsten modtager selv mailen, uden mellemled.
+    </div></div>
+    <div class="card"><div class="t">Notifikation ved ændringer/godkendelser</div><div class="d">
+      Beskrevet i detaljer under "Notifikationsmail ved vigtige hændelser" i Planlagt ovenfor — gentages ikke her. Parkeret af samme grund: kræver maildienst.
+    </div></div>
+    <div class="card"><div class="t">Påmindelse ved manglende svar/nærtstående frist</div><div class="d">
+      Beskrevet i detaljer under "Automatiske påmindelser ved nærtstående frister" i Idéer ovenfor — gentages ikke her. Parkeret af samme grund: kræver maildienst.
+    </div></div>
+    <div class="card"><div class="t">Interne driftsnotifikationer</div><div class="d">
+      <b>Formål:</b> give admin/koordinator besked uden for appen, når noget internt kræver opmærksomhed (fx "Kræver handling"-punkter der har stået åbne længe).<br>
+      <b>Afhængighed:</b> samme maildienst-infrastruktur som resten af listen.<br>
+      <b>Kræver beslutning:</b> hvor tit, og om det er en digest eller enkeltmails — risiko for støj, samme princip som anti-støj-reglerne i notifikationsmail-kortet ovenfor.<br>
+      <b>Tilsigtet brugeroplevelse:</b> en kort daglig/ugentlig opsummering, ikke en mail pr. hændelse.
+    </div></div>
+    <div class="card"><div class="t">Bounce- og fejlhåndtering</div><div class="d">
+      <b>Formål:</b> opdage og reagere på mails, der ikke kan leveres (forkert mailadresse, fuld indbakke).<br>
+      <b>Afhængighed:</b> webhook fra maildienst til en Edge Function, der logger/markerer fejlede leverancer.<br>
+      <b>Kræver beslutning:</b> hvad der skal ske ved en bounce — advare koordinator? Markere gæstens mail som ugyldig?<br>
+      <b>Tilsigtet brugeroplevelse:</b> koordinator ser en tydelig markering, hvis en gæsts mail ikke kunne nå frem, i stedet for at opdage det ved en tilfældighed.
+    </div></div>
+    <div class="card"><div class="t">SPF/DKIM/DMARC på afsenderdomænet</div><div class="d">
+      <b>Formål:</b> sikre at udgående mail fra verta.dk rent faktisk lander i indbakken og ikke i spam.<br>
+      <b>Afhængighed:</b> DNS-adgang til verta.dk (findes, via Netlify DNS) + den valgte maildienst's opsætningsguide.<br>
+      <b>Kræver beslutning:</b> ingen reel beslutning — en teknisk forudsætning, der skal udføres, når maildienst er valgt.<br>
+      <b>Tilsigtet brugeroplevelse:</b> usynlig for brugeren — mails lander bare, hvor de skal.
+    </div></div>
+    <div class="card"><div class="t">Samtykke- og privatlivstekst + opbevaring af kontaktdata</div><div class="d">
+      <b>Formål:</b> lovligt grundlag for at gemme og bruge en besøgendes navn/mail fra en kontaktformular.<br>
+      <b>Afhængighed:</b> en privatlivspolitik (findes ikke endnu noget sted på sitet) + et sted at opbevare henvendelser.<br>
+      <b>Kræver beslutning:</b> hvor længe henvendelser opbevares, og om der skal skrives en fuld privatlivspolitik, før formularen går live.<br>
+      <b>Tilsigtet brugeroplevelse:</b> en kort samtykketekst ved formularen, med link til den fulde politik.
+    </div></div>
+    <div class="card"><div class="t">Transaktionelle mailskabeloner</div><div class="d">
+      <b>Formål:</b> ensartet afsender/design på al udgående mail (invitationer, notifikationer, kvitteringer).<br>
+      <b>Afhængighed:</b> maildienst valgt først — skabeloner bygges i det valgte værktøj.<br>
+      <b>Kræver beslutning:</b> visuel stil (skal den ligne appen/marketingsiden?) — ingen beslutning nødvendig før maildienst er på plads.<br>
+      <b>Tilsigtet brugeroplevelse:</b> mails, der tydeligt ser ud til at komme fra Verta, ikke en generisk systemmail.
+    </div></div>
+    <div class="card"><div class="t">Test af leveringssikkerhed</div><div class="d">
+      <b>Formål:</b> bekræfte at mails rent faktisk når frem (Gmail, Outlook, virksomheds-mailservere) før noget af ovenstående sættes i produktion.<br>
+      <b>Afhængighed:</b> alt det ovenstående skal være bygget først.<br>
+      <b>Kræver beslutning:</b> ingen — et sidste kvalitetstjek, ikke en produktbeslutning.<br>
+      <b>Tilsigtet brugeroplevelse:</b> ingen mails ender i spam eller forsvinder stille.
+    </div></div>
   </details>
 
   <details class="col" open>
