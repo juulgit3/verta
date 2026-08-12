@@ -39,7 +39,7 @@ input,select,textarea{font:inherit;color:inherit}
 .hero h1{font-family:'Instrument Serif',serif;font-style:italic;font-size:clamp(44px,10vw,84px);line-height:.92;letter-spacing:-.02em;font-weight:400}
 .hero .sub{margin-top:14px;display:flex;gap:10px;flex-wrap:wrap;align-items:center}
 
-.chip{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--line);background:var(--card);border-radius:99px;padding:5px 12px;font-size:13px;font-weight:500}
+.chip{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--line);background:var(--card);border-radius:99px;padding:5px 12px;font-size:13px;font-weight:500;white-space:nowrap}
 .chip .dot{width:7px;height:7px;border-radius:99px;background:var(--ink-40)}
 .chip.warn{border-color:rgba(168,104,28,.4);color:var(--amber)} .chip.warn .dot{background:var(--amber)}
 .chip.ok{border-color:rgba(62,107,76,.35);color:var(--moss)} .chip.ok .dot{background:var(--moss)}
@@ -100,7 +100,7 @@ nav.tabs button:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
 @media(max-width:720px){.grid2{grid-template-columns:1fr}}
 .kpigrid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
 @media(max-width:720px){.kpigrid{grid-template-columns:1fr 1fr}}
-.venuegrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;margin-bottom:16px}
+.cardgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;margin-bottom:16px}
 
 .num{font-variant-numeric:tabular-nums}
 .stat{display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px dotted var(--line);font-size:14px}
@@ -328,6 +328,7 @@ input[type=file].search{padding:6px 8px;font-size:13px;min-width:0}
     <span class="sabar-label">⚡ Superadmin<span id="sabarOrg"></span><span id="sabarActorNote"></span></span>
     <span class="row" style="gap:8px">
       <select class="btn sabar-btn" id="sabarActorSelect" style="display:none"></select>
+      <button class="btn sabar-btn" id="sabarViewToggle" style="display:none">Vis som koordinator</button>
       <button class="btn sabar-btn" id="sabarGuestToggle" style="display:none">Vis som gæst</button>
       <button class="btn sabar-btn" id="sabarHome">Kontrolrum</button>
     </span>
@@ -443,7 +444,7 @@ let state = { gaester:[], punkter:[], log:[],
               venueDetailId:null, venueUpcomingCounts:{}, venueDetailEvents:[], venueDetailRoomEvents:{},
               eventCatalog:[], orgCatalog:[], newCatalogItemRoomIds:[],
               openPickerGroups:new Set(['kladde','tilbud','bekræftet']),
-              isSuperadmin:false, isSuperadminOwner:false, allOrgs:[], superadmins:[], superadminInvites:[], guestLink:'', guestLinkEventId:null, guestLinkBusy:false,
+              isSuperadmin:false, isSuperadminOwner:false, viewAsCoordinator:false, allOrgs:[], superadmins:[], superadminInvites:[], guestLink:'', guestLinkEventId:null, guestLinkBusy:false,
               guestWelcome:false, contactName:'', orgOnboardingDismissed:false, orgCatalogCount:0, orgStaffCount:0,
               taskTemplates:[], agendaNotes:{}, openTaskNotes:new Set(), openDoneGroups:new Set(),
               superadminActor:null, impersonating:null, roster:[],
@@ -2463,7 +2464,8 @@ function renderInner(){
     } else if(state.view==='superadmin'){
       v.innerHTML=viewSuperadminHome();
       v.querySelectorAll('[data-enter-org]').forEach(el=>el.onclick=()=>enterOrgAsSuperadmin(el.dataset.enterOrg));
-      const nob=document.getElementById('newOrgBtn'); if(nob) nob.onclick=()=>openModal('newOrg',{});
+      const ncb=document.getElementById('newCustomerBtn'); if(ncb) ncb.onclick=()=>openModal('newCustomer',{});
+      const ndb=document.getElementById('newDemoBtn'); if(ndb) ndb.onclick=()=>openModal('newDemo',{});
       const isb=document.getElementById('inviteSuperadminBtn'); if(isb) isb.onclick=()=>openModal('inviteSuperadmin',{});
       v.querySelectorAll('[data-revoke-superadmin]').forEach(el=>el.onclick=()=>revokeSuperadmin(el.dataset.revokeSuperadmin));
       v.querySelectorAll('[data-cancel-superadmin-invite]').forEach(el=>el.onclick=()=>cancelSuperadminInvite(el.dataset.cancelSuperadminInvite));
@@ -2929,9 +2931,13 @@ document.getElementById('sabarGuestToggle').onclick=()=>{
   state.rolle = state.rolle==='kunde' ? 'kilden' : 'kunde';
   render();
 };
+document.getElementById('sabarViewToggle').onclick=()=>{
+  state.viewAsCoordinator = !state.viewAsCoordinator;
+  render();
+};
 document.getElementById('sabarHome').onclick=()=>{
   unsubscribeRealtime();
-  state.impersonating=null; state.actor=state.superadminActor;
+  state.impersonating=null; state.actor=state.superadminActor; state.viewAsCoordinator=false;
   state.eventId=null; state.orgId=null; state.orgName=''; state.view='superadmin';
   showApp(); loadSuperadminHome().then(render);
 };
@@ -2965,6 +2971,9 @@ function renderSuperadminBar(){
   const gt=document.getElementById('sabarGuestToggle');
   gt.style.display = state.eventId ? '' : 'none';
   gt.textContent = state.rolle==='kunde' ? 'Vis som medarbejder' : 'Vis som gæst';
+  const vt=document.getElementById('sabarViewToggle');
+  vt.style.display = (state.orgId && state.rolle==='kilden') ? '' : 'none';
+  vt.textContent = state.viewAsCoordinator ? 'Vis som admin' : 'Vis som koordinator';
 }
 
 /* =========================================================
@@ -3123,7 +3132,7 @@ async function loadSuperadminHome(){
 async function enterOrgAsSuperadmin(orgId){
   const org=(state.allOrgs||[]).find(o=>o.id===orgId);
   state.orgId=orgId; state.orgName=org?org.name:'';
-  state.impersonating=null; state.actor=state.superadminActor;
+  state.impersonating=null; state.actor=state.superadminActor; state.viewAsCoordinator=false;
   const [{data:orgRow},{data:vens},{count:catCount},{count:staffCnt},{data:evs},{data:roster}] = await Promise.all([
     sb.from('organisations').select('onboarding_dismissed').eq('id',orgId).maybeSingle(),
     sb.from('venues').select('id,name').eq('org_id',orgId).order('name'),
@@ -3219,7 +3228,7 @@ function viewSuperadminHome(){
   const kpiCard=(label,val)=>`<div class="card" style="text-align:center;padding:16px 10px"><div class="num" style="font-size:26px;font-weight:700">${val}</div><div class="note" style="margin-top:2px">${label}</div></div>`;
   const brugereKort = state.isSuperadminOwner ? `
   <section class="card">
-    <header><h2>Verta-brugere</h2><span class="row" style="gap:8px"><span class="note">${(state.superadmins||[]).length}</span><button class="btn" id="inviteSuperadminBtn">+ Inviter bruger</button></span></header>
+    <header><h2>Verta-brugere <span class="note" style="font-weight:400">${(state.superadmins||[]).length}</span></h2><button class="btn" id="inviteSuperadminBtn">+ Inviter bruger</button></header>
     ${(state.superadmins||[]).map(s=>`<div class="stat"><span>${esc(s.name)}${s.role==='ejer'?' · ejer':''}</span>${s.role!=='ejer'?`<button class="btn" data-revoke-superadmin="${s.id}">Fjern</button>`:''}</div>`).join('')}
     ${(state.superadminInvites||[]).map(i=>`<div class="stat"><span>${esc(i.name)} <span class="note">(${esc(i.email)} · afventer)</span></span><button class="btn" data-cancel-superadmin-invite="${i.id}">Annullér</button></div>`).join('')}
     ${!(state.superadmins||[]).length && !(state.superadminInvites||[]).length?'<div class="empty">Ingen Verta-brugere endnu.</div>':''}
@@ -3233,7 +3242,7 @@ function viewSuperadminHome(){
     ${kpiCard('Medarbejdere i alt',kpi.staff)}
   </div>
   <section class="card">
-    <header><h2>Organisationer</h2><span class="row" style="gap:8px"><span class="note">${(state.allOrgs||[]).length}</span><button class="btn primary" id="newOrgBtn">+ Ny organisation</button></span></header>
+    <header><h2>Organisationer <span class="note" style="font-weight:400">${(state.allOrgs||[]).length}</span></h2><span class="row" style="gap:8px"><button class="btn" id="newCustomerBtn">+ Ny kunde</button><button class="btn" id="newDemoBtn">+ Ny demo</button></span></header>
     ${(state.allOrgs||[]).length?(state.allOrgs||[]).map(o=>`<div class="item" data-enter-org="${o.id}" style="cursor:pointer">
       <span class="stripe jer"></span>
       <div><div class="name">${esc(o.name)}</div><div class="meta">${o.venueCount} lokation${o.venueCount===1?'':'er'} · ${o.eventCount} arrangement${o.eventCount===1?'':'er'}</div></div>
@@ -3241,31 +3250,40 @@ function viewSuperadminHome(){
   </section>
   ${brugereKort}`;
 }
-MODAL_RENDERERS.newOrg = function(){
+MODAL_RENDERERS.newCustomer = function(){
   return `
-  <h2 style="font-family:'Instrument Serif',serif;font-style:italic;font-size:24px;font-weight:400;margin:0 0 14px">Ny organisation</h2>
-  <div class="eyebrow">Rigtig kunde</div>
-  <div class="row" style="gap:8px;flex-wrap:wrap;margin-top:8px">
+  <h2 style="font-family:'Instrument Serif',serif;font-style:italic;font-size:24px;font-weight:400;margin:0 0 14px">Ny kunde</h2>
+  <div class="row" style="gap:8px;flex-wrap:wrap">
     <input id="ncOrgName" class="search" placeholder="Organisationens navn" style="flex:2;min-width:200px">
     <input id="ncAdminName" class="search" placeholder="Admins navn" style="flex:1;min-width:160px">
     <input id="ncAdminEmail" type="email" class="search" placeholder="Admins mail" style="flex:1;min-width:180px">
   </div>
   <div class="note" style="margin-top:8px">Opretter organisationen tomt. Admin-mailen bliver automatisk admin, første gang personen logger ind på vertacph.netlify.app/app.</div>
-  <div class="row" style="margin-top:10px"><button class="btn primary" id="ncCreate">Opret kunde</button></div>
-  <div class="eyebrow" style="margin-top:22px">Demo-organisation</div>
-  <div class="row" style="gap:8px;flex-wrap:wrap;margin-top:8px">
-    <input id="doName" class="search" placeholder="Navn, fx Demo — Prospect A" style="flex:2;min-width:220px">
-    <label class="row" style="gap:6px;font-size:13px"><input type="checkbox" id="doSeed" checked>Fyld med fiktive eksempeldata</label>
-  </div>
-  <div class="note" style="margin-top:8px">Eksempeldata er ét opdigtet arrangement, én lokation med to lokaler og et lille priskatalog — aldrig rigtige kundedata.</div>
-  <div class="row" style="margin-top:10px"><button class="btn primary" id="doCreate">Opret demo</button></div>
-  <div class="row" style="margin-top:18px;justify-content:flex-end"><button class="btn" data-modal-close>Annullér</button></div>`;
+  <div class="row" style="margin-top:14px;justify-content:flex-end;gap:8px">
+    <button class="btn" data-modal-close>Annullér</button>
+    <button class="btn primary" id="ncCreate">Opret kunde</button>
+  </div>`;
 };
-MODAL_BINDERS.newOrg = function(){
+MODAL_BINDERS.newCustomer = function(){
   const ncc=document.getElementById('ncCreate'); ncc.onclick=createRealCustomer;
   onEnterSubmit(document.getElementById('ncOrgName'), ()=>ncc.click());
   onEnterSubmit(document.getElementById('ncAdminName'), ()=>ncc.click());
   onEnterSubmit(document.getElementById('ncAdminEmail'), ()=>ncc.click());
+};
+MODAL_RENDERERS.newDemo = function(){
+  return `
+  <h2 style="font-family:'Instrument Serif',serif;font-style:italic;font-size:24px;font-weight:400;margin:0 0 14px">Ny demo-organisation</h2>
+  <div class="row" style="gap:8px;flex-wrap:wrap">
+    <input id="doName" class="search" placeholder="Navn, fx Demo — Prospect A" style="flex:2;min-width:220px">
+    <label class="row" style="gap:6px;font-size:13px"><input type="checkbox" id="doSeed" checked>Fyld med fiktive eksempeldata</label>
+  </div>
+  <div class="note" style="margin-top:8px">Eksempeldata er ét opdigtet arrangement, én lokation med to lokaler og et lille priskatalog — aldrig rigtige kundedata.</div>
+  <div class="row" style="margin-top:14px;justify-content:flex-end;gap:8px">
+    <button class="btn" data-modal-close>Annullér</button>
+    <button class="btn primary" id="doCreate">Opret demo</button>
+  </div>`;
+};
+MODAL_BINDERS.newDemo = function(){
   const dc=document.getElementById('doCreate'); dc.onclick=createDemoOrg;
   onEnterSubmit(document.getElementById('doName'), ()=>dc.click());
 };
@@ -4248,7 +4266,7 @@ function goHome(){
 }
 
 function consoleNav(active){
-  if(!state.isAdmin) return '';
+  if(!state.isAdmin || state.viewAsCoordinator) return '';
   return `<nav class="consnav">
     <button data-nav="picker" aria-pressed="${active==='picker'}">Arrangementer</button>
     <button data-nav="venues" aria-pressed="${active==='venues'}">Lokationer</button>
@@ -4293,21 +4311,23 @@ function roomPickerSummary(roomIds, totalRooms){
 function viewKatalog(){
   return `${consoleNav('katalog')}
   <div style="margin:20px 0 10px"><span class="eyebrow">Priskatalog for ${esc(state.orgName||'organisationen')}</span></div>
-  <section class="card">
-    <header><h2>Katalogvarer</h2><span class="note">${(state.orgCatalog||[]).length}</span></header>
-    ${(state.orgCatalog||[]).length?(state.orgCatalog||[]).map(c=>{
-      return `<div class="stat" style="flex-wrap:wrap;gap:8px;align-items:flex-start">
-      <span>${esc(c.name)} <span class="note">${c.category}${c.event_type?' · '+c.event_type:''}</span></span>
-      <span class="row" style="gap:8px">
-        <span class="note">${c.price_kr} kr ${c.basis==='fast'?'(fast)':'/person'+(c.child_half?' · børn halv pris':'')}</span>
-        <button class="btn" data-delete-catalog-item="${c.id}">Slet</button>
-      </span>
-      <div class="row" style="width:100%;justify-content:space-between;align-items:center;margin-top:4px">
-        <span class="note">${roomPickerSummary(c.roomIds, (state.orgRooms||[]).length)}</span>
-        <button class="btn" data-open-room-picker="${c.id}">Vælg lokaler</button>
+  <div style="margin:0 0 10px"><span class="eyebrow">Katalogvarer <span class="note" style="font-weight:400">${(state.orgCatalog||[]).length}</span></span></div>
+  <div class="cardgrid">
+    ${(state.orgCatalog||[]).map(c=>`<div class="card">
+      <div style="font-weight:700;font-size:15px">${esc(c.name)}</div>
+      <div class="note" style="margin-top:4px">${c.category}${c.event_type?' · '+c.event_type:''}</div>
+      <div class="row" style="gap:6px;margin-top:12px;flex-wrap:wrap">
+        <span class="chip"><span class="dot"></span>${c.price_kr} kr ${c.basis==='fast'?'(fast)':'/person'}</span>
+        ${c.child_half?'<span class="chip"><span class="dot"></span>Børn halv pris</span>':''}
+        <span class="chip"><span class="dot"></span>${roomPickerSummary(c.roomIds, (state.orgRooms||[]).length)}</span>
       </div>
-    </div>`;}).join(''):'<div class="empty">Ingen katalogvarer endnu.</div>'}
-  </section>
+      <div class="row" style="margin-top:12px;gap:8px">
+        <button class="btn" data-open-room-picker="${c.id}">Vælg lokaler</button>
+        <button class="btn" data-delete-catalog-item="${c.id}" style="margin-left:auto">Slet</button>
+      </div>
+    </div>`).join('')}
+  </div>
+  ${(state.orgCatalog||[]).length?'':'<div class="empty">Ingen katalogvarer endnu.</div>'}
   <section class="card">
     <header><h2>Ny katalogvare</h2></header>
     <div class="formgrid">
@@ -4352,7 +4372,7 @@ function viewLokationer(){
     <span class="eyebrow">Lokationer i ${esc(state.orgName||'organisationen')}</span>
     <button class="btn primary" id="newVenueBtn">+ Ny lokation</button>
   </div>
-  <div class="venuegrid">
+  <div class="cardgrid">
     ${venues.map(v=>{
       const upcoming=(state.venueUpcomingCounts||{})[v.id]||0;
       return `<div class="card" data-open-venue="${v.id}" style="cursor:pointer">
@@ -4360,7 +4380,7 @@ function viewLokationer(){
       <div class="note" style="margin-top:4px">${esc(v.address||'Ingen adresse angivet')}</div>
       <div class="row" style="gap:6px;margin-top:12px;flex-wrap:wrap">
         <span class="chip"><span class="dot"></span>${v.rooms.length} lokale${v.rooms.length===1?'':'r'}</span>
-        <span class="chip ${upcoming?'ok':''}"><span class="dot"></span>${upcoming} kommende arrangement${upcoming===1?'':'er'}</span>
+        <span class="chip ${upcoming?'ok':''}"><span class="dot"></span>${upcoming} kommende</span>
       </div>
     </div>`;
     }).join('')}
@@ -4576,7 +4596,7 @@ function pickerHeaderHtml(){
     </div>`;
 }
 function viewPicker(){
-  return state.isAdmin ? viewAdminHome() : viewCoordinatorHome();
+  return (state.isAdmin && !state.viewAsCoordinator) ? viewAdminHome() : viewCoordinatorHome();
 }
 /* Admins forside: styringsværktøjer (consoleNav) fremhævet, KPI-tiles for HELE organisationen, og
    "Kræver handling" uden indskrænkning — det hurtige, overordnede overblik admin bad om, klart
