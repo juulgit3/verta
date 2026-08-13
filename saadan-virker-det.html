@@ -5,6 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Sådan virker det — Verta</title>
 <meta name="description" content="Fra kladde til afviklet arrangement — sådan bevæger et arrangement sig gennem Verta, trin for trin.">
+<link rel="canonical" href="https://verta.dk/saadan-virker-det">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Verta">
+<meta property="og:url" content="https://verta.dk/saadan-virker-det">
+<meta property="og:title" content="Sådan virker det — Verta">
+<meta property="og:description" content="Fra kladde til afviklet arrangement — sådan bevæger et arrangement sig gennem Verta, trin for trin.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Familjen+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -28,12 +34,23 @@ a{color:inherit;text-decoration:none}
 .eyebrow{font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-45);font-weight:700}
 
 header.site{position:sticky;top:0;z-index:20;background:rgba(234,237,230,.88);backdrop-filter:blur(6px);border-bottom:1px solid var(--line)}
-.nav{display:flex;align-items:center;justify-content:space-between;padding:16px 0;gap:20px}
+.nav{position:relative;display:flex;align-items:center;justify-content:space-between;padding:16px 0;gap:20px}
 .nav .mark{font-size:23px;color:var(--blue)}
 .nav-links{display:flex;gap:26px;font-size:14.5px;font-weight:600;color:var(--ink-70)}
 .nav-links a:hover{color:var(--ink)}
 .nav-links a.active{color:var(--blue)}
-@media(max-width:760px){.nav-links{display:none}}
+.nav-toggle{display:none;align-items:center;justify-content:center;width:44px;height:44px;
+  background:transparent;border:1px solid var(--line-strong);border-radius:var(--radius);cursor:pointer;color:var(--ink)}
+.nav-actions{display:flex;align-items:center;gap:10px}
+@media(max-width:760px){
+  .nav-links{display:none}
+  .nav-links.open{display:flex;flex-direction:column;position:absolute;top:100%;left:0;right:0;
+    background:var(--paper);border-bottom:1px solid var(--line);padding:6px 22px 18px;gap:2px;
+    box-shadow:0 10px 18px rgba(18,21,27,.10)}
+  .nav-links.open a{padding:13px 4px;font-size:15.5px;border-bottom:1px solid var(--line)}
+  .nav-links.open a:last-child{border-bottom:0}
+  .nav-toggle{display:inline-flex}
+}
 
 .btn{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--line-strong);background:var(--card);
   border-radius:var(--radius);padding:10px 18px;font-size:14px;font-weight:700;cursor:pointer;
@@ -68,6 +85,25 @@ section{padding:64px 0;border-top:1px solid var(--line)}
 .step h3{margin-top:10px;font-size:16px;font-weight:700}
 .step p{margin-top:8px;font-size:14px;color:var(--ink-70);line-height:1.55}
 
+.hubfig{margin:0 0 48px}
+.hubfig svg{width:100%;height:auto;display:block}
+.hubfig figcaption{margin-top:16px;font-size:12.5px;color:var(--ink-45);text-align:center}
+
+.roletabs{display:flex;gap:28px;border-bottom:1px solid var(--line-strong);margin-bottom:30px;flex-wrap:wrap}
+.roletabs button{background:none;border:none;padding:12px 2px;font:inherit;font-size:15px;font-weight:700;
+  color:var(--ink-45);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;transition:color .15s ease}
+.roletabs button[aria-selected="true"]{color:var(--blue);border-bottom-color:var(--blue)}
+.roletabs button:hover{color:var(--ink)}
+
+.roledisclaimer{font-size:12.5px;color:var(--ink-45);margin-bottom:26px}
+.rolepanel[hidden]{display:none}
+.shotgrid{display:grid;grid-template-columns:1fr 1fr;gap:26px}
+@media(max-width:760px){.shotgrid{grid-template-columns:1fr}}
+.shotgrid figure{margin:0}
+.shotgrid img{width:100%;height:auto;display:block;border-radius:var(--radius);border:1px solid var(--line-strong);box-shadow:0 14px 30px rgba(18,21,27,.10)}
+.shotgrid figcaption{margin-top:13px;font-size:13.5px;color:var(--ink-70);line-height:1.5}
+.shotgrid figcaption b{display:block;color:var(--ink);font-size:14.5px;margin-bottom:2px}
+
 .finalcta{background:var(--ink);color:var(--paper);border-radius:var(--radius);padding:64px 44px;text-align:center}
 .finalcta h2{font-family:'Instrument Serif',Georgia,serif;font-style:italic;font-weight:400;
   font-size:clamp(28px,5vw,42px);color:#fff}
@@ -85,14 +121,19 @@ footer.site .fnote{margin-top:10px;font-size:12.5px;color:var(--ink-45);line-hei
 <header class="site">
   <div class="wrap nav">
     <a href="/" class="serif-i mark">Verta</a>
-    <nav class="nav-links">
+    <nav class="nav-links" id="siteNav">
       <a href="/funktioner">Funktioner</a>
       <a href="/saadan-virker-det" class="active">Sådan virker det</a>
       <a href="/sikkerhed">Sikkerhed</a>
       <a href="/pris">Pris</a>
       <a href="/kontakt">Kontakt</a>
     </nav>
-    <button class="btn primary" type="button">Book en demo</button>
+    <div class="nav-actions">
+      <a class="btn primary" href="/kontakt">Kontakt os</a>
+      <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="siteNav" aria-label="Åbn menu" onclick="toggleNav(this)">
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true"><path d="M2 5h14M2 9h14M2 13h14" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+      </button>
+    </div>
   </div>
 </header>
 
@@ -149,12 +190,105 @@ footer.site .fnote{margin-top:10px;font-size:12.5px;color:var(--ink-45);line-hei
 
   <section>
     <div class="wrap">
+      <div class="section-head">
+        <span class="eyebrow">Én side, tre visninger</span>
+        <h2>Samme arrangement — set med tre forskellige øjne.</h2>
+        <p style="margin-top:14px;font-size:16px;color:var(--ink-70);line-height:1.6">Der findes ikke tre
+          separate systemer, der skal holdes synkroniseret. Ét arrangement, én database — men admin,
+          koordinator og kunden ser hver deres udsnit, tilpasset hvad de reelt skal bruge.</p>
+      </div>
+
+      <figure class="hubfig">
+        <svg viewBox="0 0 860 340" role="img" aria-label="Ét arrangement forgrener sig til tre visninger: admin ser hele organisationen, koordinator ser egne arrangementer, kunden ser en forenklet side uden interne noter">
+          <defs>
+            <marker id="hubArrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+              <path d="M0,0 L6,3 L0,6 Z" fill="var(--ink-45)"></path>
+            </marker>
+          </defs>
+          <rect x="16" y="130" width="230" height="80" rx="4" fill="var(--card)" stroke="var(--blue)" stroke-width="1.5"></rect>
+          <text x="131" y="163" text-anchor="middle" font-family="Familjen Grotesk, sans-serif" font-size="15" font-weight="700" fill="var(--ink)">Ét arrangement</text>
+          <text x="131" y="184" text-anchor="middle" font-family="Familjen Grotesk, sans-serif" font-size="11.5" fill="var(--ink-45)">Samme data, opdateret i realtid</text>
+
+          <path d="M246,170 L280,170 L560,58" fill="none" stroke="var(--ink-45)" stroke-width="1.3" marker-end="url(#hubArrow)"></path>
+          <path d="M246,170 L280,170 L560,170" fill="none" stroke="var(--ink-45)" stroke-width="1.3" marker-end="url(#hubArrow)"></path>
+          <path d="M246,170 L280,170 L560,282" fill="none" stroke="var(--ink-45)" stroke-width="1.3" marker-end="url(#hubArrow)"></path>
+
+          <rect x="568" y="20" width="276" height="78" rx="4" fill="var(--card)" stroke="var(--line-strong)"></rect>
+          <text x="592" y="49" font-family="Familjen Grotesk, sans-serif" font-size="14" font-weight="700" fill="var(--blue)">Admin</text>
+          <text x="592" y="70" font-family="Familjen Grotesk, sans-serif" font-size="12" fill="var(--ink-70)">Ser alle lokationer og</text>
+          <text x="592" y="86" font-family="Familjen Grotesk, sans-serif" font-size="12" fill="var(--ink-70)">arrangementer i organisationen</text>
+
+          <rect x="568" y="132" width="276" height="78" rx="4" fill="var(--card)" stroke="var(--line-strong)"></rect>
+          <text x="592" y="161" font-family="Familjen Grotesk, sans-serif" font-size="14" font-weight="700" fill="var(--blue)">Koordinator</text>
+          <text x="592" y="182" font-family="Familjen Grotesk, sans-serif" font-size="12" fill="var(--ink-70)">Ser egne arrangementer og</text>
+          <text x="592" y="198" font-family="Familjen Grotesk, sans-serif" font-size="12" fill="var(--ink-70)">dagens opgaver</text>
+
+          <rect x="568" y="244" width="276" height="78" rx="4" fill="var(--card)" stroke="var(--line-strong)"></rect>
+          <text x="592" y="273" font-family="Familjen Grotesk, sans-serif" font-size="14" font-weight="700" fill="var(--blue)">Kunden</text>
+          <text x="592" y="294" font-family="Familjen Grotesk, sans-serif" font-size="12" fill="var(--ink-70)">Egen side — uden interne</text>
+          <text x="592" y="310" font-family="Familjen Grotesk, sans-serif" font-size="12" fill="var(--ink-70)">noter og kigge-tider</text>
+        </svg>
+        <figcaption>Tre roller, ét datagrundlag — adgang håndhævet i databasen, ikke kun i brugerfladen.</figcaption>
+      </figure>
+
+      <p class="roledisclaimer">Skærmdumpene herunder er fra den rigtige app, med en fiktiv demo-organisation
+        (Ringsted Kongrescenter) — ikke en rigtig kunde.</p>
+
+      <div class="roletabs" role="tablist" id="roleTabs">
+        <button role="tab" type="button" aria-selected="true" data-role="admin">Admin</button>
+        <button role="tab" type="button" aria-selected="false" data-role="koordinator">Koordinator</button>
+        <button role="tab" type="button" aria-selected="false" data-role="kunde">Kunden</button>
+      </div>
+
+      <div class="rolepanel" data-panel="admin">
+        <div class="shotgrid">
+          <figure>
+            <img src="/screenshots/admin-forside.png" alt="Admins forside med KPI-tal for hele organisationen og en prioriteret 'Kræver handling'-liste på tværs af alle arrangementer" loading="lazy">
+            <figcaption><b>Forsiden</b>Nøgletal og "Kræver handling" på tværs af alle lokationer og arrangementer.</figcaption>
+          </figure>
+          <figure>
+            <img src="/screenshots/admin-lokalekalender.png" alt="Lokalekalender der viser bookinger pr. lokale med automatisk konfliktkontrol og kapacitetstal" loading="lazy">
+            <figcaption><b>Lokalekalender</b>Bookinger pr. lokale, opsætnings-/oprydningstid og kapacitet — konflikter er umulige at gemme.</figcaption>
+          </figure>
+        </div>
+      </div>
+
+      <div class="rolepanel" data-panel="koordinator" hidden>
+        <div class="shotgrid">
+          <figure>
+            <img src="/screenshots/koordinator-forside.png" alt="Koordinatorens forside med kun egne arrangementer og en personlig 'Kræver handling'-liste" loading="lazy">
+            <figcaption><b>Forsiden</b>Kun egne arrangementer — ingen støj fra resten af organisationen.</figcaption>
+          </figure>
+          <figure>
+            <img src="/screenshots/koordinator-idag.png" alt="'I dag'-visningen på selve arrangementsdagen med næste fase, ansvarlig og udestående opgaver" loading="lazy">
+            <figcaption><b>"I dag"</b>Næste fase, ansvarlig og udestående opgaver — bygget til selve afviklingsdagen.</figcaption>
+          </figure>
+        </div>
+      </div>
+
+      <div class="rolepanel" data-panel="kunde" hidden>
+        <div class="shotgrid">
+          <figure>
+            <img src="/screenshots/kunde-oversigt.png" alt="Kundens oversigt over eget arrangement, med seneste godkendelse, udestående opgaver, gæsteliste-tal og pris" loading="lazy">
+            <figcaption><b>Oversigt</b>Samme arrangement, kundens udsnit — ingen interne noter eller opslags-tider.</figcaption>
+          </figure>
+          <figure>
+            <img src="/screenshots/kunde-godkendelser.png" alt="Kundens godkendelsesvisning med en menu til godkendelse eller afvisning, og en tidligere godkendt tilbud" loading="lazy">
+            <figcaption><b>Godkendelser</b>Godkend eller afvis direkte — intet forsvinder i en mailtråd.</figcaption>
+          </figure>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
       <div class="finalcta">
         <h2 class="serif-i">Se det med jeres egne arrangementer.</h2>
         <p>Vi viser gerne, hvordan et rigtigt arrangement bevæger sig gennem alle fire stadier.</p>
         <div class="ctas">
-          <button class="btn primary" type="button">Book en demo</button>
-          <a class="btn ghost" href="/funktioner">Se funktionerne →</a>
+          <a class="btn primary" href="/funktioner">Se funktionerne →</a>
+          <a class="btn ghost" href="/kontakt">Kontakt os</a>
         </div>
       </div>
     </div>
@@ -170,5 +304,48 @@ footer.site .fnote{margin-top:10px;font-size:12.5px;color:var(--ink-45);line-hei
   </div>
 </footer>
 
+<script>
+function toggleNav(btn){
+  var nav = document.getElementById('siteNav');
+  var open = nav.classList.toggle('open');
+  btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+}
+document.addEventListener('keydown', function(e){
+  if(e.key === 'Escape'){
+    var nav = document.getElementById('siteNav');
+    var btn = document.querySelector('.nav-toggle');
+    if(nav && nav.classList.contains('open')){
+      nav.classList.remove('open');
+      if(btn) btn.setAttribute('aria-expanded','false');
+    }
+  }
+});
+document.addEventListener('click', function(e){
+  var nav = document.getElementById('siteNav');
+  var btn = document.querySelector('.nav-toggle');
+  if(!nav || !nav.classList.contains('open')) return;
+  if(nav.contains(e.target) || (btn && btn.contains(e.target))) return;
+  nav.classList.remove('open');
+  if(btn) btn.setAttribute('aria-expanded','false');
+});
+document.querySelectorAll('#siteNav a').forEach(function(a){
+  a.addEventListener('click', function(){
+    var nav = document.getElementById('siteNav');
+    var btn = document.querySelector('.nav-toggle');
+    nav.classList.remove('open');
+    if(btn) btn.setAttribute('aria-expanded','false');
+  });
+});
+
+var roleTabs = document.getElementById('roleTabs');
+if(roleTabs){
+  roleTabs.querySelectorAll('button').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      roleTabs.querySelectorAll('button').forEach(function(b){ b.setAttribute('aria-selected', b===btn?'true':'false'); });
+      document.querySelectorAll('.rolepanel').forEach(function(p){ p.hidden = (p.dataset.panel !== btn.dataset.role); });
+    });
+  });
+}
+</script>
 </body>
 </html>
