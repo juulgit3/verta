@@ -85,6 +85,25 @@ section{padding:64px 0;border-top:1px solid var(--line)}
 .step h3{margin-top:10px;font-size:16px;font-weight:700}
 .step p{margin-top:8px;font-size:14px;color:var(--ink-70);line-height:1.55}
 
+.hubfig{margin:0 0 48px}
+.hubfig svg{width:100%;height:auto;display:block}
+.hubfig figcaption{margin-top:16px;font-size:12.5px;color:var(--ink-45);text-align:center}
+
+.roletabs{display:flex;gap:28px;border-bottom:1px solid var(--line-strong);margin-bottom:30px;flex-wrap:wrap}
+.roletabs button{background:none;border:none;padding:12px 2px;font:inherit;font-size:15px;font-weight:700;
+  color:var(--ink-45);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;transition:color .15s ease}
+.roletabs button[aria-selected="true"]{color:var(--blue);border-bottom-color:var(--blue)}
+.roletabs button:hover{color:var(--ink)}
+
+.roledisclaimer{font-size:12.5px;color:var(--ink-45);margin-bottom:26px}
+.rolepanel[hidden]{display:none}
+.shotgrid{display:grid;grid-template-columns:1fr 1fr;gap:26px}
+@media(max-width:760px){.shotgrid{grid-template-columns:1fr}}
+.shotgrid figure{margin:0}
+.shotgrid img{width:100%;height:auto;display:block;border-radius:var(--radius);border:1px solid var(--line-strong);box-shadow:0 14px 30px rgba(18,21,27,.10)}
+.shotgrid figcaption{margin-top:13px;font-size:13.5px;color:var(--ink-70);line-height:1.5}
+.shotgrid figcaption b{display:block;color:var(--ink);font-size:14.5px;margin-bottom:2px}
+
 .finalcta{background:var(--ink);color:var(--paper);border-radius:var(--radius);padding:64px 44px;text-align:center}
 .finalcta h2{font-family:'Instrument Serif',Georgia,serif;font-style:italic;font-weight:400;
   font-size:clamp(28px,5vw,42px);color:#fff}
@@ -171,6 +190,99 @@ footer.site .fnote{margin-top:10px;font-size:12.5px;color:var(--ink-45);line-hei
 
   <section>
     <div class="wrap">
+      <div class="section-head">
+        <span class="eyebrow">Én side, tre visninger</span>
+        <h2>Samme arrangement — set med tre forskellige øjne.</h2>
+        <p style="margin-top:14px;font-size:16px;color:var(--ink-70);line-height:1.6">Der findes ikke tre
+          separate systemer, der skal holdes synkroniseret. Ét arrangement, én database — men admin,
+          koordinator og kunden ser hver deres udsnit, tilpasset hvad de reelt skal bruge.</p>
+      </div>
+
+      <figure class="hubfig">
+        <svg viewBox="0 0 860 340" role="img" aria-label="Ét arrangement forgrener sig til tre visninger: admin ser hele organisationen, koordinator ser egne arrangementer, kunden ser en forenklet side uden interne noter">
+          <defs>
+            <marker id="hubArrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+              <path d="M0,0 L6,3 L0,6 Z" fill="var(--ink-45)"></path>
+            </marker>
+          </defs>
+          <rect x="16" y="130" width="230" height="80" rx="4" fill="var(--card)" stroke="var(--blue)" stroke-width="1.5"></rect>
+          <text x="131" y="163" text-anchor="middle" font-family="Familjen Grotesk, sans-serif" font-size="15" font-weight="700" fill="var(--ink)">Ét arrangement</text>
+          <text x="131" y="184" text-anchor="middle" font-family="Familjen Grotesk, sans-serif" font-size="11.5" fill="var(--ink-45)">Samme data, opdateret i realtid</text>
+
+          <path d="M246,170 L280,170 L560,58" fill="none" stroke="var(--ink-45)" stroke-width="1.3" marker-end="url(#hubArrow)"></path>
+          <path d="M246,170 L280,170 L560,170" fill="none" stroke="var(--ink-45)" stroke-width="1.3" marker-end="url(#hubArrow)"></path>
+          <path d="M246,170 L280,170 L560,282" fill="none" stroke="var(--ink-45)" stroke-width="1.3" marker-end="url(#hubArrow)"></path>
+
+          <rect x="568" y="20" width="276" height="78" rx="4" fill="var(--card)" stroke="var(--line-strong)"></rect>
+          <text x="592" y="49" font-family="Familjen Grotesk, sans-serif" font-size="14" font-weight="700" fill="var(--blue)">Admin</text>
+          <text x="592" y="70" font-family="Familjen Grotesk, sans-serif" font-size="12" fill="var(--ink-70)">Ser alle lokationer og</text>
+          <text x="592" y="86" font-family="Familjen Grotesk, sans-serif" font-size="12" fill="var(--ink-70)">arrangementer i organisationen</text>
+
+          <rect x="568" y="132" width="276" height="78" rx="4" fill="var(--card)" stroke="var(--line-strong)"></rect>
+          <text x="592" y="161" font-family="Familjen Grotesk, sans-serif" font-size="14" font-weight="700" fill="var(--blue)">Koordinator</text>
+          <text x="592" y="182" font-family="Familjen Grotesk, sans-serif" font-size="12" fill="var(--ink-70)">Ser egne arrangementer og</text>
+          <text x="592" y="198" font-family="Familjen Grotesk, sans-serif" font-size="12" fill="var(--ink-70)">dagens opgaver</text>
+
+          <rect x="568" y="244" width="276" height="78" rx="4" fill="var(--card)" stroke="var(--line-strong)"></rect>
+          <text x="592" y="273" font-family="Familjen Grotesk, sans-serif" font-size="14" font-weight="700" fill="var(--blue)">Kunden</text>
+          <text x="592" y="294" font-family="Familjen Grotesk, sans-serif" font-size="12" fill="var(--ink-70)">Egen side — uden interne</text>
+          <text x="592" y="310" font-family="Familjen Grotesk, sans-serif" font-size="12" fill="var(--ink-70)">noter og kigge-tider</text>
+        </svg>
+        <figcaption>Tre roller, ét datagrundlag — adgang håndhævet i databasen, ikke kun i brugerfladen.</figcaption>
+      </figure>
+
+      <p class="roledisclaimer">Skærmdumpene herunder er fra den rigtige app, med en fiktiv demo-organisation
+        (Ringsted Kongrescenter) — ikke en rigtig kunde.</p>
+
+      <div class="roletabs" role="tablist" id="roleTabs">
+        <button role="tab" type="button" aria-selected="true" data-role="admin">Admin</button>
+        <button role="tab" type="button" aria-selected="false" data-role="koordinator">Koordinator</button>
+        <button role="tab" type="button" aria-selected="false" data-role="kunde">Kunden</button>
+      </div>
+
+      <div class="rolepanel" data-panel="admin">
+        <div class="shotgrid">
+          <figure>
+            <img src="/screenshots/admin-forside.png" alt="Admins forside med KPI-tal for hele organisationen og en prioriteret 'Kræver handling'-liste på tværs af alle arrangementer" loading="lazy">
+            <figcaption><b>Forsiden</b>Nøgletal og "Kræver handling" på tværs af alle lokationer og arrangementer.</figcaption>
+          </figure>
+          <figure>
+            <img src="/screenshots/admin-lokalekalender.png" alt="Lokalekalender der viser bookinger pr. lokale med automatisk konfliktkontrol og kapacitetstal" loading="lazy">
+            <figcaption><b>Lokalekalender</b>Bookinger pr. lokale, opsætnings-/oprydningstid og kapacitet — konflikter er umulige at gemme.</figcaption>
+          </figure>
+        </div>
+      </div>
+
+      <div class="rolepanel" data-panel="koordinator" hidden>
+        <div class="shotgrid">
+          <figure>
+            <img src="/screenshots/koordinator-forside.png" alt="Koordinatorens forside med kun egne arrangementer og en personlig 'Kræver handling'-liste" loading="lazy">
+            <figcaption><b>Forsiden</b>Kun egne arrangementer — ingen støj fra resten af organisationen.</figcaption>
+          </figure>
+          <figure>
+            <img src="/screenshots/koordinator-idag.png" alt="'I dag'-visningen på selve arrangementsdagen med næste fase, ansvarlig og udestående opgaver" loading="lazy">
+            <figcaption><b>"I dag"</b>Næste fase, ansvarlig og udestående opgaver — bygget til selve afviklingsdagen.</figcaption>
+          </figure>
+        </div>
+      </div>
+
+      <div class="rolepanel" data-panel="kunde" hidden>
+        <div class="shotgrid">
+          <figure>
+            <img src="/screenshots/kunde-oversigt.png" alt="Kundens oversigt over eget arrangement, med seneste godkendelse, udestående opgaver, gæsteliste-tal og pris" loading="lazy">
+            <figcaption><b>Oversigt</b>Samme arrangement, kundens udsnit — ingen interne noter eller opslags-tider.</figcaption>
+          </figure>
+          <figure>
+            <img src="/screenshots/kunde-godkendelser.png" alt="Kundens godkendelsesvisning med en menu til godkendelse eller afvisning, og en tidligere godkendt tilbud" loading="lazy">
+            <figcaption><b>Godkendelser</b>Godkend eller afvis direkte — intet forsvinder i en mailtråd.</figcaption>
+          </figure>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
       <div class="finalcta">
         <h2 class="serif-i">Se det med jeres egne arrangementer.</h2>
         <p>Vi viser gerne, hvordan et rigtigt arrangement bevæger sig gennem alle fire stadier.</p>
@@ -224,6 +336,16 @@ document.querySelectorAll('#siteNav a').forEach(function(a){
     if(btn) btn.setAttribute('aria-expanded','false');
   });
 });
+
+var roleTabs = document.getElementById('roleTabs');
+if(roleTabs){
+  roleTabs.querySelectorAll('button').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      roleTabs.querySelectorAll('button').forEach(function(b){ b.setAttribute('aria-selected', b===btn?'true':'false'); });
+      document.querySelectorAll('.rolepanel').forEach(function(p){ p.hidden = (p.dataset.panel !== btn.dataset.role); });
+    });
+  });
+}
 </script>
 </body>
 </html>
