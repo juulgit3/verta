@@ -1027,102 +1027,223 @@ alter publication supabase_realtime add table event_rooms;
 alter publication supabase_realtime add table agenda_item_notes;
 
 -- =====================================================================
---  7. SEED — Madkastellet, to lokationer, flere arrangementer
+--  7. SEED — tre fiktive demo-organisationer
 -- =====================================================================
-insert into organisations (id, name) values
-  ('11111111-1111-1111-1111-111111111111', 'Madkastellet');
+-- Tidligere sås Madkastellets rigtige arbejdsgang/lokationer her som udviklingens testcase (se git-
+-- historik). Fjernet: Madkastellet er ikke kunde og må ikke optræde i noget, der kan forveksles med en
+-- rigtig kunde — heller ikke internt testdata, der i praksis lever videre i en delt Supabase-instans.
+-- Erstattet af tre HELT igennem fiktive demo-organisationer, valgt til at dække reelt forskellige
+-- profiler: en etableret bryllups-/selskabsvirksomhed med flere lokationer, et etableret konference-
+-- center, og en lille, helt nystartet kunde (tynd data, ingen godkendelser endnu — viser hvordan en
+-- ny konto reelt ser ud, ikke kun de fyldte eksempler). Ingen af de tre har en `staff`-række — det
+-- ville kræve en rigtig auth.users-identitet, som ikke findes på seed-tidspunktet (samme bootstrapping-
+-- problem som owner_staff_id, se kommentaren på events-tabellen) — kun en ventende `invites`-række pr.
+-- organisation. Tilgås derfor i praksis via Kontrolrummet (superadmin), ikke ved almindeligt staff-login,
+-- indtil nogen rent faktisk accepterer invitationen.
 
-insert into venues (id, org_id, name) values
-  ('22222222-2222-2222-2222-222222222222','11111111-1111-1111-1111-111111111111','Kilden'),
-  ('22222222-2222-2222-2222-222222222223','11111111-1111-1111-1111-111111111111','Madkastellet Havnen');
+-- ---- Org 1: Havbrisen Selskabslokaler (bryllup/private, to lokationer) ----
+insert into organisations (id, name, onboarding_dismissed) values
+  ('a0000001-0000-0000-0000-000000000000','Havbrisen Selskabslokaler', true);
 
-insert into rooms (id, venue_id, name, sort_order) values
-  ('44444444-4444-4444-4444-444444444441','22222222-2222-2222-2222-222222222222','Terrassen ved vejen',1),
-  ('44444444-4444-4444-4444-444444444442','22222222-2222-2222-2222-222222222222','Lokalet indendørs',2),
-  ('44444444-4444-4444-4444-444444444443','22222222-2222-2222-2222-222222222223','Havnesalen',1);
+insert into venues (id, org_id, name, address) values
+  ('a0000001-0000-0000-0000-000000000001','a0000001-0000-0000-0000-000000000000','Havbrisen Nord','Strandvejen 12, 8000 Aarhus C'),
+  ('a0000001-0000-0000-0000-000000000002','a0000001-0000-0000-0000-000000000000','Havbrisen Have','Skovbrynet 4, 8240 Risskov');
 
--- Hovedarrangementet: Emily & Lars (kommende)
-insert into events (id, venue_id, org_id, title, event_date, offer_total_kr, status, event_type) values
-  ('33333333-3333-3333-3333-333333333333','22222222-2222-2222-2222-222222222222',
-   '11111111-1111-1111-1111-111111111111','Emily & Lars','2026-09-04',108245,'bekræftet','bryllup');
+insert into rooms (id, venue_id, name, capacity_max, sort_order) values
+  ('a0000001-0000-0000-0000-000000000011','a0000001-0000-0000-0000-000000000001','Havsalen',140,0),
+  ('a0000001-0000-0000-0000-000000000012','a0000001-0000-0000-0000-000000000001','Terrassen',60,1),
+  ('a0000001-0000-0000-0000-000000000021','a0000001-0000-0000-0000-000000000002','Orangeriet',80,0);
 
--- Ekstra arrangementer, så admin-overblikket har noget at vise
-insert into events (venue_id, org_id, title, event_date, offer_total_kr, status, event_type) values
-  ('22222222-2222-2222-2222-222222222222','11111111-1111-1111-1111-111111111111','Sofie & Mikkel','2026-05-16',94500,'afviklet','bryllup'),
-  ('22222222-2222-2222-2222-222222222223','11111111-1111-1111-1111-111111111111','Firmajubilæum · Nordkraft','2026-06-20',61200,'afviklet','firmafest'),
-  ('22222222-2222-2222-2222-222222222222','11111111-1111-1111-1111-111111111111','Anna & Jonas','2026-10-11',102300,'bekræftet','bryllup'),
-  ('22222222-2222-2222-2222-222222222223','11111111-1111-1111-1111-111111111111','Konfirmation · Berg','2026-11-01',0,'kladde','andet');
-
--- Priskatalog for Madkastellet: menuer, pakker, fri bar, tilvalg (fx natmad) — prissat pr. person
 insert into catalog_items (id, org_id, name, category, price_kr, basis, child_half, event_type, sort_order) values
-  ('55555555-5555-5555-5555-555555555551','11111111-1111-1111-1111-111111111111','Bryllupspakke, middag','menu',1220,'middag',true,'bryllup',1),
-  ('55555555-5555-5555-5555-555555555552','11111111-1111-1111-1111-111111111111','Reception 14–15:30','reception',150,'reception',true,'bryllup',2),
-  ('55555555-5555-5555-5555-555555555553','11111111-1111-1111-1111-111111111111','Ekstra time','tilvalg',100,'middag',false,null,3),
-  ('55555555-5555-5555-5555-555555555554','11111111-1111-1111-1111-111111111111','Natmad, gourmet hotdogs','tilvalg',85,'middag',false,null,4),
-  ('55555555-5555-5555-5555-555555555555','11111111-1111-1111-1111-111111111111','Naturvin','bar',75,'middag',false,null,5),
-  ('55555555-5555-5555-5555-555555555556','11111111-1111-1111-1111-111111111111','Forplejning fotograf + DJ','tilvalg',325,'fast',false,null,6),
-  ('55555555-5555-5555-5555-555555555557','11111111-1111-1111-1111-111111111111','DJ-udstyr','tilvalg',3000,'fast',false,null,7);
+  ('a0000001-0000-0000-0000-0000000000c1','a0000001-0000-0000-0000-000000000000','Bryllupsmenu, 3 retter','menu',895,'middag',true,'bryllup',0),
+  ('a0000001-0000-0000-0000-0000000000c2','a0000001-0000-0000-0000-000000000000','Reception, stående','reception',245,'reception',false,null,1),
+  ('a0000001-0000-0000-0000-0000000000c3','a0000001-0000-0000-0000-000000000000','Kaffe og kage','reception',65,'reception',true,null,2),
+  ('a0000001-0000-0000-0000-0000000000c4','a0000001-0000-0000-0000-000000000000','Bar-pakke, hele aftenen','tilvalg',8500,'fast',false,null,3);
 
--- Emily & Lars har valgt hele det klassiske bryllupssortiment
-insert into event_catalog_items (event_id, catalog_item_id) values
-  ('33333333-3333-3333-3333-333333333333','55555555-5555-5555-5555-555555555551'),
-  ('33333333-3333-3333-3333-333333333333','55555555-5555-5555-5555-555555555552'),
-  ('33333333-3333-3333-3333-333333333333','55555555-5555-5555-5555-555555555553'),
-  ('33333333-3333-3333-3333-333333333333','55555555-5555-5555-5555-555555555554'),
-  ('33333333-3333-3333-3333-333333333333','55555555-5555-5555-5555-555555555555'),
-  ('33333333-3333-3333-3333-333333333333','55555555-5555-5555-5555-555555555556'),
-  ('33333333-3333-3333-3333-333333333333','55555555-5555-5555-5555-555555555557');
+insert into invites (org_id, email, name, role) values
+  ('a0000001-0000-0000-0000-000000000000','admin@havbrisen.example','Sofie Lindegaard','admin');
 
--- lokale pr. fase for Emily & Lars: reception på terrassen, resten indendørs
-insert into event_rooms (event_id, label, room_id, start_time, end_time, sort_order) values
-  ('33333333-3333-3333-3333-333333333333','Reception','44444444-4444-4444-4444-444444444441','15:00','17:00',1),
-  ('33333333-3333-3333-3333-333333333333','Middag',   '44444444-4444-4444-4444-444444444442','18:00','21:00',2),
-  ('33333333-3333-3333-3333-333333333333','Fest',     '44444444-4444-4444-4444-444444444442','21:00','01:00',3);
+insert into events (id, venue_id, org_id, title, event_date, offer_total_kr, status, event_type, owner_staff_id) values
+  ('a0000001-0000-0000-0000-0000000000e1','a0000001-0000-0000-0000-000000000001','a0000001-0000-0000-0000-000000000000','Ida & Kasper','2026-04-18',118400,'afviklet','bryllup',null),
+  ('a0000001-0000-0000-0000-0000000000e2','a0000001-0000-0000-0000-000000000002','a0000001-0000-0000-0000-000000000000','Firmafest · Solstrand Ejendomme','2026-06-06',72300,'afviklet','firmafest',null),
+  ('a0000001-0000-0000-0000-0000000000e3','a0000001-0000-0000-0000-000000000001','a0000001-0000-0000-0000-000000000000','Camilla & Rasmus','2026-09-19',132600,'bekræftet','bryllup',null),
+  ('a0000001-0000-0000-0000-0000000000e4','a0000001-0000-0000-0000-000000000002','a0000001-0000-0000-0000-000000000000','Nanna & Frederik','2026-11-14',96000,'tilbud','bryllup',null),
+  ('a0000001-0000-0000-0000-0000000000e5','a0000001-0000-0000-0000-000000000001','a0000001-0000-0000-0000-000000000000','60-års fødselsdag · Elsebeth','2027-01-09',0,'kladde','andet',null);
 
--- Gæster til Emily & Lars: 65 voksne (64 middag), 6 børn, 6 babyer
+-- Flagskib: Camilla & Rasmus — fuldt udbygget (faser, gæsteliste, opgaver, godkendelser, korrespondance)
+insert into event_rooms (event_id, label, room_id, start_time, end_time, sort_order, setup_minutes, teardown_minutes, booking_status) values
+  ('a0000001-0000-0000-0000-0000000000e3','Reception','a0000001-0000-0000-0000-000000000012','16:00','17:30',1,30,0,'bekræftet'),
+  ('a0000001-0000-0000-0000-0000000000e3','Middag','a0000001-0000-0000-0000-000000000011','17:30','22:00',2,30,0,'bekræftet'),
+  ('a0000001-0000-0000-0000-0000000000e3','Fest','a0000001-0000-0000-0000-000000000011','22:00','01:00',3,0,60,'bekræftet');
+
+insert into guests (event_id, name, category, reception, dinner, dietary, sort_order)
+select 'a0000001-0000-0000-0000-0000000000e3', name, 'voksen', true, true, dietary, ord from (values
+  ('Marie Holten','',0),('Jacob Ryberg','',1),('Louise Bech','Vegetar',2),('Peter Grønbæk','',3),
+  ('Anne Sofie Dahl','',4),('Mikkel Storm','',5),('Cecilie Winther','Glutenfri',6),('Thomas Fogh','',7),
+  ('Sara Kirkegaard','',8),('Anders Bloch','',9),('Julie Ellegaard','Nøddeallergi',10),('Kristian Aabo','',11),
+  ('Emma Riis','',12),('Lasse Skov','',13),('Ida Toft','',14),('Rasmus Vang','',15),
+  ('Nanna Lykke','',16),('Christian Sand','',17),('Maria Kastrup','Vegetar',18),('Simon Hedegaard','',19),
+  ('Katrine Fjeldsted','',20),('Frederik Lindgren','',21),('Josefine Krogh','',22),('Martin Brunsgaard','',23)
+) as g(name, dietary, ord);
 insert into guests (event_id, name, category, reception, dinner, dietary, sort_order) values
- ('33333333-3333-3333-3333-333333333333','Emily',    'voksen',true,true,'',1),
- ('33333333-3333-3333-3333-333333333333','Lars',     'voksen',true,true,'',2),
- ('33333333-3333-3333-3333-333333333333','Sarah K',  'voksen',true,true,'Glutenallergi',3),
- ('33333333-3333-3333-3333-333333333333','Christina','voksen',true,true,'Glutenallergi',4),
- ('33333333-3333-3333-3333-333333333333','Lærke',    'voksen',true,true,'Laktoseintolerant',5),
- ('33333333-3333-3333-3333-333333333333','Helle',    'voksen',true,true,'Nøddeallergi',6),
- ('33333333-3333-3333-3333-333333333333','Nanna E',  'voksen',true,true,'Ingen jordskokker',7),
- ('33333333-3333-3333-3333-333333333333','Mie',      'voksen',true,true,'Skaldyrsallergi',8),
- ('33333333-3333-3333-3333-333333333333','Per',      'voksen',true,true,'Spiser ikke fisk',9);
-insert into guests (event_id, name, category, reception, dinner, dietary, sort_order)
-select '33333333-3333-3333-3333-333333333333','Voksen '||g,'voksen',true,true,'',100+g from generate_series(1,56) g;
-update guests set dinner=false where id=(select id from guests
-  where event_id='33333333-3333-3333-3333-333333333333' and category='voksen' order by sort_order desc limit 1);
-insert into guests (event_id, name, category, reception, dinner, dietary, sort_order)
-select '33333333-3333-3333-3333-333333333333','Barn '||g,'barn',true,false,'',200+g from generate_series(1,6) g;
-insert into guests (event_id, name, category, reception, dinner, dietary, sort_order)
-select '33333333-3333-3333-3333-333333333333','Baby '||g,'baby',true,(g<=3),'',300+g from generate_series(1,6) g;
+  ('a0000001-0000-0000-0000-0000000000e3','Alma (barn)','barn',true,true,'',24),
+  ('a0000001-0000-0000-0000-0000000000e3','Oscar (barn)','barn',true,true,'',25),
+  ('a0000001-0000-0000-0000-0000000000e3','Noah (baby)','baby',false,false,'',26),
+  ('a0000001-0000-0000-0000-0000000000e3','Villads Bang','',true,false,'',27);
 
-insert into agenda_items (event_id, title, owner, status, due_date, note, sort_order) values
- ('33333333-3333-3333-3333-333333333333','Bordplan','jer','mangler','2026-08-28','',1),
- ('33333333-3333-3333-3333-333333333333','DJ – ankomsttidspunkt','jer','mangler','2026-08-21','DJ bruger Kildens udstyr',2),
- ('33333333-3333-3333-3333-333333333333','Endeligt deltagerantal','jer','udkast','2026-08-21','67/69 til middag skal blive ét tal',3),
- ('33333333-3333-3333-3333-333333333333','Allergier og særlig kost','jer','udkast','2026-08-25','Bekræftes mod gæstelisten',4),
- ('33333333-3333-3333-3333-333333333333','Bordkort og pynt afleveres','jer','aftalt','2026-09-03','Dagen inden',5),
- ('33333333-3333-3333-3333-333333333333','Blomster leveres','jer','aftalt','2026-09-03','Dagen inden eller på dagen. Kildens vaser',6),
- ('33333333-3333-3333-3333-333333333333','Bobler medbringes (2 slags)','jer','aftalt','2026-09-04','Serveres i champagneskål',7),
- ('33333333-3333-3333-3333-333333333333','Bryllupskage til reception','jer','aftalt','2026-09-04','Medbringes',8),
- ('33333333-3333-3333-3333-333333333333','Cocio til natmad','jer','aftalt','2026-09-04','Medbringes, sættes ud kl. 01',9),
- ('33333333-3333-3333-3333-333333333333','Weissbier på flaske','kilden','aftalt','2026-09-04','',10),
- ('33333333-3333-3333-3333-333333333333','Opdækning og servietringe','kilden','aftalt','2026-09-03','Lysegrå duge, hvide stofservietter, krondyrsservietringe, hvide bloklys',11),
- ('33333333-3333-3333-3333-333333333333','Bordopstilling','kilden','aftalt','2026-09-03','2 langborde + gavebord, DJ-udstyr stilles frem',12),
- ('33333333-3333-3333-3333-333333333333','Lejlighed til babyer','kilden','aftalt','2026-09-04','',13),
- ('33333333-3333-3333-3333-333333333333','Hovedret til fotograf','kilden','aftalt','2026-09-04','Anden ret end den almindelige menu',14),
- ('33333333-3333-3333-3333-333333333333','Vin på bordene','kilden','aftalt','2026-09-04','Både almindelig vin og naturvin',15);
+insert into agenda_items (event_id, title, owner, status, due_date, sort_order, priority) values
+  ('a0000001-0000-0000-0000-0000000000e3','Godkend bordplan','jer','udkast','2026-08-25',0,'normal'),
+  ('a0000001-0000-0000-0000-0000000000e3','Bekræft allergiliste til køkkenet','jer','aftalt','2026-08-05',1,'normal'),
+  ('a0000001-0000-0000-0000-0000000000e3','Send sangliste til bryllupstale','jer','mangler','2026-09-05',2,'lav'),
+  ('a0000001-0000-0000-0000-0000000000e3','Book blomsterdekoratør','kilden','aftalt','2026-07-01',3,'normal'),
+  ('a0000001-0000-0000-0000-0000000000e3','Bekræft AV-udstyr til talerne','kilden','udkast','2026-09-01',4,'kritisk'),
+  ('a0000001-0000-0000-0000-0000000000e3','Sæt bordplan op i Havsalen','kilden','mangler','2026-09-12',5,'normal'),
+  ('a0000001-0000-0000-0000-0000000000e3','Bekræft endeligt gæsteantal','kilden','mangler','2026-08-29',6,'kritisk');
+
+insert into event_approvals (event_id, title, description, approval_type, status, version, amount, requested_by_name, requested_at, decided_by_name, decided_at) values
+  ('a0000001-0000-0000-0000-0000000000e3','Tilbud — Camilla & Rasmus','Samlet tilbud for lokale, menu og bar-pakke.','tilbud','godkendt',1,132600,'Sofie Lindegaard','2026-06-02 10:00+02','Camilla',       '2026-06-05 19:40+02'),
+  ('a0000001-0000-0000-0000-0000000000e3','Bordplan, Havsalen','Bordopstilling til 24 voksne + 2 børn, rund borde à 8.','bordplan','afventer',1,null,'Sofie Lindegaard','2026-08-20 09:15+02',null,null);
 
 insert into activity_log (event_id, ts, actor_name, actor_side, entry_type, area, label, from_val, to_val, customer_visible, friendly, message_text) values
- ('33333333-3333-3333-3333-333333333333', now()-interval '21 days','Christina (Kilden)','kilden','change','system','Aftale oprettet fra tilbud','','108.245 kr.',true,'Jeres aftale blev oprettet ud fra tilbuddet',''),
- ('33333333-3333-3333-3333-333333333333', now()-interval '14 days','Lars','kunde','change','gaester','Deltagerantal (middag)','62','64',true,'Deltagerantal til middag opdateret til 64',''),
- ('33333333-3333-3333-3333-333333333333', now()-interval '10 days','Emily','kunde','change','gaester','Særlig kost','','Helle: nøddeallergi',true,'Særlig kost tilføjet for Helle (nøddeallergi)',''),
- ('33333333-3333-3333-3333-333333333333', now()-interval '7 days','Malene (Kilden)','kilden','change','system','Medarbejder tildelt','','Christina',false,'',''),
- ('33333333-3333-3333-3333-333333333333', now()-interval '4 days','Emily','kunde','message','system','','','',false,'','Hej Kilden. Vi overvejer at rykke forretten en lille smule senere — er der plads i tidsplanen til det?'),
- ('33333333-3333-3333-3333-333333333333', now()-interval '3 days','Christina (Kilden)','kilden','message','system','','','',false,'','Hej Emily. Fint, vi rykker gerne forretten en anelse — sig til, når I har et ønsket tidspunkt, så justerer jeg programmet.');
+  ('a0000001-0000-0000-0000-0000000000e3','2026-06-05 19:41:00+02','Camilla','kunde','change','godkendelse','Tilbud','afventer','godkendt',true,'Tilbud godkendt af Camilla',''),
+  ('a0000001-0000-0000-0000-0000000000e3','2026-07-14 11:02:00+02','Rasmus','kunde','message','','','','',true,'','Hej Sofie! Vi vil gerne tilføje en ven i sidste øjeblik — er der plads til én mere ved bord 3?'),
+  ('a0000001-0000-0000-0000-0000000000e3','2026-07-14 13:20:00+02','Sofie Lindegaard','kilden','message','','','','',true,'','Hej Rasmus, helt sikkert — jeg har lige tilføjet Villads til gæstelisten, så I kan se ham i oversigten.'),
+  ('a0000001-0000-0000-0000-0000000000e3','2026-07-14 13:21:00+02','Sofie Lindegaard','kilden','change','gæst','Gæst tilføjet','','',true,'Gæst tilføjet: Villads Bang',''),
+  ('a0000001-0000-0000-0000-0000000000e3','2026-08-20 09:16:00+02','Sofie Lindegaard','kilden','change','godkendelse','Bordplan','','afventer',false,'Bordplan sendt til godkendelse hos kunden',''),
+  ('a0000001-0000-0000-0000-0000000000e3','2026-08-22 20:05:00+02','Camilla','kunde','message','','','','',true,'','Bordplanen ser fin ud, men kan I flytte mine forældre væk fra højtaleren ved DJ-boothet?'),
+  ('a0000001-0000-0000-0000-0000000000e3','2026-08-23 08:40:00+02','Sofie Lindegaard','kilden','note','','','','',false,'','Internt: har flyttet bord 2 væk fra scenen — afventer stadig kundens endelige godkendelse af bordplanen, før vi låser den.');
+
+-- Let indhold på de øvrige Havbrisen-arrangementer (ikke tomme, men langt fra flagskibets dybde)
+insert into guests (event_id, name, category, reception, dinner, dietary, sort_order) values
+  ('a0000001-0000-0000-0000-0000000000e1','Ida','voksen',true,true,'',0),
+  ('a0000001-0000-0000-0000-0000000000e1','Kasper','voksen',true,true,'',1),
+  ('a0000001-0000-0000-0000-0000000000e1','Bente Holten','voksen',true,true,'',2),
+  ('a0000001-0000-0000-0000-0000000000e2','Michael Sørup','voksen',true,true,'',0),
+  ('a0000001-0000-0000-0000-0000000000e2','Tina Overgaard','voksen',true,true,'Vegetar',1),
+  ('a0000001-0000-0000-0000-0000000000e4','Nanna','voksen',true,true,'',0),
+  ('a0000001-0000-0000-0000-0000000000e4','Frederik','voksen',true,true,'',1),
+  ('a0000001-0000-0000-0000-0000000000e4','Grethe Nanna-mor','voksen',true,false,'',2);
+
+insert into agenda_items (event_id, title, owner, status, due_date, sort_order, priority) values
+  ('a0000001-0000-0000-0000-0000000000e4','Vælg menu fra kataloget','jer','mangler','2026-09-10',0,'normal'),
+  ('a0000001-0000-0000-0000-0000000000e4','Book prøvesmagning','kilden','mangler','2026-09-05',1,'normal'),
+  ('a0000001-0000-0000-0000-0000000000e5','Aftal dato endeligt med familien','jer','mangler','2026-10-01',0,'normal');
+
+insert into activity_log (event_id, ts, actor_name, actor_side, entry_type, area, label, from_val, to_val, customer_visible, friendly, message_text) values
+  ('a0000001-0000-0000-0000-0000000000e4','2026-08-01 10:00:00+02','Sofie Lindegaard','kilden','message','','','','',true,'','Hej Nanna og Frederik — tillykke med jeres kommende bryllup! Jeg har oprettet jeres side her, så I kan følge med i planlægningen.'),
+  ('a0000001-0000-0000-0000-0000000000e4','2026-08-02 16:30:00+02','Nanna','kunde','message','','','','',true,'','Tak! Vi glæder os. Hvornår skal vi senest have valgt menu?');
+
+-- ---- Org 2: Domicil Konference & Møder (konference/business, én lokation) ----
+insert into organisations (id, name, onboarding_dismissed) values
+  ('a0000002-0000-0000-0000-000000000000','Domicil Konference & Møder', true);
+
+insert into venues (id, org_id, name, address) values
+  ('a0000002-0000-0000-0000-000000000001','a0000002-0000-0000-0000-000000000000','Domicil København','Kalvebod Brygge 24, 1560 København V');
+
+insert into rooms (id, venue_id, name, capacity_max, sort_order) values
+  ('a0000002-0000-0000-0000-000000000011','a0000002-0000-0000-0000-000000000001','Plenum',200,0),
+  ('a0000002-0000-0000-0000-000000000012','a0000002-0000-0000-0000-000000000001','Mødelokale 3',24,1),
+  ('a0000002-0000-0000-0000-000000000013','a0000002-0000-0000-0000-000000000001','Mødelokale 4',24,2);
+
+insert into catalog_items (id, org_id, name, category, price_kr, basis, child_half, event_type, sort_order) values
+  ('a0000002-0000-0000-0000-0000000000c1','a0000002-0000-0000-0000-000000000000','Heldagspakke, konference','menu',1450,'middag',false,'konference',0),
+  ('a0000002-0000-0000-0000-0000000000c2','a0000002-0000-0000-0000-000000000000','Morgenmad, buffet','reception',165,'reception',false,null,1),
+  ('a0000002-0000-0000-0000-0000000000c3','a0000002-0000-0000-0000-000000000000','Eftermiddagskaffe','reception',55,'reception',false,null,2),
+  ('a0000002-0000-0000-0000-0000000000c4','a0000002-0000-0000-0000-000000000000','AV-teknikerassistance','tilvalg',3200,'fast',false,null,3);
+
+insert into invites (org_id, email, name, role) values
+  ('a0000002-0000-0000-0000-000000000000','admin@domicilkonference.example','Peter Vang','admin');
+
+insert into events (id, venue_id, org_id, title, event_date, offer_total_kr, status, event_type, owner_staff_id) values
+  ('a0000002-0000-0000-0000-0000000000e1','a0000002-0000-0000-0000-000000000001','a0000002-0000-0000-0000-000000000000','Nordisk Forsikring — Generalforsamling','2026-03-25',84600,'afviklet','konference',null),
+  ('a0000002-0000-0000-0000-0000000000e2','a0000002-0000-0000-0000-000000000001','a0000002-0000-0000-0000-000000000000','TechSummit Øst 2026','2026-10-01',156800,'bekræftet','konference',null),
+  ('a0000002-0000-0000-0000-0000000000e3','a0000002-0000-0000-0000-000000000001','a0000002-0000-0000-0000-000000000000','Byggeriets Dag','2026-11-25',210000,'tilbud','konference',null),
+  ('a0000002-0000-0000-0000-0000000000e4','a0000002-0000-0000-0000-000000000001','a0000002-0000-0000-0000-000000000000','Intern strategidag · Vindstød A/S','2027-01-20',0,'kladde','firmafest',null);
+
+-- Flagskib: TechSummit Øst 2026
+insert into event_rooms (event_id, label, room_id, start_time, end_time, sort_order, setup_minutes, teardown_minutes, booking_status) values
+  ('a0000002-0000-0000-0000-0000000000e2','Registrering','a0000002-0000-0000-0000-000000000011','08:00','09:00',1,15,0,'bekræftet'),
+  ('a0000002-0000-0000-0000-0000000000e2','Keynote','a0000002-0000-0000-0000-000000000011','09:00','10:30',2,0,0,'bekræftet'),
+  ('a0000002-0000-0000-0000-0000000000e2','Spor A','a0000002-0000-0000-0000-000000000012','11:00','12:30',3,15,15,'bekræftet'),
+  ('a0000002-0000-0000-0000-0000000000e2','Spor B','a0000002-0000-0000-0000-000000000013','11:00','12:30',4,15,15,'bekræftet'),
+  ('a0000002-0000-0000-0000-0000000000e2','Frokost','a0000002-0000-0000-0000-000000000011','12:30','13:30',5,0,0,'bekræftet');
+
+insert into guests (event_id, name, category, reception, dinner, dietary, sort_order)
+select 'a0000002-0000-0000-0000-0000000000e2', name, 'voksen', true, true, dietary, ord from (values
+  ('Henrik Bloch','',0),('Signe Aabo','',1),('Morten Krogh','Vegetar',2),('Ditte Storm','',3),
+  ('Kasper Winther','',4),('Line Sand','',5),('Jonas Fogh','Glutenfri',6),('Camilla Riis','',7),
+  ('Anders Lykke','',8),('Sofie Vang','',9),('Nikolaj Bech','',10),('Rikke Dahl','',11),
+  ('Frederik Kastrup','',12),('Amalie Toft','',13),('Christian Grønbæk','Nøddeallergi',14),('Josephine Ellegaard','',15),
+  ('Rasmus Hedegaard','',16),('Maja Lindgren','',17),('Simon Brunsgaard','',18),('Emilie Skov','',19)
+) as g(name, dietary, ord);
+
+insert into agenda_items (event_id, title, owner, status, due_date, sort_order, priority) values
+  ('a0000002-0000-0000-0000-0000000000e2','Send endelig deltagerliste','jer','udkast','2026-09-15',0,'normal'),
+  ('a0000002-0000-0000-0000-0000000000e2','Godkend AV-opsætning i Plenum','jer','mangler','2026-09-20',1,'kritisk'),
+  ('a0000002-0000-0000-0000-0000000000e2','Bekræft diætbehov til frokost','jer','aftalt','2026-08-30',2,'normal'),
+  ('a0000002-0000-0000-0000-0000000000e2','Book teknikerassistance til Spor A/B','kilden','aftalt','2026-08-01',3,'normal'),
+  ('a0000002-0000-0000-0000-0000000000e2','Sæt skiltning op ved registrering','kilden','mangler','2026-09-28',4,'normal'),
+  ('a0000002-0000-0000-0000-0000000000e2','Test livestream fra Plenum','kilden','udkast','2026-09-25',5,'kritisk');
+
+insert into event_approvals (event_id, title, description, approval_type, status, version, amount, requested_by_name, requested_at, decided_by_name, decided_at) values
+  ('a0000002-0000-0000-0000-0000000000e2','Tilbud — TechSummit Øst 2026','Lokaler, forplejning og AV-udstyr for hele dagen.','tilbud','godkendt',1,156800,'Peter Vang','2026-07-10 09:00+02','Henrik Bloch','2026-07-12 14:10+02'),
+  ('a0000002-0000-0000-0000-0000000000e2','Deltagerantal, endeligt','Låst deltagerantal til catering og skiltning.','deltagerantal','afventer',1,null,'Peter Vang','2026-09-10 08:30+02',null,null);
+
+insert into activity_log (event_id, ts, actor_name, actor_side, entry_type, area, label, from_val, to_val, customer_visible, friendly, message_text) values
+  ('a0000002-0000-0000-0000-0000000000e2','2026-07-12 14:11:00+02','Henrik Bloch','kunde','change','godkendelse','Tilbud','afventer','godkendt',true,'Tilbud godkendt af Henrik Bloch',''),
+  ('a0000002-0000-0000-0000-0000000000e2','2026-08-28 10:15:00+02','Henrik Bloch','kunde','message','','','','',true,'','Hej Peter — kan I bekræfte at der er ledningsfrit netværk til alle 20 deltagere i både Plenum og de to mødelokaler?'),
+  ('a0000002-0000-0000-0000-0000000000e2','2026-08-28 11:02:00+02','Peter Vang','kilden','message','','','','',true,'','Hej Henrik, ja — vi har en dedikeret konference-SSID med kapacitet til 300 samtidige enheder. Jeg sender adgangskoden dagen før.'),
+  ('a0000002-0000-0000-0000-0000000000e2','2026-09-10 08:31:00+02','Peter Vang','kilden','change','godkendelse','Deltagerantal','','afventer',false,'Deltagerantal sendt til godkendelse hos kunden',''),
+  ('a0000002-0000-0000-0000-0000000000e2','2026-09-11 09:00:00+02','Henrik Bloch','kunde','message','','','','',true,'','Vi ender nok på 22-23 deltagere i alt — må jeg vende tilbage med det præcise tal i næste uge?'),
+  ('a0000002-0000-0000-0000-0000000000e2','2026-09-11 09:20:00+02','Peter Vang','kilden','note','','','','',false,'','Internt: afventer endeligt tal fra kunden — holder foreløbig 25 pladser reserveret i Plenum til frokost.');
+
+insert into guests (event_id, name, category, reception, dinner, dietary, sort_order) values
+  ('a0000002-0000-0000-0000-0000000000e1','Birgitte Holm','voksen',true,true,'',0),
+  ('a0000002-0000-0000-0000-0000000000e1','Ole Vestergaard','voksen',true,true,'',1),
+  ('a0000002-0000-0000-0000-0000000000e3','Jens Bak','voksen',true,true,'',0),
+  ('a0000002-0000-0000-0000-0000000000e3','Karen Munk','voksen',true,true,'Vegetar',1),
+  ('a0000002-0000-0000-0000-0000000000e3','Torben Skaaning','voksen',true,true,'',2);
+
+insert into agenda_items (event_id, title, owner, status, due_date, sort_order, priority) values
+  ('a0000002-0000-0000-0000-0000000000e3','Bekræft lokalevalg (Plenum eller deling)','jer','mangler','2026-10-15',0,'normal'),
+  ('a0000002-0000-0000-0000-0000000000e3','Send oplæg om AV-behov','kilden','mangler','2026-10-20',1,'normal');
+
+insert into activity_log (event_id, ts, actor_name, actor_side, entry_type, area, label, from_val, to_val, customer_visible, friendly, message_text) values
+  ('a0000002-0000-0000-0000-0000000000e3','2026-08-05 13:00:00+02','Peter Vang','kilden','message','','','','',true,'','Hej Jens — her er tilbuddet til Byggeriets Dag, som aftalt. Sig til hvis I har spørgsmål til lokalevalget.');
+
+-- ---- Org 3: Lærkevang Gårdkøkken (nystartet, én lokation, bevidst tynd data) ----
+-- Viser hvordan en helt ny konto reelt ser ud — ikke kun de udbyggede eksempler ovenfor.
+insert into organisations (id, name, onboarding_dismissed) values
+  ('a0000003-0000-0000-0000-000000000000','Lærkevang Gårdkøkken', false);
+
+insert into venues (id, org_id, name, address) values
+  ('a0000003-0000-0000-0000-000000000001','a0000003-0000-0000-0000-000000000000','Lærkevang Gård','Møllevej 8, 4390 Vipperød');
+
+insert into rooms (id, venue_id, name, capacity_max, sort_order) values
+  ('a0000003-0000-0000-0000-000000000011','a0000003-0000-0000-0000-000000000001','Laden',90,0),
+  ('a0000003-0000-0000-0000-000000000012','a0000003-0000-0000-0000-000000000001','Gårdhaven',120,1);
+
+insert into catalog_items (id, org_id, name, category, price_kr, basis, child_half, event_type, sort_order) values
+  ('a0000003-0000-0000-0000-0000000000c1','a0000003-0000-0000-0000-000000000000','Gårdmenu, 2 retter','menu',645,'middag',true,null,0),
+  ('a0000003-0000-0000-0000-0000000000c2','a0000003-0000-0000-0000-000000000000','Grill-buffet','menu',385,'middag',true,null,1);
+
+insert into invites (org_id, email, name, role) values
+  ('a0000003-0000-0000-0000-000000000000','admin@laerkevang.example','Anders Pihl','admin');
+
+insert into events (id, venue_id, org_id, title, event_date, offer_total_kr, status, event_type, owner_staff_id) values
+  ('a0000003-0000-0000-0000-0000000000e1','a0000003-0000-0000-0000-000000000001','a0000003-0000-0000-0000-000000000000','Prøvesmagning · Studiegruppen','2026-09-05',8200,'tilbud','andet',null),
+  ('a0000003-0000-0000-0000-0000000000e2','a0000003-0000-0000-0000-000000000001','a0000003-0000-0000-0000-000000000000','Firmasommerfest · Nordly A/S','2027-06-12',0,'kladde','firmafest',null);
+
+insert into guests (event_id, name, category, reception, dinner, dietary, sort_order) values
+  ('a0000003-0000-0000-0000-0000000000e1','Studiegruppe A','voksen',true,true,'',0),
+  ('a0000003-0000-0000-0000-0000000000e1','Studiegruppe B','voksen',true,true,'Vegetar',1),
+  ('a0000003-0000-0000-0000-0000000000e1','Studiegruppe C','voksen',true,true,'',2);
+
+insert into agenda_items (event_id, title, owner, status, due_date, sort_order, priority) values
+  ('a0000003-0000-0000-0000-0000000000e1','Bekræft dato for prøvesmagning','kilden','udkast','2026-08-28',0,'normal');
+
+insert into activity_log (event_id, ts, actor_name, actor_side, entry_type, area, label, from_val, to_val, customer_visible, friendly, message_text) values
+  ('a0000003-0000-0000-0000-0000000000e1','2026-08-10 15:00:00+02','Anders Pihl','kilden','message','','','','',true,'','Velkommen til Lærkevang! Vi glæder os til at vise jer gården og lave en prøvesmagning.');
 
 -- =====================================================================
 --  8. BOOTSTRAP — kør, når du har logget ind via magic link mindst én gang.
@@ -1132,15 +1253,17 @@ insert into activity_log (event_id, ts, actor_name, actor_side, entry_type, area
 -- -- andre Verta-brugere fra kontrolrummet bagefter, så dette bootstrap-trin kun skal køres én gang):
 -- insert into superadmins (id, name, role) values ('DIT-AUTH-UUID','Dit navn','ejer');
 --
--- -- Eller: gør dig selv til ADMIN i Madkastellet (almindelig org-scoped admin):
+-- -- Eller: gør dig selv til ADMIN i en af demo-organisationerne (almindelig org-scoped admin) —
+-- -- fx Havbrisen Selskabslokaler:
 -- insert into staff (id, org_id, name, role) values
---   ('DIT-AUTH-UUID','11111111-1111-1111-1111-111111111111','Dit navn','admin');
+--   ('DIT-AUTH-UUID','a0000001-0000-0000-0000-000000000000','Dit navn','admin');
 --
 -- Herefter styrer du resten fra konsollen: opret lokationer, inviter
 -- koordinatorer (de forfremmes automatisk ved første login), og tildel
--- brudepar til arrangementer. Superadmin lander i stedet i kontrolrummet,
--- hvor nye (demo-)organisationer kan oprettes og åbnes.
+-- kunder til arrangementer. Superadmin lander i stedet i kontrolrummet,
+-- hvor alle tre demo-organisationer allerede kan åbnes med det samme —
+-- uden noget bootstrap-trin, da superadmin-adgang ikke er org-scoped.
 --
--- -- Brudepar (indtil adgang gives fra UI'et):
+-- -- Gæst/kunde (indtil adgang gives fra UI'et via "Del med gæsten"):
 -- insert into event_access (event_id, user_id, display_name) values
---   ('33333333-3333-3333-3333-333333333333','EMILYS-AUTH-UUID','Emily');
+--   ('a0000001-0000-0000-0000-0000000000e3','KUNDENS-AUTH-UUID','Camilla');
