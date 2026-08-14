@@ -241,7 +241,12 @@ body.has-mobile-nav .onboard-widget{bottom:calc(72px + env(safe-area-inset-botto
 /* felt-labels */
 .field{display:flex;flex-direction:column;gap:4px;min-width:0}
 .field label{font-size:11px;font-weight:600;color:var(--ink-40);letter-spacing:.03em;text-transform:uppercase}
-.field select,.field input{width:100%}
+/* min-width:0 er nødvendigt her, ikke kun kosmetisk: .search's egen min-width:180px vinder ellers over
+   width:100% i enhver smal flex/grid-kolonne (fx den 5-6-felters række i Arrangementdetaljer), så
+   feltet visuelt overlapper naboen — .field-container'en selv var korrekt bredt, men inputtet indeni
+   var ikke. Rammer kun felter pakket i .field (den etablerede label+felt-konvention); løse .search-
+   elementer uden for en .field (søgefelter, filtre) beholder deres 180px-minimum uændret. */
+.field select,.field input{width:100%;min-width:0}
 
 /* formular med flere felter, pænt justeret i grid i stedet for flex (undgår hulter-til-bulter ombrydning) */
 .formgrid{display:grid;grid-template-columns:1.6fr 1fr 1fr;gap:12px 14px;align-items:end}
@@ -355,6 +360,12 @@ input[type=file].search{padding:6px 8px;font-size:13px;min-width:0}
     <button class="btn sabar-btn" id="previewExit">Tilbage til medarbejdervisning</button>
   </div>
 </div>
+<div id="archivedBar" style="display:none">
+  <div class="sabar-inner">
+    <span class="sabar-label">🔒 Arkiveret arrangement<span class="note" style="color:rgba(234,237,230,.65);font-weight:600;text-transform:none;letter-spacing:0"> · skrivebeskyttet, gemt for historikkens skyld</span></span>
+    <button class="btn sabar-btn" id="archivedReopen">Genåbn arrangementet</button>
+  </div>
+</div>
 <div class="wrap">
 
   <div class="topline">
@@ -367,6 +378,13 @@ input[type=file].search{padding:6px 8px;font-size:13px;min-width:0}
       <button class="btn" id="backToList" style="display:none">‹ Arrangementer</button>
       <button class="btn" id="switchEvent" style="display:none">Skift arrangement</button>
       <button class="btn" id="profileBtn" style="display:none">Kodeord</button>
+      <div id="profileMenuWrap" style="position:relative;display:none">
+        <button type="button" id="profileAvatarBtn" title="Min profil" style="border:0;background:none;padding:0;cursor:pointer;border-radius:50%;display:flex;line-height:0"></button>
+        <div id="profileDropdown" style="display:none;position:absolute;top:calc(100% + 8px);right:0;background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:0 6px 20px rgba(18,21,27,.18);min-width:170px;z-index:90;overflow:hidden">
+          <button type="button" id="profileDropdownSettings" style="display:block;width:100%;text-align:left;padding:10px 14px;border:0;background:none;cursor:pointer;font-size:13.5px;color:var(--ink)">Indstillinger</button>
+          <button type="button" id="profileDropdownLogout" style="display:block;width:100%;text-align:left;padding:10px 14px;border:0;border-top:1px solid var(--line);background:none;cursor:pointer;font-size:13.5px;color:var(--ink)">Log ud</button>
+        </div>
+      </div>
       <button class="btn" id="logout" style="display:none">Log ud</button>
     </div>
   </div>
@@ -462,7 +480,7 @@ let state = { gaester:[], punkter:[], log:[],
               openPickerGroups:new Set(['kladde','tilbud','bekræftet']),
               isSuperadmin:false, isSuperadminOwner:false, viewAsCoordinator:false, allOrgs:[], superadmins:[], superadminInvites:[], guestLink:'', guestLinkEventId:null, guestLinkBusy:false,
               guestWelcome:false, contact:{name:'',title:'',avatar_url:''}, orgOnboardingDismissed:false, orgCatalogCount:0, orgStaffCount:0,
-              myTitle:'', myAvatarUrl:'', staffOnboarding:null, onboardingCollapsed:false,
+              myTitle:'', myAvatarUrl:'', staffOnboarding:null, onboardingCollapsed:false, eventArchived:false,
               taskTemplates:[], agendaNotes:{}, openTaskNotes:new Set(), openDoneGroups:new Set(), openSetupFolds:new Set(),
               superadminActor:null, impersonating:null, roster:[],
               previewMode:false, previewPriorRolle:null,
@@ -538,11 +556,20 @@ function appConfirm(msg){
    matcher Supabases egen {data,error}, så al eksisterende fejlhåndtering (som allerede
    tjekker `if(error)`) fanger spærringen uden ekstra kode ved hvert kaldested. */
 function assertCanMutate(){
-  return !state.previewMode;
+  return !state.previewMode && !state.eventArchived;
 }
+/* state.eventArchived (sat i openEvent ud fra events.archived_at) spærrer skrivning på samme måde og
+   samme sted som previewMode ovenfor — et arkiveret arrangement skal reelt være låst, ikke bare vist
+   som låst, så det er den samme autoritative spærre, der forhindrer det, ikke kun en UI-deaktivering.
+   Ligesom previewMode er dette IKKE en ægte adgangsbegrænsning mod en fremmed aktør (staff/gæst har
+   allerede legitim skriveadgang til arrangementet i RLS) — det er en bevidst UX-lås, der forhindrer
+   utilsigtede ændringer på noget, der er erklæret "færdigt". */
 async function mutate(thunk){
-  if(!assertCanMutate()){
+  if(state.previewMode){
     return {data:null, error:{message:'Ændringer er deaktiveret i kunde-forhåndsvisning.', code:'PREVIEW_READONLY'}};
+  }
+  if(state.eventArchived){
+    return {data:null, error:{message:'Arrangementet er arkiveret og er skrivebeskyttet.', code:'ARCHIVED_READONLY'}};
   }
   return await thunk();
 }
@@ -925,7 +952,14 @@ function viewAdmin(){
       </select>
       <button class="btn" id="catalogAdd">Tilføj</button>
     </div>
-  </section>`;
+  </section>
+  ${state.eventArchived ? '' : `<section class="card">
+    <header><h2>Fjern arrangement</h2></header>
+    <p class="note" style="margin:0 0 12px">${state.status==='afviklet'
+      ? 'Et afviklet arrangement kan kun arkiveres, ikke slettes — det fjernes fra den aktive liste, men gemmes i organisationens arkiv i låst form.'
+      : 'Arrangementet fjernes fra den aktive liste, men slettes ikke reelt — det gemmes i organisationens arkiv i låst form, så historikken bevares.'}</p>
+    <button class="btn" id="archiveEventBtn">${state.status==='afviklet'?'Arkivér arrangement':'Slet arrangement'}</button>
+  </section>`}`;
 }
 /* Delt kort til "kom godt i gang"-agtige tjeklister (org-opsætning, arrangement-opsætning) */
 function checklistHtml(title, note, items, footer){
@@ -2414,6 +2448,7 @@ function viewBeskeder(){
    ========================================================= */
 function openModal(type, data){ state.modal=Object.assign({type}, data||{}); render(); }
 function closeModal(){ state.modal=null; render(); }
+async function doLogout(){ await sb.auth.signOut(); location.reload(); }
 /* "Mere"-arket i den mobile bundnavigation: resten af rollens faner (dem der ikke har fået deres eget
    fast plads i bunden), som en simpel liste i den eksisterende generiske modal. */
 MODAL_RENDERERS.moreMenu = function(){
@@ -2623,10 +2658,15 @@ function renderInner(){
   renderMobileBottomNav();
   renderSuperadminBar();
   document.getElementById('previewBar').style.display = state.previewMode ? 'block' : 'none';
-  document.getElementById('logout').style.display = '';
+  document.getElementById('archivedBar').style.display = (state.eventArchived && state.view==='workspace') ? 'block' : 'none';
   {
-    const pb=document.getElementById('profileBtn');
-    pb.style.display=''; pb.textContent = state.rolle==='kilden' ? 'Min profil' : 'Kodeord';
+    const isStaff=state.rolle==='kilden';
+    document.getElementById('logout').style.display = isStaff ? 'none' : '';
+    document.getElementById('profileBtn').style.display = isStaff ? 'none' : '';
+    const pmw=document.getElementById('profileMenuWrap');
+    pmw.style.display = isStaff ? '' : 'none';
+    if(isStaff) document.getElementById('profileAvatarBtn').innerHTML = avatarHtml(state.actor.navn, state.myAvatarUrl, 32);
+    else document.getElementById('profileDropdown').style.display='none';
   }
   document.getElementById('backToList').style.display = (state.rolle==='kilden' && (state.events||[]).length>1 && state.view==='workspace') ? '' : 'none';
   document.getElementById('switchEvent').style.display = (state.rolle==='kunde' && (state.guestEvents||[]).length>1 && state.view==='workspace') ? '' : 'none';
@@ -3051,6 +3091,7 @@ function bind(){
   const handoverBtn=document.getElementById('handoverBtn'); if(handoverBtn) handoverBtn.onclick=()=>openModal('handover',{});
   const dupBtn=document.getElementById('duplicateEventBtn'); if(dupBtn) dupBtn.onclick=()=>openModal('duplicate',{});
   const satBtn=document.getElementById('saveAsTemplateBtn'); if(satBtn) satBtn.onclick=()=>openModal('saveTemplate',{});
+  const archBtn=document.getElementById('archiveEventBtn'); if(archBtn) archBtn.onclick=archiveEvent;
   const es=document.getElementById('edSave'); if(es){ es.onclick=updateEventDetails;
     onEnterSubmit(document.getElementById('edTitle'), ()=>es.click());
     onEnterSubmit(document.getElementById('edPrice'), ()=>es.click());
@@ -3237,7 +3278,7 @@ async function cloudBoot(user){
       sb.from('venues').select('id,name').eq('org_id',st.org_id).order('name'),
       sb.from('catalog_items').select('id',{count:'exact',head:true}).eq('org_id',st.org_id),
       sb.from('staff').select('id,name').eq('org_id',st.org_id),
-      sb.from('events').select('id,title,event_date,status,offer_total_kr,event_type,owner_staff_id,venues(name)').order('event_date',{ascending:false})
+      sb.from('events').select('id,title,event_date,status,offer_total_kr,event_type,owner_staff_id,archived_at,venues(name)').order('event_date',{ascending:false})
     ]);
     state.orgName=orgRow?orgRow.name:'';
     state.orgOnboardingDismissed=!!(orgRow&&orgRow.onboarding_dismissed);
@@ -3347,7 +3388,7 @@ async function enterOrgAsSuperadmin(orgId){
     sb.from('venues').select('id,name').eq('org_id',orgId).order('name'),
     sb.from('catalog_items').select('id',{count:'exact',head:true}).eq('org_id',orgId),
     sb.from('staff').select('id',{count:'exact',head:true}).eq('org_id',orgId),
-    sb.from('events').select('id,title,event_date,status,offer_total_kr,event_type,owner_staff_id,venues(name)').eq('org_id',orgId).order('event_date',{ascending:false}),
+    sb.from('events').select('id,title,event_date,status,offer_total_kr,event_type,owner_staff_id,archived_at,venues(name)').eq('org_id',orgId).order('event_date',{ascending:false}),
     sb.from('staff').select('id,name').eq('org_id',orgId).order('name')
   ]);
   state.orgOnboardingDismissed=!!(orgRow&&orgRow.onboarding_dismissed);
@@ -3537,7 +3578,7 @@ async function openEvent(id){
     sb.from('agenda_items').select('*').eq('event_id',id).order('sort_order'),
     sb.from('activity_log').select('*').eq('event_id',id).order('ts',{ascending:false})
   ]);
-  if(ev){ state.offerTotal=ev.offer_total_kr; state.eventDate=ev.event_date; state.eventTitle=ev.title; state.venueName=ev.venues?ev.venues.name:''; state.venueId=ev.venue_id; state.orgName=ev.organisations?ev.organisations.name:(state.orgName||''); state.ownerStaffId=ev.owner_staff_id; state.secondaryStaffId=ev.secondary_staff_id; state.dayOfOwnerStaffId=ev.day_of_owner_staff_id; state.eventType=ev.event_type; state.status=ev.status; }
+  if(ev){ state.offerTotal=ev.offer_total_kr; state.eventDate=ev.event_date; state.eventTitle=ev.title; state.venueName=ev.venues?ev.venues.name:''; state.venueId=ev.venue_id; state.orgName=ev.organisations?ev.organisations.name:(state.orgName||''); state.ownerStaffId=ev.owner_staff_id; state.secondaryStaffId=ev.secondary_staff_id; state.dayOfOwnerStaffId=ev.day_of_owner_staff_id; state.eventType=ev.event_type; state.status=ev.status; state.eventArchived=!!ev.archived_at; }
   state.gaester=(gs||[]).map(gFromDb);
   state.punkter=(ps||[]).map(pFromDb);
   state.log=(lg||[]).map(logFromDb);
@@ -3815,7 +3856,8 @@ const INBOX_TIER_LABEL = {1:'Overskredet/kritisk', 2:'Kræver handling', 3:'Afve
    bevidst UDELADT: det kræver en server-side "sidst læst af medarbejder"-markør pr. arrangement, som ikke
    findes i skemaet i dag (ville kræve en skemaændring ud over denne opgaves omfang). */
 async function loadPickerExceptions(){
-  const ids=(state.events||[]).map(e=>e.id);
+  const activeEvents=(state.events||[]).filter(e=>!e.archived_at);
+  const ids=activeEvents.map(e=>e.id);
   state.eventExceptions={};
   if(!ids.length) return;
   const [{data:tasks},{data:rooms},{data:access},{data:guests},{data:catLinks},{data:approvals},{data:changeReqs},{data:msgs}] = await Promise.all([
@@ -3839,7 +3881,7 @@ async function loadPickerExceptions(){
   const today=new Date().toISOString().slice(0,10);
   const in7=addDays(today,7);
   const out={}; const nextDue={};
-  (state.events||[]).forEach(ev=>{
+  activeEvents.forEach(ev=>{
     const reasons=[];
     const openTasks=(tasksByEvent[ev.id]||[]).filter(t=>t.status!=='aftalt' && t.due_date);
     if(openTasks.length) nextDue[ev.id]=openTasks.map(t=>t.due_date).sort()[0];
@@ -4051,7 +4093,7 @@ async function setEventStatus(id, status){
   state.status=status;
   const statusTxt=(EVENT_STATUSES.find(([v])=>v===status)||[])[1]||status;
   pushLog({area:'system', label:'Status', from, to:status, cust:true, friendly:'Status ændret til '+statusTxt});
-  const {data:evs}=await sb.from('events').select('id,title,event_date,status,offer_total_kr,event_type,owner_staff_id,venues(name)').eq('org_id',state.orgId).order('event_date',{ascending:false});
+  const {data:evs}=await sb.from('events').select('id,title,event_date,status,offer_total_kr,event_type,owner_staff_id,archived_at,venues(name)').eq('org_id',state.orgId).order('event_date',{ascending:false});
   state.events=evs||[];
   render();
   showToast('Status ændret til '+statusTxt,'ok');
@@ -4080,6 +4122,42 @@ async function updateEventDetails(){
     btnAfter.disabled=true; btnAfter.textContent='Gemt ✓'; btnAfter.classList.add('flash-saved');
     setTimeout(()=>{ if(document.body.contains(btnAfter)){ btnAfter.disabled=false; btnAfter.textContent='Gem'; btnAfter.classList.remove('flash-saved'); } }, 1400);
   }
+}
+/* Arkivering, ikke rigtig sletning — uanset om knappen hedder "Slet" eller "Arkivér" ud fra status
+   (se viewAdmin), er den underliggende handling den samme: events.archived_at sættes, intet rækkes
+   nogensinde slettet. Et afviklet arrangement kan derfor kun "arkiveres" (ordet der reelt beskriver,
+   hvad der sker), mens et arrangement, der endnu er i gang, føles for koordinatoren som at "slette"
+   det fra den aktive liste — men det ender samme sted: i den foldede "Arkiverede"-sektion i oversigten,
+   fortsat tilgængeligt, men skrivebeskyttet (se mutate()). Ingen ægte DELETE FROM events kaldes nogen
+   steder i klienten. */
+async function archiveEvent(){
+  const isCompleted=state.status==='afviklet';
+  const msg = isCompleted
+    ? 'Arkivér arrangementet? Det fjernes fra den aktive liste og bliver skrivebeskyttet, men gemmes i organisationens arkiv, så historikken bevares.'
+    : 'Slet arrangementet? Det fjernes fra den aktive liste og bliver skrivebeskyttet, men intet slettes reelt — det gemmes i organisationens arkiv, så historikken bevares.';
+  if(!(await appConfirm(msg))) return;
+  const eventId=state.eventId;
+  const {error}=await mutate(()=>sb.from('events').update({archived_at:new Date().toISOString()}).eq('id',eventId));
+  if(error){ showToast('Kunne ikke '+(isCompleted?'arkivere':'slette')+' arrangementet: '+error.message,'error'); return; }
+  pushLog({area:'system', label:'Arrangement', cust:false, friendly:isCompleted?'Arrangementet blev arkiveret':'Arrangementet blev slettet (arkiveret)'});
+  const ev=(state.events||[]).find(x=>x.id===eventId); if(ev) ev.archived_at=new Date().toISOString();
+  showToast(isCompleted?'Arrangement arkiveret ✓':'Arrangement slettet ✓','ok');
+  showPicker();
+}
+async function unarchiveEvent(){
+  if(!(await appConfirm('Genåbn arrangementet? Det bliver igen redigerbart og vises på den aktive liste.'))) return;
+  const eventId=state.eventId;
+  /* Bevidst UDEN OM mutate() — mutate() spærrer al skrivning på et arkiveret arrangement (se ovenfor),
+     og "genåbn" er den ene legitime undtagelse fra den spærre; havde dette kald også gået gennem
+     mutate(), kunne intet arkiveret arrangement nogensinde genåbnes igen. Almindelig staff-skriveadgang
+     (event_update-RLS) gælder stadig uændret. */
+  const {error}=await sb.from('events').update({archived_at:null}).eq('id',eventId);
+  if(error){ showToast('Kunne ikke genåbne: '+error.message,'error'); return; }
+  state.eventArchived=false;
+  const ev=(state.events||[]).find(x=>x.id===eventId); if(ev) ev.archived_at=null;
+  pushLog({area:'system', label:'Arrangement', cust:false, friendly:'Arrangementet blev genåbnet'});
+  showToast('Arrangement genåbnet ✓','ok');
+  render();
 }
 function addDays(dateStr, delta){
   const d=new Date(dateStr+'T00:00:00');
@@ -4244,7 +4322,7 @@ async function createEvent(){
   if(error){ btn.disabled=false; btn.textContent=orig; showToast('Kunne ikke oprette: '+error.message,'error'); return; }
   /* Knappen forbliver deaktiveret/"Opretter…", indtil vi enten navigerer ind i det nye arrangement eller
      falder tilbage til oversigten — ellers ser formularen momentant ud til at være klar til et nyt (dobbelt-)tryk. */
-  const {data:evs}=await sb.from('events').select('id,title,event_date,status,offer_total_kr,event_type,owner_staff_id,venues(name)').eq('org_id',state.orgId).order('event_date',{ascending:false});
+  const {data:evs}=await sb.from('events').select('id,title,event_date,status,offer_total_kr,event_type,owner_staff_id,archived_at,venues(name)').eq('org_id',state.orgId).order('event_date',{ascending:false});
   state.events=evs||[];
   const created=(state.events||[]).find(e=>e.title===title && e.event_date===date);
   if(created){
@@ -4898,7 +4976,9 @@ function inboxFilterBar(){
    Denne funktion skal derfor IKKE selv filtrere på ejerskab; kun de to forsider omkring den varierer. */
 function pickerEventListHtml(){
   const q=state.pickerSearch.trim().toLowerCase();
-  let filtered=(state.events||[]).filter(e=>{
+  const activeEvents=(state.events||[]).filter(e=>!e.archived_at);
+  const archivedEvents=(state.events||[]).filter(e=>e.archived_at);
+  let filtered=activeEvents.filter(e=>{
     if(state.pickerFilterStatus!=='alle' && e.status!==state.pickerFilterStatus) return false;
     if(!q) return true;
     return e.title.toLowerCase().includes(q) || ((e.venues&&e.venues.name)||'').toLowerCase().includes(q) || (e.event_type||'').toLowerCase().includes(q);
@@ -4921,7 +5001,7 @@ function pickerEventListHtml(){
       <div><div class="name">${esc(e.title)}</div><div class="meta">${e.event_type?e.event_type+' · ':''}${e.venues?esc(e.venues.name):'ingen lokation'} · ${datoKort(e.event_date)} · ${koord?esc(koord.name):'ingen koordinator'}</div>${reasons.length?`<div class="meta" style="color:var(--amber);margin-top:2px">${esc(reasons[0].txt)}</div>`:''}</div>
       <span class="row" style="gap:6px">${eventStatusChip(e.status)}<span class="chip"><span class="dot"></span>${e.offer_total_kr?kr(e.offer_total_kr):'Intet tilbud'}</span></span></div>`;
     }).join('')}</details>`:'';
-  const filterBar = (state.events||[]).length ? `
+  const filterBar = activeEvents.length ? `
   <div class="row noprint" style="margin:14px 0 2px;gap:8px;flex-wrap:wrap">
     <input class="search" id="pickerSearch" placeholder="Søg arrangement, type eller lokation" value="${esc(state.pickerSearch)}" style="flex:2;min-width:200px">
     <select id="pickerSort" class="search" style="max-width:170px">
@@ -4934,10 +5014,25 @@ function pickerEventListHtml(){
       ${EVENT_STATUSES.map(([v,l])=>`<option value="${v}" ${state.pickerFilterStatus===v?'selected':''}>${l}</option>`).join('')}
     </select>
   </div>` : '';
+  /* Arkiverede arrangementer: egen foldet-sammen sektion nederst, uden for status-grupperingen ovenfor
+     (en arkiveret sag er ikke længere "i gang", uanset hvilken status den havde ved arkivering). Klik
+     åbner arrangementet som normalt — openEvent() sætter state.eventArchived ud fra archived_at og gør
+     resten af arbejdsvisningen skrivebeskyttet, se mutate(). */
+  const archivedSec = archivedEvents.length ? `<details class="card" data-picker-group="arkiveret" ${state.openPickerGroups.has('arkiveret')?'open':''}>
+    <summary><h2><span class="fold-chev">▸</span>Arkiverede</h2><span class="note">(${archivedEvents.length})</span></summary>
+    ${archivedEvents.map(e=>{
+      const koord=(state.roster||[]).find(r=>r.id===e.owner_staff_id);
+      return `<div class="item" data-open="${e.id}" style="cursor:pointer">
+      <span class="stripe"></span>
+      <div><div class="name">🔒 ${esc(e.title)}</div><div class="meta">${e.event_type?e.event_type+' · ':''}${e.venues?esc(e.venues.name):'ingen lokation'} · ${datoKort(e.event_date)} · ${koord?esc(koord.name):'ingen koordinator'}</div></div>
+      <span class="row" style="gap:6px">${eventStatusChip(e.status)}</span></div>`;
+    }).join('')}
+  </details>` : '';
   return `${filterBar}
     ${EVENT_STATUSES.map(([v,l])=>sec(v,l,grp[v])).join('')}
-    ${state.events.length?'':'<div class="empty">Ingen arrangementer endnu.</div>'}
-    ${(state.events.length && !filtered.length)?'<div class="empty">Ingen arrangementer matcher søgning/filter.</div>':''}`;
+    ${archivedSec}
+    ${activeEvents.length?'':'<div class="empty">Ingen arrangementer endnu.</div>'}
+    ${(activeEvents.length && !filtered.length)?'<div class="empty">Ingen arrangementer matcher søgning/filter.</div>':''}`;
 }
 function pickerHeaderHtml(){
   return `
@@ -4960,12 +5055,13 @@ function viewPicker(){
    adskilt fra koordinatorens personlige arbejdsliste nedenfor. */
 function viewAdminHome(){
   const evs=state.events||[];
+  const activeEvs=evs.filter(e=>!e.archived_at);
   const today=todayIso(), in7=addDays(today,7);
   const kpi = {
-    total: evs.length,
+    total: activeEvs.length,
     kraeverHandling: Object.values(state.eventExceptions||{}).filter(rs=>rs&&rs.length).length,
-    kommende7: evs.filter(e=>e.event_date>=today && e.event_date<=in7).length,
-    bekraeftet: evs.filter(e=>e.status==='bekræftet').length
+    kommende7: activeEvs.filter(e=>e.event_date>=today && e.event_date<=in7).length,
+    bekraeftet: activeEvs.filter(e=>e.status==='bekræftet').length
   };
   const kpiCard=(label,val)=>`<div class="card" style="text-align:center;padding:16px 10px"><div class="num" style="font-size:26px;font-weight:700">${val}</div><div class="note" style="margin-top:2px">${label}</div></div>`;
   const setup = {
@@ -5078,11 +5174,20 @@ function viewBrugere(){
   onEnterSubmit(document.getElementById('gatePassword'), ()=>gatePwLogin.click());
 
   document.getElementById('profileBtn').onclick=()=>{
-    if(state.rolle==='kilden'){ openModal('profile',{}); return; }
     document.getElementById('pwNew').value='';
     document.getElementById('pwConfirm').value='';
     document.getElementById('passwordModal').style.display='flex';
   };
+  {
+    const wrap=document.getElementById('profileMenuWrap');
+    const dropdown=document.getElementById('profileDropdown');
+    const closeDropdown=()=>{ dropdown.style.display='none'; };
+    document.getElementById('profileAvatarBtn').onclick=(e)=>{ e.stopPropagation(); dropdown.style.display = dropdown.style.display==='none' ? 'block' : 'none'; };
+    document.getElementById('profileDropdownSettings').onclick=()=>{ closeDropdown(); openModal('profile',{}); };
+    document.getElementById('profileDropdownLogout').onclick=()=>{ closeDropdown(); doLogout(); };
+    document.addEventListener('click', (e)=>{ if(dropdown.style.display!=='none' && !wrap.contains(e.target)) closeDropdown(); });
+    document.addEventListener('keydown', (e)=>{ if(e.key==='Escape') closeDropdown(); });
+  }
   document.getElementById('pwCancel').onclick=()=>{ document.getElementById('passwordModal').style.display='none'; };
   const pwSave=document.getElementById('pwSave');
   pwSave.onclick=async()=>{
@@ -5100,10 +5205,11 @@ function viewBrugere(){
   };
   onEnterSubmit(document.getElementById('pwConfirm'), ()=>pwSave.click());
 
-  document.getElementById('logout').onclick=async()=>{ await sb.auth.signOut(); location.reload(); };
+  document.getElementById('logout').onclick=doLogout;
   document.getElementById('previewExit').onclick=()=>{
     state.rolle=state.previewPriorRolle||'kilden'; state.previewMode=false; state.previewPriorRolle=null; render();
   };
+  document.getElementById('archivedReopen').onclick=unarchiveEvent;
   document.getElementById('backToList').onclick=()=>{ showPicker(); };
   document.getElementById('switchEvent').onclick=()=>{
     unsubscribeRealtime(); state.eventId=null; state.view='guestPicker'; render();
