@@ -805,7 +805,7 @@ function viewAdmin(){
     <header><h2>Ansvar</h2></header>
     <div class="formgrid">
       <div class="field"><label for="ownerSel">Primær koordinator</label><select id="ownerSel" class="search" style="width:100%">
-        <option value="">— Ingen —</option>
+        ${!state.ownerStaffId?'<option value="">— Vælg —</option>':''}
         ${(state.roster||[]).map(r=>`<option value="${r.id}" ${state.ownerStaffId===r.id?'selected':''}>${esc(r.name)}</option>`).join('')}
       </select></div>
       <div class="field"><label for="secondarySel">Sekundær koordinator</label><select id="secondarySel" class="search" style="width:100%">
@@ -3243,6 +3243,11 @@ async function cancelSuperadminInvite(id){
   if(error){ showToast('Kunne ikke annullere: '+error.message,'error'); return; }
   await loadSuperadminHome(); render();
 }
+/* owner_staff_id sættes bevidst IKKE her — samme bootstrapping-situation som schema.sql's seed-data
+   og "Ny kunde"-flowet: organisationen er lige oprettet, så der findes endnu ingen staff-række (kræver
+   en rigtig auth.users-identitet fra et faktisk login) at pege på. Arrangementet vil derfor korrekt
+   vise "Ingen ansvarlig medarbejder" under "Kræver handling", indtil nogen logger ind og bliver
+   tilknyttet — enten via en rigtig invitation, eller via superadmins inline "Tilknyt"-kontrol. */
 async function seedDemoOrg(orgId){
   await mutate(()=>sb.from('venues').insert({org_id:orgId, name:'Havnelageret', address:'Eksempelvej 1, 0000 Eksempelby'}));
   const {data:venue}=await sb.from('venues').select('id').eq('org_id',orgId).eq('name','Havnelageret')
@@ -3786,6 +3791,11 @@ const OWNERSHIP_FIELD_DB={owner:'owner_staff_id', secondary:'secondary_staff_id'
 const OWNERSHIP_FIELD_STATE={owner:'ownerStaffId', secondary:'secondaryStaffId', dayOf:'dayOfOwnerStaffId'};
 const OWNERSHIP_FIELD_LABEL={owner:'Primær koordinator', secondary:'Sekundær koordinator', dayOf:'Ansvarlig på dagen'};
 async function updateEventOwnership(field, staffId){
+  /* Sekundær koordinator og ansvarlig-på-dagen må gerne stå tomme — kun den primære koordinator er
+     påkrævet (samme regel som ved oprettelse, se createEvent()/"Nyt arrangement"). Håndhæves her igen,
+     ikke kun ved at fjerne "— Ingen —"-valget fra selve <select>'en, i tilfælde af at DOM-tilstanden
+     er forældet. */
+  if(field==='owner' && !staffId){ showToast('Arrangementet skal altid have en primær koordinator.','error'); render(); return; }
   const dbField=OWNERSHIP_FIELD_DB[field];
   const {error}=await mutate(()=>sb.from('events').update({[dbField]:staffId||null}).eq('id',state.eventId));
   if(error){ showToast('Kunne ikke opdatere: '+error.message,'error'); return; }
@@ -4239,7 +4249,7 @@ MODAL_RENDERERS.duplicate = function(){
     <label class="row" style="gap:6px"><input type="checkbox" id="dupAgenda" checked>Aftalepunkter (frister genberegnes til ny dato)</label>
     <label class="row" style="gap:6px;margin-left:20px"><input type="checkbox" id="dupNotes">Noter uden filer (kræver aftalepunkter kopieret)</label>
     <label class="row" style="gap:6px"><input type="checkbox" id="dupTaskTemplates">Anvend org'ens opgaveskabeloner friskt på den nye dato</label>
-    <label class="row" style="gap:6px"><input type="checkbox" id="dupStaff" checked>Medarbejdertilknytninger</label>
+    <label class="row" style="gap:6px"><input type="checkbox" id="dupStaff" checked>Sekundær koordinator og øvrige tilknyttede medarbejdere</label>
     <label class="row" style="gap:6px"><input type="checkbox" id="dupApprovalTypes">Godkendelsestyper som nye kladder</label>
   </div>
   <div class="note" style="margin-top:10px">Kopieres ALDRIG: gæster, kundeadgange/magic links, beskeder, aktivitetslog, godkendelsesafgørelser, uploadede filer. Det nye arrangement starter altid som Kladde.</div>
