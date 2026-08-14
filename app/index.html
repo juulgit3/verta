@@ -217,6 +217,15 @@ footer.legal{margin-top:28px;font-size:12px;color:var(--ink-40);line-height:1.6}
 .fab:hover{filter:brightness(1.1)}
 .fab:active{transform:scale(.96)}
 
+/* Koordinatorens "lær værktøjet"-tjekliste, se markOnboardingStep(). Bevidst i modsatte hjørne af
+   .fab, så de to flydende elementer aldrig overlapper. */
+.onboard-widget{position:fixed;left:20px;bottom:calc(20px + env(safe-area-inset-bottom));z-index:39}
+.onboard-pill{border:0;border-radius:99px;background:var(--ink);color:#fff;font-weight:700;font-size:13px;
+  padding:11px 18px;box-shadow:0 4px 14px rgba(18,21,27,.25);cursor:pointer}
+.onboard-card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:16px;
+  width:270px;max-width:calc(100vw - 40px);box-shadow:0 6px 24px rgba(18,21,27,.18)}
+body.has-mobile-nav .onboard-widget{bottom:calc(72px + env(safe-area-inset-bottom))}
+
 /* toast + bekræft-modal (erstatter alert/confirm) */
 #toastWrap{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:80;display:flex;flex-direction:column;gap:8px;align-items:center;padding:0 16px;width:100%;max-width:420px}
 .toast{background:var(--ink);color:#fff;border-radius:var(--radius);padding:12px 16px;font-size:13.5px;font-weight:600;
@@ -274,7 +283,7 @@ input[type=file].search{padding:6px 8px;font-size:13px;min-width:0}
   body.has-mobile-nav .wrap{padding-bottom:64px}
   body.has-mobile-nav .fab{bottom:calc(72px + env(safe-area-inset-bottom))}
 }
-@media print{body{background:#fff} nav.tabs,.btn,.row.noprint,.rolebar,#superadminBar,#previewBar,.fab,#toastWrap,#bootLoading,.mobile-bottom-nav{display:none!important} .card{border:0;padding:0;margin-bottom:22px}
+@media print{body{background:#fff} nav.tabs,.btn,.row.noprint,.rolebar,#superadminBar,#previewBar,.fab,.onboard-widget,#toastWrap,#bootLoading,.mobile-bottom-nav{display:none!important} .card{border:0;padding:0;margin-bottom:22px}
   .tbl input[type=text]{border:0;background:none} .tbl select{border:0;background:none;-webkit-appearance:none;appearance:none}}
 @media (prefers-reduced-motion:no-preference){.card{animation:rise .32s ease both}@keyframes rise{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}}
 
@@ -357,7 +366,7 @@ input[type=file].search{padding:6px 8px;font-size:13px;min-width:0}
       <span class="whoami" id="whoami"></span>
       <button class="btn" id="backToList" style="display:none">‹ Arrangementer</button>
       <button class="btn" id="switchEvent" style="display:none">Skift arrangement</button>
-      <button class="btn" id="setPasswordBtn" style="display:none">Kodeord</button>
+      <button class="btn" id="profileBtn" style="display:none">Kodeord</button>
       <button class="btn" id="logout" style="display:none">Log ud</button>
     </div>
   </div>
@@ -404,6 +413,7 @@ input[type=file].search{padding:6px 8px;font-size:13px;min-width:0}
 
 <nav id="mobileBottomNav" class="mobile-bottom-nav"></nav>
 <button id="fabAddTask" class="fab" style="display:none">+ Opgave</button>
+<div id="onboardingWidget" class="onboard-widget" style="display:none"></div>
 <div id="taskModal" style="display:none;position:fixed;inset:0;background:rgba(18,21,27,.45);z-index:60;align-items:center;justify-content:center;padding:20px">
   <div style="max-width:420px;width:100%;background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:22px">
     <h2 style="font-family:'Instrument Serif',serif;font-style:italic;font-size:24px;font-weight:400;margin:0 0 14px">Opret opgave</h2>
@@ -451,7 +461,8 @@ let state = { gaester:[], punkter:[], log:[],
               eventCatalog:[], orgCatalog:[], newCatalogItemRoomIds:[],
               openPickerGroups:new Set(['kladde','tilbud','bekræftet']),
               isSuperadmin:false, isSuperadminOwner:false, viewAsCoordinator:false, allOrgs:[], superadmins:[], superadminInvites:[], guestLink:'', guestLinkEventId:null, guestLinkBusy:false,
-              guestWelcome:false, contactName:'', orgOnboardingDismissed:false, orgCatalogCount:0, orgStaffCount:0,
+              guestWelcome:false, contact:{name:'',title:'',avatar_url:''}, orgOnboardingDismissed:false, orgCatalogCount:0, orgStaffCount:0,
+              myTitle:'', myAvatarUrl:'', staffOnboarding:null, onboardingCollapsed:false,
               taskTemplates:[], agendaNotes:{}, openTaskNotes:new Set(), openDoneGroups:new Set(), openSetupFolds:new Set(),
               superadminActor:null, impersonating:null, roster:[],
               previewMode:false, previewPriorRolle:null,
@@ -594,6 +605,7 @@ function pushMessage(text, internal){
   state.log.unshift(ev);
   if(!internal) state.lastRead[a.side]=Date.now();
   mutate(()=>sb.from('activity_log').insert(logToDb(ev)).then(({error})=>error&&console.error('msg',error)));
+  if(!internal && a.side==='kilden') markOnboardingStep('send_message');
   /* v2: her udløser en Edge Function en mail til den anden part, jf. roadmap */
 }
 const unread = rolle => { const last=state.lastRead[rolle]||0;
@@ -701,6 +713,14 @@ async function commitGuestField(guestId, f, el){
    5. VISNING
    ========================================================= */
 const esc = s => String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+/* Cirkulær avatar — billede hvis staff har uploadet ét, ellers forbogstav-cirkel. Bruges i personale-
+   oversigten, gæstens velkomstkort/kontaktkort og profilmodalen, så de ikke hver især opfinder samme markup. */
+function avatarHtml(name, url, size){
+  size=size||32;
+  if(url) return `<img src="${esc(url)}" alt="" style="width:${size}px;height:${size}px;border-radius:50%;object-fit:cover;flex-shrink:0">`;
+  const initial=(name||'?').trim().charAt(0).toUpperCase()||'?';
+  return `<span style="width:${size}px;height:${size}px;border-radius:50%;background:var(--ink);color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:${Math.round(size*0.42)}px;font-weight:700;flex-shrink:0">${esc(initial)}</span>`;
+}
 
 /* Beskeder ligger bevidst tidligt i begge lister — det er den fane, der oftest kræver et hurtigt svar
    (jf. "Kunden venter på svar" i arbejdsindbakken), og skulle ikke gemmes bagerst efter de faner, man
@@ -742,6 +762,70 @@ const FAB_CONTEXT = {
   oversigt:{label:'+ Opgave', onClick:()=>openTaskModal('')},
   live:{label:'+ Opgave', onClick:()=>openTaskModal('')}
 };
+/* Koordinatorens "lær værktøjet"-tjekliste (hjørne-widget). Kun for almindelige koordinatorer — admin
+   har allerede sin egen "Kom godt i gang"-tjekliste (org-opsætning), og superadmin/impersonation er
+   ikke en reel nyoprettet bruger. Hvert punkt krydses af automatisk, når handlingen reelt udføres et
+   sted i appen (se markOnboardingStep-kaldene ved openEvent/pushMessage/updatePunktStatus/osv.) — ikke
+   ved at brugeren selv klikker "set", for at lære ved at gøre frem for at læse en manual. */
+const ONBOARDING_STEPS = [
+  {key:'open_event', label:'Åbn et arrangement'},
+  {key:'send_message', label:'Send en besked'},
+  {key:'task_done', label:'Opret eller afslut en opgave'},
+  {key:'view_guests', label:'Tjek gæstelisten'},
+  {key:'guest_link', label:'Del arrangementet med kunden (gæstelink)'},
+  {key:'view_documents', label:'Se Dokumenter-fanen'},
+  {key:'profile_filled', label:'Udfyld din profil (billede og titel)'}
+];
+function onboardingActive(){
+  return state.rolle==='kilden' && !state.isAdmin && state.staffOnboarding && !state.staffOnboarding.dismissed
+    && ONBOARDING_STEPS.some(s=>!state.staffOnboarding.steps[s.key]);
+}
+function onboardingEligible(){
+  return state.rolle==='kilden' && !state.isAdmin && !!state.staffOnboarding;
+}
+async function markOnboardingStep(key){
+  if(!onboardingEligible()) return;
+  if(state.staffOnboarding.steps[key]) return;
+  state.staffOnboarding.steps[key]=true;
+  if(ONBOARDING_STEPS.every(s=>state.staffOnboarding.steps[s.key])){
+    state.staffOnboarding.dismissed=true;
+    showToast('Du er igennem hele introduktionen til Verta ✓','ok');
+  }
+  render();
+  await sb.rpc('update_own_onboarding', {p_onboarding: state.staffOnboarding});
+}
+function dismissOnboarding(){
+  state.staffOnboarding.dismissed=true;
+  sb.rpc('update_own_onboarding', {p_onboarding: state.staffOnboarding});
+  render();
+}
+function reactivateOnboarding(){
+  state.staffOnboarding.dismissed=false;
+  sb.rpc('update_own_onboarding', {p_onboarding: state.staffOnboarding});
+  closeModal();
+  showToast('Introduktionstjekliste genaktiveret ✓','ok');
+}
+function onboardingWidgetHtml(){
+  if(!onboardingActive()) return '';
+  const done=ONBOARDING_STEPS.filter(s=>state.staffOnboarding.steps[s.key]).length, total=ONBOARDING_STEPS.length;
+  if(state.onboardingCollapsed) return `<button class="onboard-pill" id="onboardReopen">Kom i gang · ${done}/${total}</button>`;
+  return `<div class="onboard-card">
+    <div class="row" style="justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:2px">
+      <span style="font-weight:700;font-size:14px">Kom godt i gang med Verta</span>
+      <button class="btn" id="onboardCollapse" style="padding:2px 8px;font-size:12px;flex-shrink:0">–</button>
+    </div>
+    <div class="note" style="margin-bottom:10px">${done} af ${total} gennemført</div>
+    <div style="display:flex;flex-direction:column;gap:6px">
+      ${ONBOARDING_STEPS.map(s=>{ const on=!!state.staffOnboarding.steps[s.key];
+        return `<div class="row" style="gap:8px;font-size:13px;align-items:flex-start${on?';opacity:.5':''}">
+        <span>${on?'✓':'○'}</span><span${on?' style="text-decoration:line-through"':''}>${esc(s.label)}</span>
+      </div>`;}).join('')}
+    </div>
+    <div class="row" style="margin-top:10px;justify-content:flex-end">
+      <button class="btn" id="onboardDismiss" style="font-size:12px;padding:4px 8px">Skjul</button>
+    </div>
+  </div>`;
+}
 function renderMobileBottomNav(){
   const nav=document.getElementById('mobileBottomNav');
   if(!nav) return;
@@ -775,7 +859,7 @@ function heroChips(){
     ${kilden&&state.rolle==='kilden'?`<span class="chip warn"><span class="dot"></span>${kilden} afventer os</span>`:''}
     ${pendingApprovalsCount()?`<span class="chip warn" data-goto-tab="punkter" style="cursor:pointer"><span class="dot"></span>${pendingApprovalsCount()} godkendelse${pendingApprovalsCount()>1?'r':''} afventer</span>`:''}
     ${state.rolle==='kilden'?`<span class="chip"><span class="dot"></span>Koordinator: ${esc((((state.roster||[]).find(r=>r.id===state.ownerStaffId))||{}).name||'ingen')}</span>`:''}
-    ${state.rolle==='kunde'&&state.contactName?`<span class="chip"><span class="dot"></span>Kontakt: ${esc(state.contactName)}</span>`:''}`;
+    ${state.rolle==='kunde'&&state.contact.name?`<span class="chip"><span class="dot"></span>Kontakt: ${esc(state.contact.name)}${state.contact.title?', '+esc(state.contact.title):''}</span>`:''}`;
 }
 
 function viewAdmin(){
@@ -857,7 +941,11 @@ function viewOversigt(){
   const welcomeKort = (state.rolle==='kunde' && state.guestWelcome) ? `
   <section class="card" style="border-left:3px solid var(--blue)">
     <header><h2>Velkommen, ${esc(currentActor().navn)}!</h2></header>
-    <p style="margin:0 0 10px;font-size:14.5px;line-height:1.6">I er tilmeldt jeres ${esc(state.eventType||'arrangement')} hos ${esc(state.venueName||'')} d. ${datoKort(state.eventDate)}${state.contactName?' — jeres kontakt hos '+esc(state.orgName||'')+' er '+esc(state.contactName):''}.</p>
+    <p style="margin:0 0 10px;font-size:14.5px;line-height:1.6">I er tilmeldt jeres ${esc(state.eventType||'arrangement')} hos ${esc(state.venueName||'')} d. ${datoKort(state.eventDate)}.</p>
+    ${state.contact.name?`<div class="row" style="gap:10px;align-items:center;margin:0 0 14px">
+      ${avatarHtml(state.contact.name, state.contact.avatar_url, 40)}
+      <span style="font-size:13.5px;line-height:1.4">Jeres kontakt hos ${esc(state.orgName||'')} er <b>${esc(state.contact.name)}</b>${state.contact.title?'<br><span class="note">'+esc(state.contact.title)+'</span>':''}</span>
+    </div>`:''}
     <p style="margin:0 0 14px;font-size:14px;color:var(--ink-60);line-height:1.6">Her kan I se overblik og pris, holde jeres gæsteliste opdateret, følge aftalepunkter og skrive beskeder direkte til os.</p>
     <button class="btn primary" id="welcomeDismiss">Se jeres arrangement</button>
   </section>` : '';
@@ -2378,6 +2466,84 @@ MODAL_BINDERS.newEvent = function(){
   nc.onclick=createEvent;
   onEnterSubmit(document.getElementById('neTitle'), ()=>nc.click());
 };
+/* "Min profil" — staff-only (gæster bruger fortsat den ældre, rene #passwordModal, se profileBtn-
+   klikket). Samler navn/titel/billede (nyt, selvbetjent via update_own_profile — se schema.sql) og
+   kodeord (flyttet ind herfra, var tidligere sin egen løse topbjælke-knap) i én side, i stedet for at
+   sprede personlige indstillinger ud over flere steder. */
+MODAL_RENDERERS.profile = function(){
+  const onboardingDone = !state.staffOnboarding || state.staffOnboarding.dismissed;
+  return `
+  <h2 style="font-family:'Instrument Serif',serif;font-style:italic;font-size:24px;font-weight:400;margin:0 0 14px">Min profil</h2>
+  <div class="row" style="gap:14px;align-items:center;margin-bottom:16px">
+    ${avatarHtml(state.actor.navn, state.myAvatarUrl, 56)}
+    <div class="field" style="flex:1"><label for="pfAvatarFile">Profilbillede</label><input type="file" id="pfAvatarFile" accept="image/*" class="search" style="width:100%"></div>
+  </div>
+  <div style="display:flex;flex-direction:column;gap:10px">
+    <div class="field"><label for="pfName">Navn</label><input id="pfName" class="search" value="${esc(state.actor.navn)}" style="width:100%"></div>
+    <div class="field"><label for="pfTitle">Titel</label><input id="pfTitle" class="search" placeholder="Fx Bryllupskoordinator" value="${esc(state.myTitle||'')}" style="width:100%"></div>
+  </div>
+  <div class="row" style="margin-top:16px;justify-content:flex-end">
+    <button class="btn" data-modal-close>Annullér</button>
+    <button class="btn primary" id="pfSave">Gem</button>
+  </div>
+  <div style="border-top:1px solid var(--line);margin:20px 0 16px"></div>
+  <div class="eyebrow" style="margin-bottom:10px">Kodeord</div>
+  <p class="note" style="margin:0 0 10px">Så kan du logge ind med kodeord i stedet for at vente på en mail, næste gang. Lad felterne stå tomme for at beholde dit nuværende login.</p>
+  <div style="display:flex;flex-direction:column;gap:10px">
+    <div class="field"><label for="pfPwNew">Nyt kodeord</label><input id="pfPwNew" type="password" class="search" placeholder="Mindst 8 tegn" style="width:100%" autocomplete="new-password"></div>
+    <div class="field"><label for="pfPwConfirm">Bekræft kodeord</label><input id="pfPwConfirm" type="password" class="search" style="width:100%" autocomplete="new-password"></div>
+  </div>
+  ${!state.isAdmin?`<div style="border-top:1px solid var(--line);margin:20px 0 16px"></div>
+  <div class="eyebrow" style="margin-bottom:10px">Introduktion</div>
+  ${onboardingDone
+    ? `<div class="row" style="justify-content:space-between;align-items:center;gap:10px">
+        <p class="note" style="margin:0">Din "lær værktøjet"-tjekliste er skjult.</p>
+        <button class="btn" id="pfReactivateOnboarding">Genaktivér tjekliste</button>
+      </div>`
+    : `<p class="note" style="margin:0">Tjeklisten vises stadig i hjørnet, indtil den er gennemført.</p>`}`:''}
+  `;
+};
+MODAL_BINDERS.profile = function(){
+  const reactivateBtn=document.getElementById('pfReactivateOnboarding');
+  if(reactivateBtn) reactivateBtn.onclick=reactivateOnboarding;
+  const save=document.getElementById('pfSave');
+  save.onclick=async()=>{
+    const name=document.getElementById('pfName').value.trim();
+    const title=document.getElementById('pfTitle').value.trim();
+    if(!name){ showToast('Navn må ikke være tomt.','error'); return; }
+    const pw1=document.getElementById('pfPwNew').value, pw2=document.getElementById('pfPwConfirm').value;
+    if(pw1 || pw2){
+      if(pw1.length<8){ showToast('Kodeordet skal være mindst 8 tegn.','error'); return; }
+      if(pw1!==pw2){ showToast('Kodeordene er ikke ens.','error'); return; }
+    }
+    const orig=save.textContent;
+    save.disabled=true; save.textContent='Gemmer…';
+    try{
+      let avatarUrl=state.myAvatarUrl||null;
+      const file=document.getElementById('pfAvatarFile').files[0];
+      if(file){
+        if(!file.type.startsWith('image/')){ showToast('Vælg en billedfil.','error'); return; }
+        if(file.size>2*1024*1024){ showToast('Billedet må højst fylde 2 MB.','error'); return; }
+        const path=`${state.userId}/${Date.now()}-${file.name}`;
+        const {error:upErr}=await sb.storage.from('staff-avatars').upload(path, file);
+        if(upErr){ showToast('Kunne ikke uploade billede: '+upErr.message,'error'); return; }
+        avatarUrl=sb.storage.from('staff-avatars').getPublicUrl(path).data.publicUrl;
+      }
+      const {error}=await sb.rpc('update_own_profile', {p_name:name, p_title:title||null, p_avatar_url:avatarUrl});
+      if(error){ showToast('Kunne ikke gemme profil: '+error.message,'error'); return; }
+      if(pw1){
+        const {error:pwErr}=await sb.auth.updateUser({password:pw1});
+        if(pwErr){ showToast('Profil gemt, men kodeord kunne ikke sættes: '+pwErr.message,'error'); return; }
+      }
+      state.actor.navn=name; state.myTitle=title; state.myAvatarUrl=avatarUrl||'';
+      closeModal();
+      showToast('Profil gemt ✓','ok');
+      if(title && avatarUrl) markOnboardingStep('profile_filled');
+    } finally {
+      save.disabled=false; save.textContent=orig;
+    }
+  };
+};
 /* Lokalevælger til katalogvarer — erstatter den tidligere inline fold-ud-liste over ALLE org'ens
    lokaler direkte i katalogkortet, som blev uoverskuelig med mange lokationer/lokaler. state.modal.itemId
    er enten et rigtigt katalogvare-id (skriver direkte til catalog_item_rooms ved hvert klik) eller den
@@ -2458,7 +2624,10 @@ function renderInner(){
   renderSuperadminBar();
   document.getElementById('previewBar').style.display = state.previewMode ? 'block' : 'none';
   document.getElementById('logout').style.display = '';
-  document.getElementById('setPasswordBtn').style.display = '';
+  {
+    const pb=document.getElementById('profileBtn');
+    pb.style.display=''; pb.textContent = state.rolle==='kilden' ? 'Min profil' : 'Kodeord';
+  }
   document.getElementById('backToList').style.display = (state.rolle==='kilden' && (state.events||[]).length>1 && state.view==='workspace') ? '' : 'none';
   document.getElementById('switchEvent').style.display = (state.rolle==='kunde' && (state.guestEvents||[]).length>1 && state.view==='workspace') ? '' : 'none';
   {
@@ -2466,6 +2635,19 @@ function renderInner(){
     const ctx = (state.rolle==='kilden' && state.view==='workspace' && !state.previewMode) ? FAB_CONTEXT[state.tab] : null;
     fab.style.display = ctx ? 'block' : 'none';
     if(ctx){ fab.textContent=ctx.label; fab.onclick=ctx.onClick; }
+  }
+  {
+    const ow=document.getElementById('onboardingWidget');
+    const html=onboardingWidgetHtml();
+    ow.style.display = html ? 'block' : 'none';
+    ow.innerHTML = html;
+    const reopenBtn=document.getElementById('onboardReopen'); if(reopenBtn) reopenBtn.onclick=()=>{state.onboardingCollapsed=false; render();};
+    const collapseBtn=document.getElementById('onboardCollapse'); if(collapseBtn) collapseBtn.onclick=()=>{state.onboardingCollapsed=true; render();};
+    const dismissBtn=document.getElementById('onboardDismiss'); if(dismissBtn) dismissBtn.onclick=()=>dismissOnboarding();
+  }
+  if(state.view==='workspace' && state.rolle==='kilden'){
+    if(state.tab==='gaester') markOnboardingStep('view_guests');
+    if(state.tab==='dokumenter') markOnboardingStep('view_documents');
   }
 
   if(state.view==='picker' || state.view==='users' || state.view==='venues' || state.view==='katalog' || state.view==='skabeloner' || state.view==='kalender' || state.view==='superadmin' || state.view==='guestPicker'){
@@ -3047,6 +3229,9 @@ async function cloudBoot(user){
   const {data:st}=await sb.from('staff').select('*').eq('id',user.id).maybeSingle();
   if(st){
     state.rolle='kilden'; state.actor={navn:st.name, side:'kilden'}; state.isAdmin=(st.role==='admin'); state.orgId=st.org_id;
+    state.myTitle=st.title||''; state.myAvatarUrl=st.avatar_url||'';
+    state.staffOnboarding = (st.onboarding && typeof st.onboarding==='object') ? st.onboarding : {};
+    if(!state.staffOnboarding.steps) state.staffOnboarding.steps={};
     const [{data:orgRow},{data:vens},{count:catCount},{data:rosterRows},{data:evs}] = await Promise.all([
       sb.from('organisations').select('name,onboarding_dismissed').eq('id',st.org_id).maybeSingle(),
       sb.from('venues').select('id,name').eq('org_id',st.org_id).order('name'),
@@ -3360,8 +3545,8 @@ async function openEvent(id){
   state.approvalRevisingId=null;
   state.docPreview=null;
   await Promise.all([loadRooms(id), loadCatalog(id), loadAgendaNotes(id), loadApprovals(id), loadChangeRequests(id)]);
-  if(state.rolle==='kilden'){ await Promise.all([loadEventStaff(), loadOrgCatalog(), loadEventGuestAccesses(id)]); logCloudView(); }
-  else { const {data:contact}=await sb.rpc('get_event_contact',{target_event:id}); state.contactName=contact||''; logCloudView(); }
+  if(state.rolle==='kilden'){ await Promise.all([loadEventStaff(), loadOrgCatalog(), loadEventGuestAccesses(id)]); logCloudView(); markOnboardingStep('open_event'); }
+  else { const {data:rows}=await sb.rpc('get_event_contact',{target_event:id}); const c=(rows&&rows[0])||{}; state.contact={name:c.name||'', title:c.title||'', avatar_url:c.avatar_url||''}; logCloudView(); }
   state.view='workspace'; state.tab = state.pendingInboxTab || 'oversigt'; state.pendingInboxTab=null;
   showApp(); render();
   subscribeRealtime(id);
@@ -3400,7 +3585,7 @@ async function loadEventStaff(){
   state.roster=roster||[];
 }
 async function loadUsers(){
-  const {data:st}=await sb.from('staff').select('id,name,role').eq('org_id',state.orgId).order('name');
+  const {data:st}=await sb.from('staff').select('id,name,role,title,avatar_url').eq('org_id',state.orgId).order('name');
   state.staffList=st||[];
   const {data:inv}=await sb.from('invites').select('id,name,email,role').eq('org_id',state.orgId).order('created_at');
   state.invitesList=inv||[];
@@ -3912,6 +4097,7 @@ async function updatePunktStatus(id, status){
   if(error){ showToast('Kunne ikke ændre status: '+error.message,'error'); return; }
   p.status=status;
   pushLog({area:'punkter', label:p.titel, from, to:status, cust:true, friendly:p.titel+' er nu '+STATUS_LABEL[status]});
+  markOnboardingStep('task_done');
   render();
   flashSaved(`[data-pid="${id}"]`);
 }
@@ -3919,6 +4105,7 @@ async function createPunkt(titel, ejer, frist, note, file, prioritet, assignedSt
   if(!titel.trim()){ showToast('Skriv en titel.','error'); return; }
   const {data,error}=await mutate(()=>sb.from('agenda_items').insert({event_id:state.eventId, title:titel.trim(), owner:ejer, due_date:frist||null, note:(note||'').trim(), priority:prioritet||'normal', assigned_staff_id:assignedStaffId||null}).select('id').single());
   if(error){ showToast('Kunne ikke oprette opgave: '+error.message,'error'); return; }
+  markOnboardingStep('task_done');
   pushLog({area:'punkter', label:titel.trim(), cust:(ejer==='jer'), friendly:'Ny opgave: '+titel.trim()});
   await reloadPunkter();
   if((note||'').trim() || file) await addAgendaNote(data.id, note, file);
@@ -4013,6 +4200,7 @@ async function generateGuestLink(name, email, expiresInDays){
     state.guestLink=data.link;
     state.guestLinkEventId=eventIdAtStart;
     pushLog({area:'system', label:'Gæstelink', cust:false, friendly:'Magisk link genereret til '+name+' ('+email+')'});
+    markOnboardingStep('guest_link');
     await loadEventGuestAccesses(eventIdAtStart);
   }catch(e){
     showToast('Kunne ikke oprette link: '+e.message,'error');
@@ -4523,6 +4711,7 @@ async function inboxCreateGuestLink(eventId, name, email){
     actor_name:currentActor().navn, actor_side:currentActor().side, entry_type:'change', area:'system',
     label:'Gæstelink', from_val:'', to_val:'', customer_visible:false,
     friendly:'Gæstelink genereret til '+name+' ('+email+')', message_text:''}));
+  markOnboardingStep('guest_link');
   await loadPickerExceptions();
   closeInboxModalIfResolved(eventId);
 }
@@ -4819,7 +5008,10 @@ function viewBrugere(){
   <section class="card">
     <header><h2>Medarbejdere</h2><span class="note">${(state.staffList||[]).length}</span></header>
     ${(state.staffList||[]).map(s=>`<div class="stat">
-      <span>${esc(s.name)}${s.id===state.userId?' <span class="note">(dig)</span>':''}</span>
+      <span class="row" style="gap:10px;align-items:center">
+        ${avatarHtml(s.name, s.avatar_url, 30)}
+        <span>${esc(s.name)}${s.id===state.userId?' <span class="note">(dig)</span>':''}${s.title?'<br><span class="note">'+esc(s.title)+'</span>':''}</span>
+      </span>
       <span class="row" style="gap:8px">
         <select class="status" data-role-user="${s.id}" ${s.id===state.userId?'disabled':''}>
           <option value="coordinator" ${s.role==='coordinator'?'selected':''}>coordinator</option>
@@ -4885,7 +5077,8 @@ function viewBrugere(){
   };
   onEnterSubmit(document.getElementById('gatePassword'), ()=>gatePwLogin.click());
 
-  document.getElementById('setPasswordBtn').onclick=()=>{
+  document.getElementById('profileBtn').onclick=()=>{
+    if(state.rolle==='kilden'){ openModal('profile',{}); return; }
     document.getElementById('pwNew').value='';
     document.getElementById('pwConfirm').value='';
     document.getElementById('passwordModal').style.display='flex';
