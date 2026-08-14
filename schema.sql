@@ -122,6 +122,17 @@ create table events (
                                               -- arrangement altid oprettes efter mindst én staff-række findes.
   secondary_staff_id uuid references staff(id),      -- valgfri sekundær koordinator
   day_of_owner_staff_id uuid references staff(id),   -- ansvarlig på selve arrangementsdagen (kan afvige fra primær)
+  archived_at timestamptz,   -- sat = "slettet"/"arkiveret" fra brugerens synsvinkel, men ALDRIG en rigtig
+                              -- DELETE FROM events — kun arkivering, uanset om UI'et kalder det "Slet" eller
+                              -- "Arkivér" (afgøres af status: et afviklet arrangement kan kun arkiveres, et
+                              -- arrangement der stadig er i gang "slettes" fra den aktive liste, men ender
+                              -- samme sted). Arkiverede arrangementer forsvinder fra den aktive oversigt og
+                              -- "Kræver handling" (klientfiltreret på archived_at is null), men forbliver
+                              -- læsbare i en foldet "Arkiverede"-sektion. Skrivning spærres af mutate() i
+                              -- app/index.html ud fra state.eventArchived — samme mønster som previewMode,
+                              -- og af samme grund IKKE duplikeret som en RLS-politik pr. tabel: det er en
+                              -- bevidst UX-lås for nogen, der allerede har legitim skriveadgang, ikke en
+                              -- reel adgangsbegrænsning mod en fremmed aktør.
   created_at timestamptz not null default now()
 );
 
