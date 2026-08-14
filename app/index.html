@@ -2582,19 +2582,7 @@ function renderInner(){
       const inboxKind=document.getElementById('inboxKind'); if(inboxKind) inboxKind.onchange=()=>{ setInboxFilter({kind:inboxKind.value}); render(); };
       const inboxSortSel=document.getElementById('inboxSortSel'); if(inboxSortSel) inboxSortSel.onchange=()=>{ setInboxSort(inboxSortSel.value); render(); };
       v.querySelectorAll('[data-goto-inbox-tab]').forEach(el=>el.addEventListener('click', ()=>{ state.pendingInboxTab=el.dataset.gotoInboxTab; }));
-      v.querySelectorAll('[data-inbox-task-done]').forEach(el=>el.onclick=()=>inboxCompleteTask(el.dataset.inboxTaskEvent, el.dataset.inboxTaskDone, el.dataset.inboxTaskTitle, el.dataset.inboxTaskFrom));
-      v.querySelectorAll('[data-inbox-owner-assign]').forEach(el=>el.onclick=()=>{
-        const evId=el.dataset.inboxOwnerAssign;
-        const sel=v.querySelector(`[data-inbox-owner-select="${evId}"]`);
-        if(!sel || !sel.value){ showToast('Vælg en koordinator først.','error'); return; }
-        inboxAssignOwner(evId, sel.value);
-      });
-      v.querySelectorAll('[data-inbox-guest-create]').forEach(el=>el.onclick=()=>{
-        const evId=el.dataset.inboxGuestCreate;
-        const nameEl=v.querySelector(`[data-inbox-guest-name="${evId}"]`);
-        const emailEl=v.querySelector(`[data-inbox-guest-email="${evId}"]`);
-        inboxCreateGuestLink(evId, nameEl?nameEl.value.trim():'', emailEl?emailEl.value.trim():'');
-      });
+      v.querySelectorAll('[data-inbox-handle]').forEach(el=>el.onclick=()=>openModal('inboxAction',{eventId:el.dataset.inboxHandle}));
     }
     v.querySelectorAll('[data-nav]').forEach(el=>el.onclick=async()=>{
       state.view=el.dataset.nav;
@@ -4490,6 +4478,17 @@ function eventStatusChip(status){
    ægte svar dér kræver at se selve sammenhængen. Disse funktioner må ALDRIG antage, at det ramte
    arrangement er state.eventId — kortene viser arrangementer på tværs af hele indbakken, ikke kun det
    evt. åbne. */
+/* Hvilke "Kræver handling"-årsager der kan afgøres direkte i inboxAction-modalen, uden at åbne
+   selve arrangementet. Bruges både til at afgøre om et kort skal vise en "Handle"-knap, og til at
+   afgøre om modalen kan lukkes automatisk, når intet er tilbage at handle på. */
+function inboxActionableKinds(reasons){
+  return (reasons||[]).filter(r=>(r.kind==='task' && r.tasks && r.tasks.length) || r.kind==='ejer' || r.kind==='gaestelink');
+}
+function closeInboxModalIfResolved(eventId){
+  const stillActionable = inboxActionableKinds(state.eventExceptions[eventId]||[]).length>0;
+  if(!stillActionable && state.modal && state.modal.type==='inboxAction' && state.modal.eventId===eventId) closeModal();
+  else render();
+}
 async function inboxCompleteTask(eventId, taskId, taskTitle, fromStatus){
   const {error}=await mutate(()=>sb.from('agenda_items').update({status:'aftalt'}).eq('id',taskId));
   if(error){ showToast('Kunne ikke markere som udført: '+error.message,'error'); return; }
@@ -4499,7 +4498,7 @@ async function inboxCompleteTask(eventId, taskId, taskTitle, fromStatus){
     friendly:taskTitle+' er nu udført', message_text:''}));
   showToast('Opgave markeret som udført ✓','ok');
   await loadPickerExceptions();
-  render();
+  closeInboxModalIfResolved(eventId);
 }
 async function inboxAssignOwner(eventId, staffId){
   const {error}=await mutate(()=>sb.from('events').update({owner_staff_id:staffId}).eq('id',eventId));
@@ -4512,7 +4511,7 @@ async function inboxAssignOwner(eventId, staffId){
     friendly:staffName+' tilknyttet som koordinator', message_text:''}));
   showToast('Koordinator tilknyttet ✓','ok');
   await loadPickerExceptions();
-  render();
+  closeInboxModalIfResolved(eventId);
 }
 async function inboxCreateGuestLink(eventId, name, email){
   if(!name || !email){ showToast('Udfyld både navn og mail.','error'); return; }
@@ -4525,38 +4524,88 @@ async function inboxCreateGuestLink(eventId, name, email){
     label:'Gæstelink', from_val:'', to_val:'', customer_visible:false,
     friendly:'Gæstelink genereret til '+name+' ('+email+')', message_text:''}));
   await loadPickerExceptions();
-  render();
+  closeInboxModalIfResolved(eventId);
 }
-function inboxInlineActionsHtml(e, reasons){
+function inboxActionFormsHtml(e, actionable){
   const blocks=[];
-  const taskReason=reasons.find(r=>r.kind==='task' && r.tasks && r.tasks.length);
+  const taskReason=actionable.find(r=>r.kind==='task');
   if(taskReason){
-    blocks.push(`<div style="margin-top:8px;display:flex;flex-direction:column;gap:5px">
-      ${taskReason.tasks.slice(0,3).map(t=>`<div class="row" style="justify-content:space-between;gap:10px">
-        <span style="font-size:13px">${esc(t.title)}</span>
-        <button class="btn" style="padding:4px 10px;font-size:12px" data-inbox-task-done="${t.id}" data-inbox-task-event="${e.id}" data-inbox-task-title="${esc(t.title)}" data-inbox-task-from="${esc(t.status)}">✓ Udført</button>
-      </div>`).join('')}
-      ${taskReason.tasks.length>3?`<span class="note">+${taskReason.tasks.length-3} flere</span>`:''}
+    blocks.push(`<div style="margin-bottom:16px">
+      <div class="note" style="font-weight:600;margin-bottom:6px">Udestående opgaver</div>
+      <div style="display:flex;flex-direction:column;gap:6px">
+        ${taskReason.tasks.map(t=>`<div class="row" style="justify-content:space-between;gap:10px">
+          <span style="font-size:13.5px">${esc(t.title)}</span>
+          <button class="btn" style="padding:4px 10px;font-size:12px;flex-shrink:0" data-inbox-task-done="${t.id}" data-inbox-task-event="${e.id}" data-inbox-task-title="${esc(t.title)}" data-inbox-task-from="${esc(t.status)}">✓ Udført</button>
+        </div>`).join('')}
+      </div>
     </div>`);
   }
-  if(reasons.some(r=>r.kind==='ejer')){
-    blocks.push(`<div class="row" style="gap:6px;margin-top:8px;flex-wrap:wrap">
-      <select class="status" data-inbox-owner-select="${e.id}" style="min-width:170px">
-        <option value="">Vælg koordinator…</option>
-        ${(state.roster||[]).map(r=>`<option value="${r.id}">${esc(r.name)}</option>`).join('')}
-      </select>
-      <button class="btn" data-inbox-owner-assign="${e.id}">Tilknyt</button>
+  if(actionable.some(r=>r.kind==='ejer')){
+    blocks.push(`<div style="margin-bottom:16px">
+      <div class="note" style="font-weight:600;margin-bottom:6px">Tilknyt koordinator</div>
+      <div class="row" style="gap:6px;flex-wrap:wrap">
+        <select class="status" data-inbox-owner-select="${e.id}" style="min-width:170px">
+          <option value="">Vælg koordinator…</option>
+          ${(state.roster||[]).map(r=>`<option value="${r.id}">${esc(r.name)}</option>`).join('')}
+        </select>
+        <button class="btn" data-inbox-owner-assign="${e.id}">Tilknyt</button>
+      </div>
     </div>`);
   }
-  if(reasons.some(r=>r.kind==='gaestelink')){
-    blocks.push(`<div class="row" style="gap:6px;margin-top:8px;flex-wrap:wrap">
-      <input class="search" placeholder="Gæstens navn" data-inbox-guest-name="${e.id}" style="max-width:150px">
-      <input class="search" placeholder="Gæstens mail" type="email" data-inbox-guest-email="${e.id}" style="max-width:190px">
-      <button class="btn" data-inbox-guest-create="${e.id}">Opret gæstelink</button>
+  if(actionable.some(r=>r.kind==='gaestelink')){
+    blocks.push(`<div>
+      <div class="note" style="font-weight:600;margin-bottom:6px">Opret gæstelink</div>
+      <div class="row" style="gap:6px;flex-wrap:wrap">
+        <input class="search" placeholder="Gæstens navn" data-inbox-guest-name="${e.id}" style="max-width:170px">
+        <input class="search" placeholder="Gæstens mail" type="email" data-inbox-guest-email="${e.id}" style="max-width:200px">
+        <button class="btn" data-inbox-guest-create="${e.id}">Opret gæstelink</button>
+      </div>
     </div>`);
   }
   return blocks.join('');
 }
+/* "Handle"-knappen på et Kræver handling-kort åbner denne modal i stedet for at folde formularerne
+   ud direkte i kortet — se CLAUDE.md/samtalen: en fuld formular pr. kort pr. arrangement fyldte for
+   meget og gik ud over overblikket. Modalen lukker sig selv, når sidste actionable årsag er løst
+   (closeInboxModalIfResolved), så flowet stadig føles étkliks for det enkle tilfælde. */
+MODAL_RENDERERS.inboxAction = function(){
+  const eventId=state.modal.eventId;
+  const e=(state.events||[]).find(x=>x.id===eventId);
+  if(!e) return `<div class="empty">Arrangementet blev ikke fundet.</div>`;
+  const reasons=state.eventExceptions[eventId]||[];
+  const actionable=inboxActionableKinds(reasons);
+  return `
+  <h2 style="font-family:'Instrument Serif',serif;font-style:italic;font-size:24px;font-weight:400;margin:0 0 4px">${esc(e.title)}</h2>
+  <p class="note" style="margin:0 0 14px">${datoKort(e.event_date)}${e.venues?' · '+esc(e.venues.name):''}</p>
+  ${actionable.length?inboxActionFormsHtml(e, actionable):'<div class="empty">Intet tilbage at handle på her.</div>'}
+  <div class="row" style="margin-top:16px;justify-content:flex-end;gap:8px">
+    <button class="btn" data-inbox-open-event="${e.id}" data-inbox-open-tab="${esc((reasons[0]||{}).actionTab||'oversigt')}">Åbn arrangement →</button>
+    <button class="btn primary" data-modal-close>Luk</button>
+  </div>`;
+};
+MODAL_BINDERS.inboxAction = function(){
+  const eventId=state.modal.eventId;
+  document.querySelectorAll('[data-inbox-task-done]').forEach(el=>el.onclick=()=>inboxCompleteTask(el.dataset.inboxTaskEvent, el.dataset.inboxTaskDone, el.dataset.inboxTaskTitle, el.dataset.inboxTaskFrom));
+  const ownerBtn=document.querySelector('[data-inbox-owner-assign]');
+  if(ownerBtn) ownerBtn.onclick=()=>{
+    const sel=document.querySelector(`[data-inbox-owner-select="${eventId}"]`);
+    if(!sel || !sel.value){ showToast('Vælg en koordinator først.','error'); return; }
+    inboxAssignOwner(eventId, sel.value);
+  };
+  const guestBtn=document.querySelector('[data-inbox-guest-create]');
+  if(guestBtn) guestBtn.onclick=()=>{
+    const nameEl=document.querySelector(`[data-inbox-guest-name="${eventId}"]`);
+    const emailEl=document.querySelector(`[data-inbox-guest-email="${eventId}"]`);
+    inboxCreateGuestLink(eventId, nameEl?nameEl.value.trim():'', emailEl?emailEl.value.trim():'');
+  };
+  const openBtn=document.querySelector('[data-inbox-open-event]');
+  if(openBtn) openBtn.onclick=()=>{
+    const evId=openBtn.dataset.inboxOpenEvent;
+    state.pendingInboxTab=openBtn.dataset.inboxOpenTab;
+    closeModal();
+    openEvent(evId);
+  };
+};
 function actionRequiredSection(){
   if(state.pickerExceptionsLoading){
     return `<section class="card" style="border-left:3px solid var(--amber)">
@@ -4614,16 +4663,18 @@ function actionRequiredSection(){
       const reasons=reasonsMatchFilter(state.eventExceptions[e.id]).sort((a,b)=>(a.tier||5)-(b.tier||5));
       const d=dageTil(e.event_date);
       const top=reasons[0];
-      const inline=inboxInlineActionsHtml(e, reasons);
+      const canHandle=inboxActionableKinds(reasons).length>0;
       return `<div class="item" style="flex-wrap:wrap">
         <span class="stripe ${top.tier<=1?'kilden':(top.tier<=2?'warn':'jer')}"></span>
         <div style="flex:1;min-width:200px">
           <div class="name">${esc(e.title)}</div>
           <div class="meta">${datoKort(e.event_date)} · ${d>=0?('om '+d+' dage'):(Math.abs(d)+' dage siden')}${e.venues?' · '+esc(e.venues.name):''}${e.event_type?' · '+esc(e.event_type):''}</div>
           <div style="margin-top:6px">${reasons.map(r=>`<span class="chip ${r.urgent?'warn':''}" style="margin:0 6px 4px 0" title="${esc(INBOX_TIER_LABEL[r.tier]||'')}"><span class="dot"></span>${esc(r.txt)}</span>`).join('')}</div>
-          ${inline}
         </div>
-        <button class="btn ${inline?'':'primary'}" data-open="${e.id}" data-goto-inbox-tab="${esc(top.actionTab||'oversigt')}">${inline?'Åbn arrangement':esc(top.actionLabel||'Åbn')} →</button>
+        <div class="row" style="gap:8px;flex-shrink:0">
+          ${canHandle?`<button class="btn primary" data-inbox-handle="${e.id}">Handle</button>`:''}
+          <button class="btn ${canHandle?'':'primary'}" data-open="${e.id}" data-goto-inbox-tab="${esc(top.actionTab||'oversigt')}">${canHandle?'Åbn arrangement':esc(top.actionLabel||'Åbn')} →</button>
+        </div>
       </div>`;
     }).join('')}
   </section>`;
