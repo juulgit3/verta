@@ -1035,11 +1035,13 @@ alter publication supabase_realtime add table agenda_item_notes;
 -- Erstattet af tre HELT igennem fiktive demo-organisationer, valgt til at dække reelt forskellige
 -- profiler: en etableret bryllups-/selskabsvirksomhed med flere lokationer, et etableret konference-
 -- center, og en lille, helt nystartet kunde (tynd data, ingen godkendelser endnu — viser hvordan en
--- ny konto reelt ser ud, ikke kun de fyldte eksempler). Ingen af de tre har en `staff`-række — det
--- ville kræve en rigtig auth.users-identitet, som ikke findes på seed-tidspunktet (samme bootstrapping-
--- problem som owner_staff_id, se kommentaren på events-tabellen) — kun en ventende `invites`-række pr.
--- organisation. Tilgås derfor i praksis via Kontrolrummet (superadmin), ikke ved almindeligt staff-login,
--- indtil nogen rent faktisk accepterer invitationen.
+-- ny konto reelt ser ud, ikke kun de fyldte eksempler). Hver org har to faste demo-medarbejdere (en
+-- admin og en koordinator) med rigtige `staff`-rækker, så alle arrangementer har en navngiven ansvarlig
+-- fra start — se kommentaren lige før hver orgs `insert into auth.users` for hvorfor det er en bevidst
+-- undtagelse fra den normale regel om, at staff kræver et rigtigt første login. Ingen af de tre kan
+-- reelt logges ind på (fiktive .example-mailadresser, ingen rigtig indbakke) — de findes udelukkende
+-- for at attribuere demodataens korrespondance/log/ejerskab til nogen. Tilgås derfor i praksis via
+-- Kontrolrummet (superadmin), som kan se og handle i orgen uden selv at være tilknyttet som staff.
 
 -- ---- Org 1: Havbrisen Selskabslokaler (bryllup/private, to lokationer) ----
 insert into organisations (id, name, onboarding_dismissed) values
@@ -1060,15 +1062,38 @@ insert into catalog_items (id, org_id, name, category, price_kr, basis, child_ha
   ('a0000001-0000-0000-0000-0000000000c3','a0000001-0000-0000-0000-000000000000','Kaffe og kage','reception',65,'reception',true,null,2),
   ('a0000001-0000-0000-0000-0000000000c4','a0000001-0000-0000-0000-000000000000','Bar-pakke, hele aftenen','tilvalg',8500,'fast',false,null,3);
 
-insert into invites (org_id, email, name, role) values
-  ('a0000001-0000-0000-0000-000000000000','admin@havbrisen.example','Sofie Lindegaard','admin');
+-- Faste demo-medarbejdere: normalt kræver staff en ægte auth.users-login (se kommentaren ovenfor),
+-- men denne org er varigt fiktiv demodata, så identiteterne oprettes direkte og idempotent her —
+-- samme slutresultat som invites/handle_new_user()-vejen, blot uden at afvente et rigtigt første
+-- login, som aldrig kommer. "on conflict do nothing" på auth.users, fordi den tabel IKKE droppes af
+-- denne fil ved en gentagen kørsel (kun `staff`, som er fuldstændig tom igen på det tidspunkt, er).
+insert into auth.users (instance_id, id, aud, role, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at) values
+  ('00000000-0000-0000-0000-000000000000','a0000001-0000-0000-0000-0000000000a1','authenticated','authenticated','admin@havbrisen.example','',now(),'{"provider":"email","providers":["email"]}','{}',now(),now()),
+  ('00000000-0000-0000-0000-000000000000','a0000001-0000-0000-0000-0000000000a2','authenticated','authenticated','coordinator@havbrisen.example','',now(),'{"provider":"email","providers":["email"]}','{}',now(),now())
+on conflict (id) do nothing;
 
-insert into events (id, venue_id, org_id, title, event_date, offer_total_kr, status, event_type, owner_staff_id) values
-  ('a0000001-0000-0000-0000-0000000000e1','a0000001-0000-0000-0000-000000000001','a0000001-0000-0000-0000-000000000000','Ida & Kasper','2026-04-18',118400,'afviklet','bryllup',null),
-  ('a0000001-0000-0000-0000-0000000000e2','a0000001-0000-0000-0000-000000000002','a0000001-0000-0000-0000-000000000000','Firmafest · Solstrand Ejendomme','2026-06-06',72300,'afviklet','firmafest',null),
-  ('a0000001-0000-0000-0000-0000000000e3','a0000001-0000-0000-0000-000000000001','a0000001-0000-0000-0000-000000000000','Camilla & Rasmus','2026-09-19',132600,'bekræftet','bryllup',null),
-  ('a0000001-0000-0000-0000-0000000000e4','a0000001-0000-0000-0000-000000000002','a0000001-0000-0000-0000-000000000000','Nanna & Frederik','2026-11-14',96000,'tilbud','bryllup',null),
-  ('a0000001-0000-0000-0000-0000000000e5','a0000001-0000-0000-0000-000000000001','a0000001-0000-0000-0000-000000000000','60-års fødselsdag · Elsebeth','2027-01-09',0,'kladde','andet',null);
+insert into staff (id, org_id, name, role) values
+  ('a0000001-0000-0000-0000-0000000000a1','a0000001-0000-0000-0000-000000000000','Sofie Lindegaard','admin'),
+  ('a0000001-0000-0000-0000-0000000000a2','a0000001-0000-0000-0000-000000000000','Anders Mynster','coordinator');
+
+insert into events (id, venue_id, org_id, title, event_date, offer_total_kr, status, event_type, owner_staff_id, secondary_staff_id) values
+  ('a0000001-0000-0000-0000-0000000000e1','a0000001-0000-0000-0000-000000000001','a0000001-0000-0000-0000-000000000000','Ida & Kasper','2026-04-18',118400,'afviklet','bryllup','a0000001-0000-0000-0000-0000000000a2',null),
+  ('a0000001-0000-0000-0000-0000000000e2','a0000001-0000-0000-0000-000000000002','a0000001-0000-0000-0000-000000000000','Firmafest · Solstrand Ejendomme','2026-06-06',72300,'afviklet','firmafest','a0000001-0000-0000-0000-0000000000a1',null),
+  ('a0000001-0000-0000-0000-0000000000e3','a0000001-0000-0000-0000-000000000001','a0000001-0000-0000-0000-000000000000','Camilla & Rasmus','2026-09-19',132600,'bekræftet','bryllup','a0000001-0000-0000-0000-0000000000a1','a0000001-0000-0000-0000-0000000000a2'),
+  ('a0000001-0000-0000-0000-0000000000e4','a0000001-0000-0000-0000-000000000002','a0000001-0000-0000-0000-000000000000','Nanna & Frederik','2026-11-14',96000,'tilbud','bryllup','a0000001-0000-0000-0000-0000000000a1',null),
+  ('a0000001-0000-0000-0000-0000000000e5','a0000001-0000-0000-0000-000000000001','a0000001-0000-0000-0000-000000000000','60-års fødselsdag · Elsebeth','2027-01-09',0,'kladde','andet','a0000001-0000-0000-0000-0000000000a2',null);
+
+insert into event_staff (event_id, staff_id) values
+  ('a0000001-0000-0000-0000-0000000000e3','a0000001-0000-0000-0000-0000000000a1'),
+  ('a0000001-0000-0000-0000-0000000000e3','a0000001-0000-0000-0000-0000000000a2');
+
+insert into activity_log (event_id, ts, actor_name, actor_side, entry_type, area, label, from_val, to_val, customer_visible, friendly, message_text) values
+  ('a0000001-0000-0000-0000-0000000000e1','2026-02-01 09:00:00+02','Sofie Lindegaard','kilden','change','system','Primær koordinator','','Anders Mynster',false,'Anders Mynster tilknyttet som koordinator',''),
+  ('a0000001-0000-0000-0000-0000000000e2','2026-04-01 09:00:00+02','Sofie Lindegaard','kilden','change','system','Primær koordinator','','Sofie Lindegaard',false,'Sofie Lindegaard tilknyttet som koordinator',''),
+  ('a0000001-0000-0000-0000-0000000000e3','2026-05-01 09:00:00+02','Sofie Lindegaard','kilden','change','system','Primær koordinator','','Sofie Lindegaard',false,'Sofie Lindegaard tilknyttet som koordinator',''),
+  ('a0000001-0000-0000-0000-0000000000e3','2026-05-01 09:01:00+02','Sofie Lindegaard','kilden','change','system','Sekundær koordinator','','Anders Mynster',false,'Anders Mynster tilknyttet som sekundær koordinator',''),
+  ('a0000001-0000-0000-0000-0000000000e4','2026-07-28 10:00:00+02','Sofie Lindegaard','kilden','change','system','Primær koordinator','','Sofie Lindegaard',false,'Sofie Lindegaard tilknyttet som koordinator',''),
+  ('a0000001-0000-0000-0000-0000000000e5','2026-08-12 14:00:00+02','Sofie Lindegaard','kilden','change','system','Primær koordinator','','Anders Mynster',false,'Anders Mynster tilknyttet som koordinator','');
 
 -- Flagskib: Camilla & Rasmus — fuldt udbygget (faser, gæsteliste, opgaver, godkendelser, korrespondance)
 insert into event_rooms (event_id, label, room_id, start_time, end_time, sort_order, setup_minutes, teardown_minutes, booking_status) values
@@ -1151,14 +1176,33 @@ insert into catalog_items (id, org_id, name, category, price_kr, basis, child_ha
   ('a0000002-0000-0000-0000-0000000000c3','a0000002-0000-0000-0000-000000000000','Eftermiddagskaffe','reception',55,'reception',false,null,2),
   ('a0000002-0000-0000-0000-0000000000c4','a0000002-0000-0000-0000-000000000000','AV-teknikerassistance','tilvalg',3200,'fast',false,null,3);
 
-insert into invites (org_id, email, name, role) values
-  ('a0000002-0000-0000-0000-000000000000','admin@domicilkonference.example','Peter Vang','admin');
+-- Faste demo-medarbejdere: se den udførlige kommentar ved Org 1 ovenfor for hvorfor auth.users/staff
+-- oprettes direkte her i stedet for via invites.
+insert into auth.users (instance_id, id, aud, role, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at) values
+  ('00000000-0000-0000-0000-000000000000','a0000002-0000-0000-0000-0000000000a1','authenticated','authenticated','admin@domicilkonference.example','',now(),'{"provider":"email","providers":["email"]}','{}',now(),now()),
+  ('00000000-0000-0000-0000-000000000000','a0000002-0000-0000-0000-0000000000a2','authenticated','authenticated','coordinator@domicilkonference.example','',now(),'{"provider":"email","providers":["email"]}','{}',now(),now())
+on conflict (id) do nothing;
 
-insert into events (id, venue_id, org_id, title, event_date, offer_total_kr, status, event_type, owner_staff_id) values
-  ('a0000002-0000-0000-0000-0000000000e1','a0000002-0000-0000-0000-000000000001','a0000002-0000-0000-0000-000000000000','Nordisk Forsikring — Generalforsamling','2026-03-25',84600,'afviklet','konference',null),
-  ('a0000002-0000-0000-0000-0000000000e2','a0000002-0000-0000-0000-000000000001','a0000002-0000-0000-0000-000000000000','TechSummit Øst 2026','2026-10-01',156800,'bekræftet','konference',null),
-  ('a0000002-0000-0000-0000-0000000000e3','a0000002-0000-0000-0000-000000000001','a0000002-0000-0000-0000-000000000000','Byggeriets Dag','2026-11-25',210000,'tilbud','konference',null),
-  ('a0000002-0000-0000-0000-0000000000e4','a0000002-0000-0000-0000-000000000001','a0000002-0000-0000-0000-000000000000','Intern strategidag · Vindstød A/S','2027-01-20',0,'kladde','firmafest',null);
+insert into staff (id, org_id, name, role) values
+  ('a0000002-0000-0000-0000-0000000000a1','a0000002-0000-0000-0000-000000000000','Peter Vang','admin'),
+  ('a0000002-0000-0000-0000-0000000000a2','a0000002-0000-0000-0000-000000000000','Mette Kold','coordinator');
+
+insert into events (id, venue_id, org_id, title, event_date, offer_total_kr, status, event_type, owner_staff_id, secondary_staff_id) values
+  ('a0000002-0000-0000-0000-0000000000e1','a0000002-0000-0000-0000-000000000001','a0000002-0000-0000-0000-000000000000','Nordisk Forsikring — Generalforsamling','2026-03-25',84600,'afviklet','konference','a0000002-0000-0000-0000-0000000000a2',null),
+  ('a0000002-0000-0000-0000-0000000000e2','a0000002-0000-0000-0000-000000000001','a0000002-0000-0000-0000-000000000000','TechSummit Øst 2026','2026-10-01',156800,'bekræftet','konference','a0000002-0000-0000-0000-0000000000a1','a0000002-0000-0000-0000-0000000000a2'),
+  ('a0000002-0000-0000-0000-0000000000e3','a0000002-0000-0000-0000-000000000001','a0000002-0000-0000-0000-000000000000','Byggeriets Dag','2026-11-25',210000,'tilbud','konference','a0000002-0000-0000-0000-0000000000a1',null),
+  ('a0000002-0000-0000-0000-0000000000e4','a0000002-0000-0000-0000-000000000001','a0000002-0000-0000-0000-000000000000','Intern strategidag · Vindstød A/S','2027-01-20',0,'kladde','firmafest','a0000002-0000-0000-0000-0000000000a2',null);
+
+insert into event_staff (event_id, staff_id) values
+  ('a0000002-0000-0000-0000-0000000000e2','a0000002-0000-0000-0000-0000000000a1'),
+  ('a0000002-0000-0000-0000-0000000000e2','a0000002-0000-0000-0000-0000000000a2');
+
+insert into activity_log (event_id, ts, actor_name, actor_side, entry_type, area, label, from_val, to_val, customer_visible, friendly, message_text) values
+  ('a0000002-0000-0000-0000-0000000000e1','2026-01-15 09:00:00+02','Peter Vang','kilden','change','system','Primær koordinator','','Mette Kold',false,'Mette Kold tilknyttet som koordinator',''),
+  ('a0000002-0000-0000-0000-0000000000e2','2026-06-01 09:00:00+02','Peter Vang','kilden','change','system','Primær koordinator','','Peter Vang',false,'Peter Vang tilknyttet som koordinator',''),
+  ('a0000002-0000-0000-0000-0000000000e2','2026-06-01 09:01:00+02','Peter Vang','kilden','change','system','Sekundær koordinator','','Mette Kold',false,'Mette Kold tilknyttet som sekundær koordinator',''),
+  ('a0000002-0000-0000-0000-0000000000e3','2026-07-20 09:00:00+02','Peter Vang','kilden','change','system','Primær koordinator','','Peter Vang',false,'Peter Vang tilknyttet som koordinator',''),
+  ('a0000002-0000-0000-0000-0000000000e4','2026-08-13 09:00:00+02','Peter Vang','kilden','change','system','Primær koordinator','','Mette Kold',false,'Mette Kold tilknyttet som koordinator','');
 
 -- Flagskib: TechSummit Øst 2026
 insert into event_rooms (event_id, label, room_id, start_time, end_time, sort_order, setup_minutes, teardown_minutes, booking_status) values
@@ -1227,12 +1271,24 @@ insert into catalog_items (id, org_id, name, category, price_kr, basis, child_ha
   ('a0000003-0000-0000-0000-0000000000c1','a0000003-0000-0000-0000-000000000000','Gårdmenu, 2 retter','menu',645,'middag',true,null,0),
   ('a0000003-0000-0000-0000-0000000000c2','a0000003-0000-0000-0000-000000000000','Grill-buffet','menu',385,'middag',true,null,1);
 
-insert into invites (org_id, email, name, role) values
-  ('a0000003-0000-0000-0000-000000000000','admin@laerkevang.example','Anders Pihl','admin');
+-- Faste demo-medarbejdere: se den udførlige kommentar ved Org 1 ovenfor for hvorfor auth.users/staff
+-- oprettes direkte her i stedet for via invites.
+insert into auth.users (instance_id, id, aud, role, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at) values
+  ('00000000-0000-0000-0000-000000000000','a0000003-0000-0000-0000-0000000000a1','authenticated','authenticated','admin@laerkevang.example','',now(),'{"provider":"email","providers":["email"]}','{}',now(),now()),
+  ('00000000-0000-0000-0000-000000000000','a0000003-0000-0000-0000-0000000000a2','authenticated','authenticated','coordinator@laerkevang.example','',now(),'{"provider":"email","providers":["email"]}','{}',now(),now())
+on conflict (id) do nothing;
+
+insert into staff (id, org_id, name, role) values
+  ('a0000003-0000-0000-0000-0000000000a1','a0000003-0000-0000-0000-000000000000','Anders Pihl','admin'),
+  ('a0000003-0000-0000-0000-0000000000a2','a0000003-0000-0000-0000-000000000000','Julie Holm','coordinator');
 
 insert into events (id, venue_id, org_id, title, event_date, offer_total_kr, status, event_type, owner_staff_id) values
-  ('a0000003-0000-0000-0000-0000000000e1','a0000003-0000-0000-0000-000000000001','a0000003-0000-0000-0000-000000000000','Prøvesmagning · Studiegruppen','2026-09-05',8200,'tilbud','andet',null),
-  ('a0000003-0000-0000-0000-0000000000e2','a0000003-0000-0000-0000-000000000001','a0000003-0000-0000-0000-000000000000','Firmasommerfest · Nordly A/S','2027-06-12',0,'kladde','firmafest',null);
+  ('a0000003-0000-0000-0000-0000000000e1','a0000003-0000-0000-0000-000000000001','a0000003-0000-0000-0000-000000000000','Prøvesmagning · Studiegruppen','2026-09-05',8200,'tilbud','andet','a0000003-0000-0000-0000-0000000000a1'),
+  ('a0000003-0000-0000-0000-0000000000e2','a0000003-0000-0000-0000-000000000001','a0000003-0000-0000-0000-000000000000','Firmasommerfest · Nordly A/S','2027-06-12',0,'kladde','firmafest','a0000003-0000-0000-0000-0000000000a2');
+
+insert into activity_log (event_id, ts, actor_name, actor_side, entry_type, area, label, from_val, to_val, customer_visible, friendly, message_text) values
+  ('a0000003-0000-0000-0000-0000000000e1','2026-08-05 09:00:00+02','Anders Pihl','kilden','change','system','Primær koordinator','','Anders Pihl',false,'Anders Pihl tilknyttet som koordinator',''),
+  ('a0000003-0000-0000-0000-0000000000e2','2026-08-13 09:00:00+02','Anders Pihl','kilden','change','system','Primær koordinator','','Julie Holm',false,'Julie Holm tilknyttet som koordinator','');
 
 insert into guests (event_id, name, category, reception, dinner, dietary, sort_order) values
   ('a0000003-0000-0000-0000-0000000000e1','Studiegruppe A','voksen',true,true,'',0),
