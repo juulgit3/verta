@@ -25,7 +25,7 @@ Sikkerheden ligger i databasens RLS-regler, ikke i at skjule anon-nøglen.
 1. `supabase.com` → **New project**. Gratis-planen er nok. Vælg region **EU (Frankfurt)**. Sæt en db-adgangskode og gem den.
 2. Vent ~2 min på, at projektet er klar.
 3. Åbn **SQL Editor → New query**, indsæt *hele* `schema.sql`, tryk **Run**.
-4. Tjek **Table Editor**: du bør se `events` (Emily & Lars), 77 gæster, og `rooms` med Kildens to lokaler.
+4. Tjek **Table Editor**: du bør se `organisations` med tre fiktive demo-virksomheder (bl.a. "Havbrisen Selskabslokaler"), og `events` med bl.a. "Camilla & Rasmus".
 
 > Kører du skemaet igen senere, dropper og genskaber det alt (også testdata). Det er med vilje — så kan du nulstille frit under test.
 
@@ -61,25 +61,28 @@ Hvert fremtidigt push til GitHub deployer automatisk igen.
 5. **SQL Editor**, kør (indsæt dit UID):
    ```sql
    insert into staff (id, org_id, name, role) values
-     ('DIT-USER-UID', '11111111-1111-1111-1111-111111111111', 'Dit navn', 'admin');
+     ('DIT-USER-UID', 'a0000001-0000-0000-0000-000000000000', 'Dit navn', 'admin');
    ```
-6. Genindlæs appen. Nu er du admin: du ser arrangementsoversigten og kan åbne Emily & Lars.
+   (`a0000001-...` er "Havbrisen Selskabslokaler" — se `schema.sql`s seed-sektion for de to andre demo-organisationer.)
+6. Genindlæs appen. Nu er du admin: du ser arrangementsoversigten og kan åbne "Camilla & Rasmus".
 
-## Trin 7 · (Valgfrit) test brudeparrets side
-1. Log ind med en anden mail (fx Emilys), så brugeren findes.
-2. Kopiér hendes UID fra **Authentication → Users**.
+Alternativt: gør dig selv til **superadmin** i stedet (se bootstrap-sektionen i `schema.sql`) — så lander du i Kontrolrummet og kan åbne alle tre demo-organisationer uden noget staff-trin.
+
+## Trin 7 · (Valgfrit) test kundens side
+1. Log ind med en anden mail, så brugeren findes.
+2. Kopiér den nye brugers UID fra **Authentication → Users**.
 3. **SQL Editor**:
    ```sql
    insert into event_access (event_id, user_id, display_name) values
-     ('33333333-3333-3333-3333-333333333333', 'EMILYS-UID', 'Emily');
+     ('a0000001-0000-0000-0000-0000000000e3', 'KUNDENS-UID', 'Camilla');
    ```
-4. Når hun åbner appen, ser hun brudeparrets visning af Emily & Lars — kun tidslinje og beskeder, ingen kigge-tider.
+4. Når personen åbner appen, ser de kundens visning af "Camilla & Rasmus" — kun tidslinje og beskeder, ingen kigge-tider.
 
 ---
 
 ## Hvis noget driller
 - **Login-linket sender mig det forkerte sted hen / intet sker** → Site URL og Redirect URL i Trin 5 skal matche din Netlify-URL præcist (https, uden ekstra skråstreg).
-- **"Ingen adgang" bliver ved** → tjek, at `staff`-rækken i Trin 6 har dit rigtige UID og org-id'et `1111...`.
+- **"Ingen adgang" bliver ved** → tjek, at `staff`-rækken i Trin 6 har dit rigtige UID og det rigtige org-id.
 - **Login-skærmen loader ikke / fejl med det samme** → tjek at `SUPA.url`/`SUPA.anon` i Trin 3 rent faktisk blev committet og deployet — appen kræver dem.
 - **Tom side / fejl** → åbn browserens konsol (F12) og noter den ordrette fejl.
 

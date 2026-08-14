@@ -71,7 +71,7 @@ section{padding:64px 0;border-top:1px solid var(--line)}
 .section-head h2{font-family:'Instrument Serif',Georgia,serif;font-style:italic;font-weight:400;
   font-size:clamp(28px,4vw,38px);margin-top:12px}
 
-.stagegrid{display:flex;gap:10px;flex-wrap:wrap;margin:36px 0 8px}
+.stagegrid{display:flex;gap:10px;flex-wrap:wrap;margin:22px 0 0}
 .stage{font-size:12px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;
   padding:8px 16px;border-radius:99px;border:1px solid var(--line-strong);color:var(--ink-45)}
 .stage.current{border-color:var(--blue);color:#fff;background:var(--blue)}
@@ -85,9 +85,9 @@ section{padding:64px 0;border-top:1px solid var(--line)}
 .step h3{margin-top:10px;font-size:16px;font-weight:700}
 .step p{margin-top:8px;font-size:14px;color:var(--ink-70);line-height:1.55}
 
-.hubfig{margin:0 0 48px}
+.hubfig{margin:0 0 48px;background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:38px 32px 30px}
 .hubfig svg{width:100%;height:auto;display:block}
-.hubfig figcaption{margin-top:16px;font-size:12.5px;color:var(--ink-45);text-align:center}
+.hubfig figcaption{margin-top:20px;font-size:12.5px;color:var(--ink-45);text-align:center}
 
 .roletabs{display:flex;gap:28px;border-bottom:1px solid var(--line-strong);margin-bottom:30px;flex-wrap:wrap}
 .roletabs button{background:none;border:none;padding:12px 2px;font:inherit;font-size:15px;font-weight:700;
@@ -145,12 +145,6 @@ footer.site .fnote{margin-top:10px;font-size:12.5px;color:var(--ink-45);line-hei
       <h1>Fra kladde til afviklet arrangement.</h1>
       <p class="sub">Ethvert arrangement i Verta bevæger sig gennem fire tydelige stadier —
         synlige for hele jeres team med det samme. Sådan ser hvert af dem ud i praksis.</p>
-      <div class="stagegrid">
-        <span class="stage">Kladde</span><span class="stagearrow">→</span>
-        <span class="stage">Tilbud</span><span class="stagearrow">→</span>
-        <span class="stage">Bekræftet</span><span class="stagearrow">→</span>
-        <span class="stage">Afviklet</span>
-      </div>
     </div>
   </section>
 
@@ -158,6 +152,12 @@ footer.site .fnote{margin-top:10px;font-size:12.5px;color:var(--ink-45);line-hei
     <div class="wrap">
       <div class="section-head">
         <h2>Fire stadier, ét overblik.</h2>
+        <div class="stagegrid">
+          <span class="stage">Kladde</span><span class="stagearrow">→</span>
+          <span class="stage">Tilbud</span><span class="stagearrow">→</span>
+          <span class="stage">Bekræftet</span><span class="stagearrow">→</span>
+          <span class="stage">Afviklet</span>
+        </div>
       </div>
       <div class="steps">
         <div class="step">
@@ -201,32 +201,45 @@ footer.site .fnote{margin-top:10px;font-size:12.5px;color:var(--ink-45);line-hei
       <figure class="hubfig">
         <svg viewBox="0 0 860 340" role="img" aria-label="Ét arrangement forgrener sig til tre visninger: admin ser hele organisationen, koordinator ser egne arrangementer, kunden ser en forenklet side uden interne noter">
           <defs>
-            <marker id="hubArrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
-              <path d="M0,0 L6,3 L0,6 Z" fill="var(--ink-45)"></path>
+            <filter id="hubShadow" x="-30%" y="-40%" width="160%" height="220%">
+              <feDropShadow dx="0" dy="3" stdDeviation="5" flood-color="#12151B" flood-opacity="0.14"></feDropShadow>
+            </filter>
+            <marker id="arrowBlue" markerWidth="9" markerHeight="9" refX="6.5" refY="3.5" orient="auto">
+              <path d="M0,0 L7,3.5 L0,7 Z" fill="var(--blue)"></path>
+            </marker>
+            <marker id="arrowMoss" markerWidth="9" markerHeight="9" refX="6.5" refY="3.5" orient="auto">
+              <path d="M0,0 L7,3.5 L0,7 Z" fill="var(--moss)"></path>
+            </marker>
+            <marker id="arrowAmber" markerWidth="9" markerHeight="9" refX="6.5" refY="3.5" orient="auto">
+              <path d="M0,0 L7,3.5 L0,7 Z" fill="var(--amber)"></path>
             </marker>
           </defs>
-          <rect x="16" y="130" width="230" height="80" rx="4" fill="var(--card)" stroke="var(--blue)" stroke-width="1.5"></rect>
-          <text x="131" y="163" text-anchor="middle" font-family="Familjen Grotesk, sans-serif" font-size="15" font-weight="700" fill="var(--ink)">Ét arrangement</text>
-          <text x="131" y="184" text-anchor="middle" font-family="Familjen Grotesk, sans-serif" font-size="11.5" fill="var(--ink-45)">Samme data, opdateret i realtid</text>
 
-          <path d="M246,170 L280,170 L560,58" fill="none" stroke="var(--ink-45)" stroke-width="1.3" marker-end="url(#hubArrow)"></path>
-          <path d="M246,170 L280,170 L560,170" fill="none" stroke="var(--ink-45)" stroke-width="1.3" marker-end="url(#hubArrow)"></path>
-          <path d="M246,170 L280,170 L560,282" fill="none" stroke="var(--ink-45)" stroke-width="1.3" marker-end="url(#hubArrow)"></path>
+          <path d="M250,170 C 336,170 336,59 566,59" fill="none" stroke="var(--blue)" stroke-width="1.6" stroke-linecap="round" marker-end="url(#arrowBlue)"></path>
+          <path d="M250,170 C 336,170 336,171 566,171" fill="none" stroke="var(--moss)" stroke-width="1.6" stroke-linecap="round" marker-end="url(#arrowMoss)"></path>
+          <path d="M250,170 C 336,170 336,283 566,283" fill="none" stroke="var(--amber)" stroke-width="1.6" stroke-linecap="round" marker-end="url(#arrowAmber)"></path>
 
-          <rect x="568" y="20" width="276" height="78" rx="4" fill="var(--card)" stroke="var(--line-strong)"></rect>
-          <text x="592" y="49" font-family="Familjen Grotesk, sans-serif" font-size="14" font-weight="700" fill="var(--blue)">Admin</text>
-          <text x="592" y="70" font-family="Familjen Grotesk, sans-serif" font-size="12" fill="var(--ink-70)">Ser alle lokationer og</text>
-          <text x="592" y="86" font-family="Familjen Grotesk, sans-serif" font-size="12" fill="var(--ink-70)">arrangementer i organisationen</text>
+          <rect x="16" y="130" width="230" height="80" rx="6" fill="var(--blue)" filter="url(#hubShadow)"></rect>
+          <text x="131" y="163" text-anchor="middle" font-family="Familjen Grotesk, sans-serif" font-size="15" font-weight="700" fill="#fff">Ét arrangement</text>
+          <text x="131" y="184" text-anchor="middle" font-family="Familjen Grotesk, sans-serif" font-size="11.5" fill="rgba(255,255,255,.75)">Samme data, opdateret i realtid</text>
 
-          <rect x="568" y="132" width="276" height="78" rx="4" fill="var(--card)" stroke="var(--line-strong)"></rect>
-          <text x="592" y="161" font-family="Familjen Grotesk, sans-serif" font-size="14" font-weight="700" fill="var(--blue)">Koordinator</text>
-          <text x="592" y="182" font-family="Familjen Grotesk, sans-serif" font-size="12" fill="var(--ink-70)">Ser egne arrangementer og</text>
-          <text x="592" y="198" font-family="Familjen Grotesk, sans-serif" font-size="12" fill="var(--ink-70)">dagens opgaver</text>
+          <rect x="568" y="20" width="276" height="78" rx="6" fill="#fff" filter="url(#hubShadow)"></rect>
+          <rect x="568" y="20" width="5" height="78" rx="2.5" fill="var(--blue)"></rect>
+          <text x="598" y="49" font-family="Familjen Grotesk, sans-serif" font-size="14" font-weight="700" fill="var(--ink)">Admin</text>
+          <text x="598" y="70" font-family="Familjen Grotesk, sans-serif" font-size="12" fill="var(--ink-70)">Ser alle lokationer og</text>
+          <text x="598" y="86" font-family="Familjen Grotesk, sans-serif" font-size="12" fill="var(--ink-70)">arrangementer i organisationen</text>
 
-          <rect x="568" y="244" width="276" height="78" rx="4" fill="var(--card)" stroke="var(--line-strong)"></rect>
-          <text x="592" y="273" font-family="Familjen Grotesk, sans-serif" font-size="14" font-weight="700" fill="var(--blue)">Kunden</text>
-          <text x="592" y="294" font-family="Familjen Grotesk, sans-serif" font-size="12" fill="var(--ink-70)">Egen side — uden interne</text>
-          <text x="592" y="310" font-family="Familjen Grotesk, sans-serif" font-size="12" fill="var(--ink-70)">noter og kigge-tider</text>
+          <rect x="568" y="132" width="276" height="78" rx="6" fill="#fff" filter="url(#hubShadow)"></rect>
+          <rect x="568" y="132" width="5" height="78" rx="2.5" fill="var(--moss)"></rect>
+          <text x="598" y="161" font-family="Familjen Grotesk, sans-serif" font-size="14" font-weight="700" fill="var(--ink)">Koordinator</text>
+          <text x="598" y="182" font-family="Familjen Grotesk, sans-serif" font-size="12" fill="var(--ink-70)">Ser egne arrangementer og</text>
+          <text x="598" y="198" font-family="Familjen Grotesk, sans-serif" font-size="12" fill="var(--ink-70)">dagens opgaver</text>
+
+          <rect x="568" y="244" width="276" height="78" rx="6" fill="#fff" filter="url(#hubShadow)"></rect>
+          <rect x="568" y="244" width="5" height="78" rx="2.5" fill="var(--amber)"></rect>
+          <text x="598" y="273" font-family="Familjen Grotesk, sans-serif" font-size="14" font-weight="700" fill="var(--ink)">Kunden</text>
+          <text x="598" y="294" font-family="Familjen Grotesk, sans-serif" font-size="12" fill="var(--ink-70)">Egen side — uden interne</text>
+          <text x="598" y="310" font-family="Familjen Grotesk, sans-serif" font-size="12" fill="var(--ink-70)">noter og kigge-tider</text>
         </svg>
         <figcaption>Tre roller, ét datagrundlag — adgang håndhævet i databasen, ikke kun i brugerfladen.</figcaption>
       </figure>

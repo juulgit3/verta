@@ -2357,6 +2357,10 @@ MODAL_RENDERERS.newEvent = function(){
     <div class="field"><label for="neType">Arrangementstype</label><select id="neType" class="search" style="width:100%">
       ${CAT_EVENT_TYPES.map(t=>`<option value="${t}">${t}</option>`).join('')}
     </select></div>
+    <div class="field" style="grid-column:span 2"><label for="neOwner">Koordinator</label><select id="neOwner" class="search" style="width:100%">
+      <option value="">Vælg…</option>
+      ${(state.roster||[]).map(r=>`<option value="${r.id}" ${state.userId===r.id?'selected':''}>${esc(r.name)}${state.userId===r.id?' (dig)':''}</option>`).join('')}
+    </select></div>
     ${(state.orgTemplates||[]).filter(t=>!t.archived).length?`<div class="field" style="grid-column:span 2"><label for="neTemplate">Fra skabelon (valgfri)</label><select id="neTemplate" class="search" style="width:100%">
       <option value="">— Ingen skabelon —</option>
       ${(state.orgTemplates||[]).filter(t=>!t.archived).map(t=>`<option value="${t.id}" ${state.newEventFromTemplate===t.id?'selected':''}>${esc(t.name)}</option>`).join('')}
@@ -2578,6 +2582,19 @@ function renderInner(){
       const inboxKind=document.getElementById('inboxKind'); if(inboxKind) inboxKind.onchange=()=>{ setInboxFilter({kind:inboxKind.value}); render(); };
       const inboxSortSel=document.getElementById('inboxSortSel'); if(inboxSortSel) inboxSortSel.onchange=()=>{ setInboxSort(inboxSortSel.value); render(); };
       v.querySelectorAll('[data-goto-inbox-tab]').forEach(el=>el.addEventListener('click', ()=>{ state.pendingInboxTab=el.dataset.gotoInboxTab; }));
+      v.querySelectorAll('[data-inbox-task-done]').forEach(el=>el.onclick=()=>inboxCompleteTask(el.dataset.inboxTaskEvent, el.dataset.inboxTaskDone, el.dataset.inboxTaskTitle, el.dataset.inboxTaskFrom));
+      v.querySelectorAll('[data-inbox-owner-assign]').forEach(el=>el.onclick=()=>{
+        const evId=el.dataset.inboxOwnerAssign;
+        const sel=v.querySelector(`[data-inbox-owner-select="${evId}"]`);
+        if(!sel || !sel.value){ showToast('Vælg en koordinator først.','error'); return; }
+        inboxAssignOwner(evId, sel.value);
+      });
+      v.querySelectorAll('[data-inbox-guest-create]').forEach(el=>el.onclick=()=>{
+        const evId=el.dataset.inboxGuestCreate;
+        const nameEl=v.querySelector(`[data-inbox-guest-name="${evId}"]`);
+        const emailEl=v.querySelector(`[data-inbox-guest-email="${evId}"]`);
+        inboxCreateGuestLink(evId, nameEl?nameEl.value.trim():'', emailEl?emailEl.value.trim():'');
+      });
     }
     v.querySelectorAll('[data-nav]').forEach(el=>el.onclick=async()=>{
       state.view=el.dataset.nav;
@@ -3624,7 +3641,7 @@ async function loadPickerExceptions(){
   state.eventExceptions={};
   if(!ids.length) return;
   const [{data:tasks},{data:rooms},{data:access},{data:guests},{data:catLinks},{data:approvals},{data:changeReqs},{data:msgs}] = await Promise.all([
-    sb.from('agenda_items').select('event_id,status,due_date,assigned_staff_id,priority').in('event_id',ids),
+    sb.from('agenda_items').select('id,event_id,title,status,due_date,assigned_staff_id,priority').in('event_id',ids),
     sb.from('event_rooms').select('event_id,room_id,start_time,end_time').in('event_id',ids),
     sb.from('event_access').select('event_id').in('event_id',ids),
     sb.from('guests').select('event_id,category,reception,dinner').in('event_id',ids),
@@ -3650,8 +3667,8 @@ async function loadPickerExceptions(){
     if(openTasks.length) nextDue[ev.id]=openTasks.map(t=>t.due_date).sort()[0];
     const overdue=openTasks.filter(t=>t.due_date<today);
     const soon=openTasks.filter(t=>t.due_date>=today && t.due_date<=in7);
-    if(overdue.length) reasons.push({txt:overdue.length+' opgave'+(overdue.length>1?'r':'')+' er overskredet', urgent:true, tier:1, kind:'task', who:'organisationen', actionLabel:'Se opgaver', actionTab:'punkter'});
-    else if(soon.length) reasons.push({txt:soon.length+' opgave'+(soon.length>1?'r':'')+' har frist inden for 7 dage', urgent:false, tier:4, kind:'task', who:'organisationen', actionLabel:'Se opgaver', actionTab:'punkter'});
+    if(overdue.length) reasons.push({txt:overdue.length+' opgave'+(overdue.length>1?'r':'')+' er overskredet', urgent:true, tier:1, kind:'task', who:'organisationen', actionLabel:'Se opgaver', actionTab:'punkter', tasks:overdue});
+    else if(soon.length) reasons.push({txt:soon.length+' opgave'+(soon.length>1?'r':'')+' har frist inden for 7 dage', urgent:false, tier:4, kind:'task', who:'organisationen', actionLabel:'Se opgaver', actionTab:'punkter', tasks:soon});
     if(!ev.owner_staff_id) reasons.push({txt:'Ingen ansvarlig medarbejder', urgent:true, tier:2, kind:'ejer', who:'organisationen', actionLabel:'Tilknyt medarbejder', actionTab:'admin'});
     const lastMsg=latestMsgByEvent[ev.id];
     if(lastMsg && lastMsg.actor_side==='kunde'){
@@ -4029,14 +4046,15 @@ async function createEvent(){
   const venueId=document.getElementById('neVenue').value;
   const date=document.getElementById('neDate').value;
   const eventType=document.getElementById('neType').value;
+  const ownerId=document.getElementById('neOwner').value;
   const useTasks=document.getElementById('neTasks').checked;
   const templateEl=document.getElementById('neTemplate');
   const templateId=templateEl?templateEl.value:'';
-  if(!title||!venueId||!date){ showToast('Udfyld titel, lokation og dato.','error'); return; }
+  if(!title||!venueId||!date||!ownerId){ showToast('Udfyld titel, lokation, dato og koordinator.','error'); return; }
   const btn=document.getElementById('neCreate'), orig=btn.textContent;
   btn.disabled=true; btn.textContent='Opretter…';
   const {error}=await mutate(()=>sb.from('events')
-    .insert({title, venue_id:venueId, org_id:state.orgId, event_date:date, offer_total_kr:0, status:'kladde', event_type:eventType}));
+    .insert({title, venue_id:venueId, org_id:state.orgId, event_date:date, offer_total_kr:0, status:'kladde', event_type:eventType, owner_staff_id:ownerId}));
   if(error){ btn.disabled=false; btn.textContent=orig; showToast('Kunne ikke oprette: '+error.message,'error'); return; }
   /* Knappen forbliver deaktiveret/"Opretter…", indtil vi enten navigerer ind i det nye arrangement eller
      falder tilbage til oversigten — ellers ser formularen momentant ud til at være klar til et nyt (dobbelt-)tryk. */
@@ -4455,6 +4473,80 @@ function eventStatusChip(status){
   const cls = status==='bekræftet'?'ok':status==='tilbud'?'blue':status==='kladde'?'warn':'';
   return `<span class="chip ${cls}"><span class="dot"></span>${label}</span>`;
 }
+/* Inline-handlinger direkte på "Kræver handling"-kortet — koordinatoren skal kunne handle uden at
+   forlade forsiden. Kun de årsager, der reelt kan afgøres med ét felt/klik uden yderligere kontekst
+   (opgave udført, tilknyt koordinator, opret gæstelink) får en inline-kontrol; resten (besked, afvist
+   godkendelse, ændringsforslag, manglende lokale, prisafvigelse) beholder kun "Åbn arrangement", da et
+   ægte svar dér kræver at se selve sammenhængen. Disse funktioner må ALDRIG antage, at det ramte
+   arrangement er state.eventId — kortene viser arrangementer på tværs af hele indbakken, ikke kun det
+   evt. åbne. */
+async function inboxCompleteTask(eventId, taskId, taskTitle, fromStatus){
+  const {error}=await mutate(()=>sb.from('agenda_items').update({status:'aftalt'}).eq('id',taskId));
+  if(error){ showToast('Kunne ikke markere som udført: '+error.message,'error'); return; }
+  await mutate(()=>sb.from('activity_log').insert({event_id:eventId, ts:new Date().toISOString(),
+    actor_name:currentActor().navn, actor_side:currentActor().side, entry_type:'change', area:'punkter',
+    label:taskTitle, from_val:fromStatus||'', to_val:'aftalt', customer_visible:true,
+    friendly:taskTitle+' er nu udført', message_text:''}));
+  showToast('Opgave markeret som udført ✓','ok');
+  await loadPickerExceptions();
+  render();
+}
+async function inboxAssignOwner(eventId, staffId){
+  const {error}=await mutate(()=>sb.from('events').update({owner_staff_id:staffId}).eq('id',eventId));
+  if(error){ showToast('Kunne ikke tilknytte koordinator: '+error.message,'error'); return; }
+  const ev=(state.events||[]).find(x=>x.id===eventId); if(ev) ev.owner_staff_id=staffId;
+  const staffName=((state.roster||[]).find(r=>r.id===staffId)||{}).name||'—';
+  await mutate(()=>sb.from('activity_log').insert({event_id:eventId, ts:new Date().toISOString(),
+    actor_name:currentActor().navn, actor_side:currentActor().side, entry_type:'change', area:'system',
+    label:'Primær koordinator', from_val:'', to_val:staffName, customer_visible:false,
+    friendly:staffName+' tilknyttet som koordinator', message_text:''}));
+  showToast('Koordinator tilknyttet ✓','ok');
+  await loadPickerExceptions();
+  render();
+}
+async function inboxCreateGuestLink(eventId, name, email){
+  if(!name || !email){ showToast('Udfyld både navn og mail.','error'); return; }
+  const {data, error}=await mutate(()=>sb.functions.invoke('invite-guest', {body:{eventId, email, displayName:name, expiresInDays:null}}));
+  if(error || !data || !data.link){ showToast('Kunne ikke oprette link: '+(error?.message || data?.error || 'ukendt fejl'),'error'); return; }
+  try{ await navigator.clipboard.writeText(data.link); showToast('Gæstelink oprettet og kopieret ✓','ok'); }
+  catch(e){ showToast('Gæstelink oprettet: '+data.link,'ok'); }
+  await mutate(()=>sb.from('activity_log').insert({event_id:eventId, ts:new Date().toISOString(),
+    actor_name:currentActor().navn, actor_side:currentActor().side, entry_type:'change', area:'system',
+    label:'Gæstelink', from_val:'', to_val:'', customer_visible:false,
+    friendly:'Gæstelink genereret til '+name+' ('+email+')', message_text:''}));
+  await loadPickerExceptions();
+  render();
+}
+function inboxInlineActionsHtml(e, reasons){
+  const blocks=[];
+  const taskReason=reasons.find(r=>r.kind==='task' && r.tasks && r.tasks.length);
+  if(taskReason){
+    blocks.push(`<div style="margin-top:8px;display:flex;flex-direction:column;gap:5px">
+      ${taskReason.tasks.slice(0,3).map(t=>`<div class="row" style="justify-content:space-between;gap:10px">
+        <span style="font-size:13px">${esc(t.title)}</span>
+        <button class="btn" style="padding:4px 10px;font-size:12px" data-inbox-task-done="${t.id}" data-inbox-task-event="${e.id}" data-inbox-task-title="${esc(t.title)}" data-inbox-task-from="${esc(t.status)}">✓ Udført</button>
+      </div>`).join('')}
+      ${taskReason.tasks.length>3?`<span class="note">+${taskReason.tasks.length-3} flere</span>`:''}
+    </div>`);
+  }
+  if(reasons.some(r=>r.kind==='ejer')){
+    blocks.push(`<div class="row" style="gap:6px;margin-top:8px;flex-wrap:wrap">
+      <select class="status" data-inbox-owner-select="${e.id}" style="min-width:170px">
+        <option value="">Vælg koordinator…</option>
+        ${(state.roster||[]).map(r=>`<option value="${r.id}">${esc(r.name)}</option>`).join('')}
+      </select>
+      <button class="btn" data-inbox-owner-assign="${e.id}">Tilknyt</button>
+    </div>`);
+  }
+  if(reasons.some(r=>r.kind==='gaestelink')){
+    blocks.push(`<div class="row" style="gap:6px;margin-top:8px;flex-wrap:wrap">
+      <input class="search" placeholder="Gæstens navn" data-inbox-guest-name="${e.id}" style="max-width:150px">
+      <input class="search" placeholder="Gæstens mail" type="email" data-inbox-guest-email="${e.id}" style="max-width:190px">
+      <button class="btn" data-inbox-guest-create="${e.id}">Opret gæstelink</button>
+    </div>`);
+  }
+  return blocks.join('');
+}
 function actionRequiredSection(){
   if(state.pickerExceptionsLoading){
     return `<section class="card" style="border-left:3px solid var(--amber)">
@@ -4512,14 +4604,16 @@ function actionRequiredSection(){
       const reasons=reasonsMatchFilter(state.eventExceptions[e.id]).sort((a,b)=>(a.tier||5)-(b.tier||5));
       const d=dageTil(e.event_date);
       const top=reasons[0];
+      const inline=inboxInlineActionsHtml(e, reasons);
       return `<div class="item" style="flex-wrap:wrap">
         <span class="stripe ${top.tier<=1?'kilden':(top.tier<=2?'warn':'jer')}"></span>
         <div style="flex:1;min-width:200px">
           <div class="name">${esc(e.title)}</div>
           <div class="meta">${datoKort(e.event_date)} · ${d>=0?('om '+d+' dage'):(Math.abs(d)+' dage siden')}${e.venues?' · '+esc(e.venues.name):''}${e.event_type?' · '+esc(e.event_type):''}</div>
           <div style="margin-top:6px">${reasons.map(r=>`<span class="chip ${r.urgent?'warn':''}" style="margin:0 6px 4px 0" title="${esc(INBOX_TIER_LABEL[r.tier]||'')}"><span class="dot"></span>${esc(r.txt)}</span>`).join('')}</div>
+          ${inline}
         </div>
-        <button class="btn primary" data-open="${e.id}" data-goto-inbox-tab="${esc(top.actionTab||'oversigt')}">${esc(top.actionLabel||'Åbn')} →</button>
+        <button class="btn ${inline?'':'primary'}" data-open="${e.id}" data-goto-inbox-tab="${esc(top.actionTab||'oversigt')}">${inline?'Åbn arrangement':esc(top.actionLabel||'Åbn')} →</button>
       </div>`;
     }).join('')}
   </section>`;
