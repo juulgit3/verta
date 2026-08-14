@@ -83,6 +83,9 @@ create table staff (
   org_id uuid not null references organisations(id) on delete cascade,
   name text not null,
   role text not null default 'coordinator',   -- 'admin' | 'coordinator'
+  title text,                                 -- fritekst jobtitel (fx "Selskabsansvarlig"), valgfri, sat af personen selv
+  avatar_url text,                            -- offentlig URL i storage-bucket 'staff-avatars', valgfri
+  onboarding jsonb not null default '{}'::jsonb,  -- {steps:{stepKey:true,...}, dismissed:bool} — koordinatorens "lær værktøjet"-tjekliste, se update_own_onboarding()
   created_at timestamptz not null default now()
 );
 
@@ -406,13 +409,42 @@ returns boolean language sql security definer stable set search_path = public as
                    and (a.expires_at is null or a.expires_at > now()))
 $$;
 
--- Kontaktpersonens navn til gæstens velkomstkort. Gæsten har ingen RLS-adgang
--- til staff-tabellen, så dette security-definer-kald er den eneste vej ind —
--- og kun for nogen, der faktisk er gæst eller medarbejder på arrangementet.
+-- Kontaktpersonens navn/titel/billede til gæstens velkomstkort og kontaktkort. Gæsten har ingen RLS-
+-- adgang til staff-tabellen, så dette security-definer-kald er den eneste vej ind — og kun for nogen,
+-- der faktisk er gæst eller medarbejder på arrangementet. Returtypen er udvidet fra ren text til en
+-- række (navn/titel/billede); et drop er nødvendigt først, da Postgres ikke tillader "create or
+-- replace" ved ændret returtype.
+drop function if exists get_event_contact(uuid);
 create or replace function get_event_contact(target_event uuid)
-returns text language sql security definer stable set search_path = public as $$
-  select s.name from events e join staff s on s.id = e.owner_staff_id
+returns table(name text, title text, avatar_url text) language sql security definer stable set search_path = public as $$
+  select s.name, s.title, s.avatar_url from events e join staff s on s.id = e.owner_staff_id
   where e.id = target_event and (is_event_guest(target_event) or is_org_staff(target_event))
+$$;
+
+-- Selvbetjent profilredigering (navn/titel/billede) — bevidst IKKE en bred "opdater egen staff-række"-
+-- RLS-politik, da staff også rummer org_id/role, og en almindelig koordinator ellers kunne forfremme
+-- sig selv til admin eller flytte sig til en anden org via samme åbning. RPC'en rører derfor kun de
+-- tre navngivne felter, og kun på kalderens EGEN række (where id = auth.uid()).
+create or replace function update_own_profile(p_name text, p_title text default null, p_avatar_url text default null)
+returns void language plpgsql security definer set search_path = public as $$
+begin
+  if p_name is null or trim(p_name) = '' then
+    raise exception 'Navn må ikke være tomt';
+  end if;
+  update staff set name = trim(p_name), title = nullif(trim(coalesce(p_title,'')),''), avatar_url = p_avatar_url
+  where id = auth.uid();
+end;
+$$;
+
+-- Samme selvbetjenings-princip som update_own_profile ovenfor, men for koordinatorens "lær værktøjet"-
+-- tjekliste (se app/index.html: ONBOARDING_STEPS/markOnboardingStep) — skrives ofte og automatisk, hver
+-- gang brugeren udfører en ny handling appen sporer, derfor sin egen snævre RPC frem for at overloade
+-- update_own_profile med endnu et parameter, der opdateres på et helt andet tidspunkt.
+create or replace function update_own_onboarding(p_onboarding jsonb)
+returns void language plpgsql security definer set search_path = public as $$
+begin
+  update staff set onboarding = coalesce(p_onboarding, '{}'::jsonb) where id = auth.uid();
+end;
 $$;
 
 -- Bekvem status-opslag til RLS-policyer (undgår at gentage samme subquery flere steder).
@@ -880,7 +912,10 @@ create policy cir_del on catalog_item_rooms for delete using (
   exists (select 1 from catalog_items ci where ci.id = catalog_item_rooms.catalog_item_id and is_org_admin(ci.org_id))
 );
 
--- Medarbejdere kan se kolleger (til tildeling); kun admin må ændre brugere
+-- Medarbejdere kan se kolleger (til tildeling); kun admin må ændre brugere direkte i tabellen.
+-- En almindelig koordinator redigerer sin EGEN profil (navn/titel/billede/onboarding) udelukkende via
+-- update_own_profile()/update_own_onboarding() ovenfor, ikke via en UPDATE-politik her — se kommentaren
+-- ved de to funktioner for hvorfor en bred selv-opdaterings-politik ville være en privilegie-eskalering.
 create policy staff_read   on staff for select using ( org_id = my_org() or is_superadmin() );
 create policy staff_insert on staff for insert with check ( is_org_admin(org_id) );
 create policy staff_update on staff for update using ( is_org_admin(org_id) ) with check ( is_org_admin(org_id) );
@@ -1016,6 +1051,22 @@ create policy task_attachments_insert on storage.objects for insert
 create policy task_attachments_delete on storage.objects for delete
   using (bucket_id = 'task-attachments' and is_org_staff(((storage.foldername(name))[1])::uuid));
 
+-- Profilbilleder. Offentlig bucket, til forskel fra 'task-attachments' ovenfor — et profilbillede er
+-- ikke et fortroligt forretningsdokument, så en almindelig public URL er rigtigt her og sparer signerede
+-- URL'er/ekstra RPC-kald, hver gang et billede skal vises (personaleoversigt, gæstens kontaktkort).
+-- Sti-konvention: {staff_id}/{filnavn} — kun ejeren af stiens første segment må skrive/slette sit eget.
+insert into storage.buckets (id, name, public) values ('staff-avatars','staff-avatars', true)
+  on conflict (id) do nothing;
+
+create policy staff_avatars_read on storage.objects for select
+  using (bucket_id = 'staff-avatars');
+create policy staff_avatars_insert on storage.objects for insert
+  with check (bucket_id = 'staff-avatars' and ((storage.foldername(name))[1])::uuid = auth.uid());
+create policy staff_avatars_update on storage.objects for update
+  using (bucket_id = 'staff-avatars' and ((storage.foldername(name))[1])::uuid = auth.uid());
+create policy staff_avatars_delete on storage.objects for delete
+  using (bucket_id = 'staff-avatars' and ((storage.foldername(name))[1])::uuid = auth.uid());
+
 -- =====================================================================
 --  6. REALTIME — begge parter ser ændringer live.
 --     RLS ovenfor filtrerer stadig hvem der må se hvad.
@@ -1072,9 +1123,9 @@ insert into auth.users (instance_id, id, aud, role, email, encrypted_password, e
   ('00000000-0000-0000-0000-000000000000','a0000001-0000-0000-0000-0000000000a2','authenticated','authenticated','coordinator@havbrisen.example','',now(),'{"provider":"email","providers":["email"]}','{}',now(),now())
 on conflict (id) do nothing;
 
-insert into staff (id, org_id, name, role) values
-  ('a0000001-0000-0000-0000-0000000000a1','a0000001-0000-0000-0000-000000000000','Sofie Lindegaard','admin'),
-  ('a0000001-0000-0000-0000-0000000000a2','a0000001-0000-0000-0000-000000000000','Anders Mynster','coordinator');
+insert into staff (id, org_id, name, role, title) values
+  ('a0000001-0000-0000-0000-0000000000a1','a0000001-0000-0000-0000-000000000000','Sofie Lindegaard','admin','Selskabsansvarlig'),
+  ('a0000001-0000-0000-0000-0000000000a2','a0000001-0000-0000-0000-000000000000','Anders Mynster','coordinator','Bryllupskoordinator');
 
 insert into events (id, venue_id, org_id, title, event_date, offer_total_kr, status, event_type, owner_staff_id, secondary_staff_id) values
   ('a0000001-0000-0000-0000-0000000000e1','a0000001-0000-0000-0000-000000000001','a0000001-0000-0000-0000-000000000000','Ida & Kasper','2026-04-18',118400,'afviklet','bryllup','a0000001-0000-0000-0000-0000000000a2',null),
@@ -1183,9 +1234,9 @@ insert into auth.users (instance_id, id, aud, role, email, encrypted_password, e
   ('00000000-0000-0000-0000-000000000000','a0000002-0000-0000-0000-0000000000a2','authenticated','authenticated','coordinator@domicilkonference.example','',now(),'{"provider":"email","providers":["email"]}','{}',now(),now())
 on conflict (id) do nothing;
 
-insert into staff (id, org_id, name, role) values
-  ('a0000002-0000-0000-0000-0000000000a1','a0000002-0000-0000-0000-000000000000','Peter Vang','admin'),
-  ('a0000002-0000-0000-0000-0000000000a2','a0000002-0000-0000-0000-000000000000','Mette Kold','coordinator');
+insert into staff (id, org_id, name, role, title) values
+  ('a0000002-0000-0000-0000-0000000000a1','a0000002-0000-0000-0000-000000000000','Peter Vang','admin','Konferenceansvarlig'),
+  ('a0000002-0000-0000-0000-0000000000a2','a0000002-0000-0000-0000-000000000000','Mette Kold','coordinator','Eventkoordinator');
 
 insert into events (id, venue_id, org_id, title, event_date, offer_total_kr, status, event_type, owner_staff_id, secondary_staff_id) values
   ('a0000002-0000-0000-0000-0000000000e1','a0000002-0000-0000-0000-000000000001','a0000002-0000-0000-0000-000000000000','Nordisk Forsikring — Generalforsamling','2026-03-25',84600,'afviklet','konference','a0000002-0000-0000-0000-0000000000a2',null),
@@ -1278,9 +1329,9 @@ insert into auth.users (instance_id, id, aud, role, email, encrypted_password, e
   ('00000000-0000-0000-0000-000000000000','a0000003-0000-0000-0000-0000000000a2','authenticated','authenticated','coordinator@laerkevang.example','',now(),'{"provider":"email","providers":["email"]}','{}',now(),now())
 on conflict (id) do nothing;
 
-insert into staff (id, org_id, name, role) values
-  ('a0000003-0000-0000-0000-0000000000a1','a0000003-0000-0000-0000-000000000000','Anders Pihl','admin'),
-  ('a0000003-0000-0000-0000-0000000000a2','a0000003-0000-0000-0000-000000000000','Julie Holm','coordinator');
+insert into staff (id, org_id, name, role, title) values
+  ('a0000003-0000-0000-0000-0000000000a1','a0000003-0000-0000-0000-000000000000','Anders Pihl','admin','Gårdejer'),
+  ('a0000003-0000-0000-0000-0000000000a2','a0000003-0000-0000-0000-000000000000','Julie Holm','coordinator','Eventkoordinator');
 
 insert into events (id, venue_id, org_id, title, event_date, offer_total_kr, status, event_type, owner_staff_id) values
   ('a0000003-0000-0000-0000-0000000000e1','a0000003-0000-0000-0000-000000000001','a0000003-0000-0000-0000-000000000000','Prøvesmagning · Studiegruppen','2026-09-05',8200,'tilbud','andet','a0000003-0000-0000-0000-0000000000a1'),
