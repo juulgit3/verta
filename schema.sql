@@ -1,5 +1,5 @@
 -- =====================================================================
---  Madkastellet · arrangementsværktøj — databaseskema (v1, med roller)
+--  Verta · arrangementskoordinationsværktøj — databaseskema (v1, med roller)
 --  Kør hele filen i Supabase → SQL Editor → New query → Run.
 --  Roller: admin (IT-ansvarlig, org-bred) · coordinator (menig, egne arr.)
 -- =====================================================================
