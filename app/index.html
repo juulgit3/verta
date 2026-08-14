@@ -2357,6 +2357,10 @@ MODAL_RENDERERS.newEvent = function(){
     <div class="field"><label for="neType">Arrangementstype</label><select id="neType" class="search" style="width:100%">
       ${CAT_EVENT_TYPES.map(t=>`<option value="${t}">${t}</option>`).join('')}
     </select></div>
+    <div class="field" style="grid-column:span 2"><label for="neOwner">Koordinator</label><select id="neOwner" class="search" style="width:100%">
+      <option value="">Vælg…</option>
+      ${(state.roster||[]).map(r=>`<option value="${r.id}" ${state.userId===r.id?'selected':''}>${esc(r.name)}${state.userId===r.id?' (dig)':''}</option>`).join('')}
+    </select></div>
     ${(state.orgTemplates||[]).filter(t=>!t.archived).length?`<div class="field" style="grid-column:span 2"><label for="neTemplate">Fra skabelon (valgfri)</label><select id="neTemplate" class="search" style="width:100%">
       <option value="">— Ingen skabelon —</option>
       ${(state.orgTemplates||[]).filter(t=>!t.archived).map(t=>`<option value="${t.id}" ${state.newEventFromTemplate===t.id?'selected':''}>${esc(t.name)}</option>`).join('')}
@@ -4029,14 +4033,15 @@ async function createEvent(){
   const venueId=document.getElementById('neVenue').value;
   const date=document.getElementById('neDate').value;
   const eventType=document.getElementById('neType').value;
+  const ownerId=document.getElementById('neOwner').value;
   const useTasks=document.getElementById('neTasks').checked;
   const templateEl=document.getElementById('neTemplate');
   const templateId=templateEl?templateEl.value:'';
-  if(!title||!venueId||!date){ showToast('Udfyld titel, lokation og dato.','error'); return; }
+  if(!title||!venueId||!date||!ownerId){ showToast('Udfyld titel, lokation, dato og koordinator.','error'); return; }
   const btn=document.getElementById('neCreate'), orig=btn.textContent;
   btn.disabled=true; btn.textContent='Opretter…';
   const {error}=await mutate(()=>sb.from('events')
-    .insert({title, venue_id:venueId, org_id:state.orgId, event_date:date, offer_total_kr:0, status:'kladde', event_type:eventType}));
+    .insert({title, venue_id:venueId, org_id:state.orgId, event_date:date, offer_total_kr:0, status:'kladde', event_type:eventType, owner_staff_id:ownerId}));
   if(error){ btn.disabled=false; btn.textContent=orig; showToast('Kunne ikke oprette: '+error.message,'error'); return; }
   /* Knappen forbliver deaktiveret/"Opretter…", indtil vi enten navigerer ind i det nye arrangement eller
      falder tilbage til oversigten — ellers ser formularen momentant ud til at være klar til et nyt (dobbelt-)tryk. */

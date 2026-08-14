@@ -107,7 +107,16 @@ create table events (
   status text not null default 'bekræftet',   -- kladde | tilbud | bekræftet | afviklet
   event_type text not null default 'bryllup', -- bryllup | firmafest | konference | teambuilding | andet
   baseline_locked boolean not null default false,
-  owner_staff_id uuid references staff(id),          -- primær koordinator (den, der oprettede arrangementet)
+  owner_staff_id uuid references staff(id),  -- primær koordinator. IKKE not-null på databaseniveau, bevidst:
+                                              -- schema.sql sår sit eget testarrangement (Emily & Lars m.fl.)
+                                              -- FØR noget menneske nogensinde har logget ind, så der findes
+                                              -- endnu ingen staff-række at pege på — et bootstrapping-problem,
+                                              -- ikke et designvalg om at ejerskab er valgfrit. Krævet i praksis af
+                                              -- app-laget i stedet: "Nyt arrangement"-formularen tillader ikke
+                                              -- oprettelse uden et valgt owner_staff_id, og duplicate_event()
+                                              -- kopierer altid kildens ejer. Rigtige organisationer oprettet via
+                                              -- "Ny kunde"/"Ny demo" rammer aldrig dette hul, da deres første
+                                              -- arrangement altid oprettes efter mindst én staff-række findes.
   secondary_staff_id uuid references staff(id),      -- valgfri sekundær koordinator
   day_of_owner_staff_id uuid references staff(id),   -- ansvarlig på selve arrangementsdagen (kan afvige fra primær)
   created_at timestamptz not null default now()
@@ -519,12 +528,16 @@ begin
 
   shift_minutes := coalesce((p_options->>'shiftMinutes')::integer, 0);
 
-  insert into events (venue_id, org_id, title, event_date, offer_total_kr, status, event_type)
-    values (coalesce(p_new_venue_id, src.venue_id), src.org_id, p_new_title, p_new_date, 0, 'kladde', src.event_type)
+  -- owner_staff_id kopieres altid fra kilden (aldrig valgfrit) — et arrangement uden koordinator må
+  -- ikke kunne opstå via duplikering, ligesom det ikke kan ved almindelig oprettelse (createEvent()
+  -- i app/index.html kræver nu et valgt owner_staff_id). "staff"-valget styrer kun sekundær koordinator
+  -- og øvrige tilknyttede medarbejdere (event_staff) — ikke selve ejerskabet.
+  insert into events (venue_id, org_id, title, event_date, offer_total_kr, status, event_type, owner_staff_id)
+    values (coalesce(p_new_venue_id, src.venue_id), src.org_id, p_new_title, p_new_date, 0, 'kladde', src.event_type, src.owner_staff_id)
     returning id into new_id;
 
   if coalesce((p_options->>'staff')::boolean, false) then
-    update events set owner_staff_id = src.owner_staff_id, secondary_staff_id = src.secondary_staff_id where id = new_id;
+    update events set secondary_staff_id = src.secondary_staff_id where id = new_id;
     insert into event_staff (event_id, staff_id)
       select new_id, staff_id from event_staff where event_id = p_source_id
       on conflict do nothing;
