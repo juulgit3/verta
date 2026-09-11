@@ -55,6 +55,14 @@ footer{margin-top:40px;font-size:12px;color:var(--ink-40)}
       <b>Samme forudsætninger som notifikationsmail:</b> kræver samtykke (samme opt-in-felt), samme anti-støj-princip (én samlet påmindelse, ikke én pr. forfalden opgave), og skal besluttes sammen med resten af notifikations-arbejdet — ikke bygges isoleret først.<br><br>
       <b>Bevidst ikke besluttet endnu:</b> om påmindelsen skal gå til kunden, til koordinatoren, eller begge (afhænger af hvis frist det er); om den skal være mail, en badge i selve appen, eller begge dele.
     </div></div>
+    <div class="card"><div class="t">Arrangementsskabeloner — revurdér for B2B-gentagsforretning</div><div class="d">
+      Opstod under v1-forenklingsarbejdet: <code>event_templates</code> blev overvejet skåret som en "nice to have" for enkeltstående private arrangementer (bryllup, fødselsdag — sjældent identiske to gange). For en B2B-kunde som et kongrescenter er billedet omvendt — et fast ugentligt konferencesetup eller en tilbagevendende firmakunde med samme program hver gang er præcis der, en skabelon giver mest værdi.<br><br>
+      <b>Ikke besluttet:</b> om skabeloner derfor bør BEHOLDES i v1 alligevel (i modsætning til den oprindelige skærebeslutning), eller om det er nok at de kan genindføres senere uden at det er dyrt arkitektonisk. Kræver en beslutning, når/hvis Verta reelt får B2B-tunge kunder.
+    </div></div>
+    <div class="card"><div class="t">"Kræver handling"-indbakken — vurdér vigtighed for højvolumen B2B-drift</div><div class="d">
+      Opstod under v1-forenklingsarbejdet, som del af "F: fjern KPI-kortet". Selve arbejdsindbakken (den prioriterede tværgående liste over frister/mangler) er ikke skåret — kun KPI-optællingskortet på forsiden. Men et kongrescenter med mange samtidige/tilbagevendende B2B-bookinger har formentlig et markant større volumen af "kræver handling"-punkter end en typisk privat-kunde med få arrangementer ad gangen, hvor selve indbakkens prioritering/filtrering bliver vigtigere, ikke mindre vigtig.<br><br>
+      <b>Ikke besluttet:</b> om indbakken (ikke KPI-kortet) på sigt trænger til B2B-specifik filtrering/gruppering (fx pr. uge, pr. fast kunde), når der er reelt volumen at teste det imod.
+    </div></div>
   </details>
 
   <details class="col" open>
