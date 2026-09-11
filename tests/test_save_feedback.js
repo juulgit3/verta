@@ -19,8 +19,11 @@ const dom = new JSDOM(`<!doctype html><html><body>
   <input id="edTitle" value="NORDA A/S — Ledermøde">
   <select id="edVenue"><option value="v1" selected>Ringsted Kongrescenter</option></select>
   <input id="edDate" value="2026-09-24">
+  <input id="edEndDate" value="">
   <input id="edPrice" value="22000">
   <select id="edType"><option value="konference" selected>konference</option></select>
+  <select id="edKind"><option value="privat" selected>Privat</option><option value="virksomhed">Virksomhed</option></select>
+  <input id="edExpectedGuests" value="">
   <button id="edSave" class="btn primary">Gem</button>
 </body></html>`, { url: 'http://localhost/' });
 

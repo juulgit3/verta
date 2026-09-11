@@ -17,14 +17,10 @@ npm test
 
 ## Dækning
 
-- `test_mutate_guard.js` — `mutate()`/`assertCanMutate()` blokerer ALLE skrivninger i preview-mode,
-  også ved direkte kald uden om UI'et.
-- `test_readonly_ui.js` — `applyPreviewReadOnly()` låser de konkrete gæste-/opgave-/beskedfelter i
-  kunde-visningen, uden at røre søgning/eksport.
-- `test_preview_tab_reset.js` — skift til "Forhåndsvis som kunde" mens en kilden-only fane (fx "I dag")
-  er åben, falder korrekt tilbage til Oversigt.
-- `test_routing_resolution.js` — gæste-routing ved flere arrangementer: URL > sessionStorage > enkelt
-  adgang > vælger, aldrig "nyeste vinder", og et fremmed event-id i URL/session ignoreres.
+- `test_mutate_guard.js` — `mutate()` blokerer ALLE skrivninger på et arkiveret arrangement
+  (`state.eventArchived`), også ved direkte kald uden om UI'et. Den tidligere "Forhåndsvis som
+  kunde"-halvdel af denne spærre (`assertCanMutate()`/`previewMode`) er skåret i v1 — se
+  roadmap.html "Skåret fra v1".
 - `test_log_search.js` — logsøgning kan ryddes tre veje (backspace, ×-knap, Escape) uden at påvirke
   andre filtre.
 - `test_save_feedback.js` — Admin-fanens "Gem"-knap viser Gemmer… → Gemt ✓ → Gem, og overlever at
@@ -43,10 +39,6 @@ npm test
 - `test_csv_import.js` — gæsteimport: delimiter-sniffing (komma/semikolon), anførselstegn/BOM,
   kolonnegætning uafhængigt af sprog/rækkefølge, kategori-/bool-normalisering, dublet-detektion
   (navn, case/whitespace-uafhængigt), gyldige/ugyldige rækker, kost-tag-normalisering.
-- `test_change_request_pricing.js` — prisberegning (`computeEventTotal`) for tilbudslinjer på
-  reception/middag-grundlag inkl. børnehalvpris og fast beløb, prisdelta-visning på ændringsforslag
-  (`changeRequestSummary`, fortegn), og den tids-baserede (ikke felt-baserede) regel for hvornår en
-  gæst mister direkte skriveadgang til gæstelisten (`guestEditsAreLocked`).
 - `test_log_grouping.js` — loggruppering af gentagne "kiggede ind"-hændelser: kun konsekutive
   hændelser fra samme person grupperes, en rigtig ændring/besked midt i en stribe bryder grupperingen,
   forskellige personers kigge-hændelser blandes aldrig, og hele funktionen kan slås fra.
