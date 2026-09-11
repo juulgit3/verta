@@ -1,26 +1,25 @@
 -- =====================================================================
---  Verta · arrangementskoordinationsværktøj — databaseskema (v1, med roller)
+--  Verta · arrangementskoordinationsværktøj — databaseskema (v1, forenklet)
 --  Kør hele filen i Supabase → SQL Editor → New query → Run.
 --  Roller: admin (IT-ansvarlig, org-bred) · coordinator (menig, egne arr.)
+--
+--  v1-forenkling: en lang række funktioner fra det oprindelige, bredere
+--  produkt er bevidst skåret her for at gøre værktøjet nemmere at overskue
+--  for en ny bruger. Se roadmap.html ("Skåret fra v1") for den fulde liste
+--  og begrundelsen for hver enkelt. Intet er slettet af historiske
+--  grunde — kun fordi det gjorde produktet sværere at lære.
 -- =====================================================================
 
 drop trigger if exists on_auth_user_created on auth.users;
 drop trigger if exists on_event_created on events;
-drop table if exists event_change_requests cascade;
-drop table if exists event_approvals    cascade;
-drop table if exists event_templates    cascade;
 drop table if exists activity_log       cascade;
 drop table if exists agenda_item_notes  cascade;
 drop table if exists agenda_items       cascade;
-drop table if exists task_templates     cascade;
 drop table if exists guests             cascade;
 drop table if exists invites            cascade;
 drop table if exists event_access       cascade;
 drop table if exists event_staff        cascade;
 drop table if exists event_rooms        cascade;
-drop table if exists catalog_item_rooms cascade;
-drop table if exists event_catalog_items cascade;
-drop table if exists catalog_items      cascade;
 drop table if exists events             cascade;
 drop table if exists staff              cascade;
 drop table if exists rooms              cascade;
@@ -106,33 +105,41 @@ create table events (
   org_id uuid not null references organisations(id) on delete cascade,
   title text not null,
   event_date date not null,
+  end_date date,                              -- valgfri: sat = arrangementet dækker event_date..end_date (flere dage).
+                                               -- Ingen dag-for-dag-model (forskellige lokaler pr. dag) i v1 — hele
+                                               -- intervallet deler samme lokalevalg. Se roadmap for evt. udvidelse.
+  event_kind text not null default 'privat' check (event_kind in ('privat','virksomhed')),
+                                               -- valgt ved oprettelse, styrer hvilke felter der vises i Admin-fanen
+  company_name text,                          -- kun relevant når event_kind = 'virksomhed'
+  company_cvr text,
+  invoice_recipient_name text,
+  invoice_recipient_email text,
+  po_number text,                             -- evt. ordre-/PO-nummer fra virksomhedskunden
+  expected_guests integer,                    -- forventet antal gæster — altid synligt/redigerbart, uafhængigt af
+                                               -- om der findes en navngiven gæsteliste (den er en opgave, se agenda_items)
   offer_total_kr integer not null default 0,
   status text not null default 'bekræftet',   -- kladde | tilbud | bekræftet | afviklet
   event_type text not null default 'bryllup', -- bryllup | firmafest | konference | teambuilding | andet
-  baseline_locked boolean not null default false,
   owner_staff_id uuid references staff(id),  -- primær koordinator. IKKE not-null på databaseniveau, bevidst:
-                                              -- schema.sql sår sit eget testarrangement (Emily & Lars m.fl.)
-                                              -- FØR noget menneske nogensinde har logget ind, så der findes
-                                              -- endnu ingen staff-række at pege på — et bootstrapping-problem,
-                                              -- ikke et designvalg om at ejerskab er valgfrit. Krævet i praksis af
-                                              -- app-laget i stedet: "Nyt arrangement"-formularen tillader ikke
-                                              -- oprettelse uden et valgt owner_staff_id, og duplicate_event()
-                                              -- kopierer altid kildens ejer. Rigtige organisationer oprettet via
-                                              -- "Ny kunde"/"Ny demo" rammer aldrig dette hul, da deres første
-                                              -- arrangement altid oprettes efter mindst én staff-række findes.
-  secondary_staff_id uuid references staff(id),      -- valgfri sekundær koordinator
-  day_of_owner_staff_id uuid references staff(id),   -- ansvarlig på selve arrangementsdagen (kan afvige fra primær)
+                                              -- schema.sql sår sit eget testarrangement FØR noget menneske
+                                              -- nogensinde har logget ind, så der findes endnu ingen staff-række
+                                              -- at pege på — et bootstrapping-problem, ikke et designvalg om at
+                                              -- ejerskab er valgfrit. Krævet i praksis af app-laget i stedet:
+                                              -- "Nyt arrangement"-formularen tillader ikke oprettelse uden et
+                                              -- valgt owner_staff_id, og duplicate_event() kopierer altid
+                                              -- kildens ejer. Rigtige organisationer oprettet via "Ny kunde"/
+                                              -- "Ny demo" rammer aldrig dette hul, da deres første arrangement
+                                              -- altid oprettes efter mindst én staff-række findes.
   archived_at timestamptz,   -- sat = "slettet"/"arkiveret" fra brugerens synsvinkel, men ALDRIG en rigtig
                               -- DELETE FROM events — kun arkivering, uanset om UI'et kalder det "Slet" eller
                               -- "Arkivér" (afgøres af status: et afviklet arrangement kan kun arkiveres, et
                               -- arrangement der stadig er i gang "slettes" fra den aktive liste, men ender
-                              -- samme sted). Arkiverede arrangementer forsvinder fra den aktive oversigt og
-                              -- "Kræver handling" (klientfiltreret på archived_at is null), men forbliver
-                              -- læsbare i en foldet "Arkiverede"-sektion. Skrivning spærres af mutate() i
-                              -- app/index.html ud fra state.eventArchived — samme mønster som previewMode,
-                              -- og af samme grund IKKE duplikeret som en RLS-politik pr. tabel: det er en
-                              -- bevidst UX-lås for nogen, der allerede har legitim skriveadgang, ikke en
-                              -- reel adgangsbegrænsning mod en fremmed aktør.
+                              -- samme sted). Arkiverede arrangementer forsvinder fra den aktive oversigt, men
+                              -- forbliver læsbare i en foldet "Arkiverede"-sektion. Skrivning spærres af
+                              -- mutate() i app/index.html ud fra state.eventArchived — samme mønster som
+                              -- previewMode tidligere brugte, og af samme grund IKKE duplikeret som en
+                              -- RLS-politik pr. tabel: det er en bevidst UX-lås for nogen, der allerede har
+                              -- legitim skriveadgang, ikke en reel adgangsbegrænsning mod en fremmed aktør.
   created_at timestamptz not null default now()
 );
 
@@ -143,9 +150,8 @@ create table event_staff (
 );
 
 -- Understøtter allerede flere rækker pr. bruger (unique er på parret, ikke på user_id alene) — en gæst
--- kan derfor legitimt have adgang til flere arrangementer. Klienten afgør, hvilket der er "aktivt" for
--- den aktuelle session (se cloudBoot i app/index.html); denne tabel er stadig den eneste autoritative
--- adgangskilde, som RLS (is_event_guest()) slår op i.
+-- kan derfor teknisk have adgang til flere arrangementer, men v1's UI antager én aktiv adgang pr.
+-- gæstelogin (ingen "skift arrangement"-vælger mere) — se cloudBoot() i app/index.html.
 create table event_access (
   id uuid primary key default gen_random_uuid(),
   event_id uuid not null references events(id) on delete cascade,
@@ -159,51 +165,18 @@ create table event_access (
   unique (event_id, user_id)
 );
 
--- Lokale pr. fase. Fri-tekst label + sort_order i stedet for en fast reception/
--- middag/fest-treenighed — et arrangement har ikke nødvendigvis tre faser, og
--- faser skal kunne tilføjes/fjernes/omdøbes fra UI'et.
+-- Hvilke lokaler et arrangement bruger. Fladt join, IKKE pr. fase (v1 har ingen dynamiske faser
+-- længere) — koordinator vælger blot ét eller flere lokaler for hele arrangementet, med ét fælles
+-- tidsrum på selve arrangementet (start_time/end_time nedenfor), i stedet for et tidsrum pr. lokale.
 create table event_rooms (
-  id uuid primary key default gen_random_uuid(),
   event_id uuid not null references events(id) on delete cascade,
-  label text not null,                 -- fasens navn, fx "Reception", "Frokost", "Foredrag"
-  room_id uuid references rooms(id) on delete cascade,   -- kan være ubesat (fx en fase oprettet fra en skabelon på tværs af lokationer)
-  start_time time,                     -- tidsrum for denne fase (bruges til at forhindre dobbeltbooking)
-  end_time time,                       -- hvis end_time <= start_time, regnes det som efter midnat
-  sort_order integer not null default 0,
-  setup_minutes integer not null default 0,      -- opsætningstid før fasen, regnes med i konflikttjek
-  teardown_minutes integer not null default 0,   -- oprydningstid efter fasen, regnes med i konflikttjek
-  booking_status text not null default 'bekræftet'  -- tentativ | reserveret | bekræftet
-);
-create index on event_rooms (event_id);
-
--- Priskatalog: org'ens genbrugelige menuer/pakker/fri bar/tilvalg (fx natmad).
--- Prissat pr. person (grundlag = reception/middag) eller som fast beløb (grundlag = fast).
-create table catalog_items (
-  id uuid primary key default gen_random_uuid(),
-  org_id uuid not null references organisations(id) on delete cascade,
-  name text not null,
-  category text not null default 'andet',    -- menu | bar | reception | tilvalg | andet — kun til gruppering
-  price_kr integer not null default 0,       -- pr. person, medmindre grundlag = 'fast'
-  basis text not null default 'middag',      -- reception | middag | fast
-  child_half boolean not null default false, -- børn betaler halv pris (babyer er altid gratis)
-  event_type text,                           -- null = alle typer, ellers samme værdier som events.event_type
-  sort_order integer not null default 0,
-  created_at timestamptz not null default now()
-);
-
--- Hvilke katalogvarer er valgt til et bestemt arrangement
-create table event_catalog_items (
-  event_id uuid not null references events(id) on delete cascade,
-  catalog_item_id uuid not null references catalog_items(id) on delete cascade,
-  primary key (event_id, catalog_item_id)
-);
-
--- Hvilke lokaler en katalogvare kan høre til. Ingen rækker for en vare = gælder alle lokaler.
-create table catalog_item_rooms (
-  catalog_item_id uuid not null references catalog_items(id) on delete cascade,
   room_id uuid not null references rooms(id) on delete cascade,
-  primary key (catalog_item_id, room_id)
+  primary key (event_id, room_id)
 );
+
+alter table events add column start_time time;   -- valgfrit fælles tidsrum for hele arrangementet
+alter table events add column end_time time;     -- (bruges til konfliktkontrol i Lokalekalenderen; intet
+                                                  --  tidsrum sat = hele dagen/dagene antages optaget)
 
 create table guests (
   id uuid primary key default gen_random_uuid(),
@@ -217,6 +190,17 @@ create table guests (
   created_at timestamptz not null default now()
 );
 
+-- Opgaver. Dækker i v1 tre ting, der før var separate mekanismer:
+--  1. Almindelig to-do (som hidtil): title/owner/status/due_date/note/assigned_staff_id/priority.
+--  2. Kundegodkendelser (tidligere event_approvals, egen fane/tabel) — en opgave kan markeres
+--     requires_confirmation, hvorved gæsten i stedet for "marker som udført" får en godkend/afvis-
+--     handling (guest_decision). Ingen versionering/audit-historik i v1 (det var det tunge ved den
+--     gamle model) — en genåbnet/rettet opgave er bare en opgave, der redigeres som enhver anden.
+--  3. Gæstelistens deadline (tidligere et separat, overvejet felt) — én opgave pr. arrangement kan
+--     flages is_guest_list_deadline. Den opgave er samtidig det, der gør Gæster-fanen synlig for
+--     gæsten (før den findes, er der ingen navngiven gæsteliste at vise — kun events.expected_guests,
+--     som altid er synligt), OG dens due_date er den frist, hvorefter guests-tabellen låses for
+--     gæstens direkte redigering (se guests-RLS'en nedenfor, som allerede var tidsstyret).
 create table agenda_items (
   id uuid primary key default gen_random_uuid(),
   event_id uuid not null references events(id) on delete cascade,
@@ -227,8 +211,15 @@ create table agenda_items (
   note text not null default '',
   sort_order integer not null default 0,
   assigned_staff_id uuid references staff(id),  -- navngiven medarbejderansvarlig (ud over det brede jer/kilden-skel)
-  priority text not null default 'normal'       -- kritisk | normal | lav
+  priority text not null default 'normal',      -- kritisk | normal | lav
+  requires_confirmation boolean not null default false,
+  guest_decision text check (guest_decision in ('godkendt','afvist')),
+  guest_decision_at timestamptz,
+  guest_decision_comment text,
+  is_guest_list_deadline boolean not null default false
 );
+-- Kun én "gæstelistefrist"-opgave pr. arrangement.
+create unique index one_guest_list_deadline_per_event on agenda_items(event_id) where is_guest_list_deadline;
 
 -- Tekst-noter og filbilag til aftalepunkter — synlige for begge parter, der kan se
 -- punktet. event_id denormaliseret (samme mønster som resten af skemaet) til enkel RLS.
@@ -246,93 +237,6 @@ create table agenda_item_notes (
 create index on agenda_item_notes (agenda_item_id);
 create index on agenda_item_notes (event_id);
 
--- Kundegodkendelser: en opgave er ikke det samme som en dokumenteret, versioneret godkendelse.
--- version + superseded_by giver fuld historik: en ny version gør den forrige historisk ('erstattet')
--- og ikke længere handlingsbar, uden at slette noget. Se guard_approval_update() nedenfor, som fryser
--- alt indhold på en allerede afgjort række, og decide_approval(), som er gæstens eneste vej til at
--- afgøre en godkendelse (server-side valideret, ikke en direkte UPDATE-RLS-politik for gæster).
-create table event_approvals (
-  id uuid primary key default gen_random_uuid(),
-  event_id uuid not null references events(id) on delete cascade,
-  title text not null,
-  description text not null default '',
-  approval_type text not null default 'andet',   -- tilbud | menu | bordplan | deltagerantal | prisaendring | praktisk | andet
-  status text not null default 'kladde',         -- kladde | afventer | godkendt | afvist | erstattet | tilbagekaldt
-  version integer not null default 1,
-  amount numeric,
-  currency text not null default 'DKK',
-  payload jsonb,
-  due_at timestamptz,
-  requested_by uuid references auth.users(id),
-  requested_by_name text,
-  requested_at timestamptz,
-  decided_by uuid references auth.users(id),
-  decided_by_name text,
-  decided_at timestamptz,
-  decision_comment text,
-  superseded_by uuid references event_approvals(id),
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
-);
-create index on event_approvals (event_id);
-create index on event_approvals (event_id, status);
-
--- Ændringsforslag med prisvirkning: bruges når en gæst ønsker en pris-/driftsrelevant ændring, efter
--- arrangementet er bekræftet (se guests-RLS'en nedenfor, som lukker gæstens direkte skriveadgang til
--- guests-tabellen fra det tidspunkt). apply_change_request() nedenfor udfører selve skrivningen atomisk.
-create table event_change_requests (
-  id uuid primary key default gen_random_uuid(),
-  event_id uuid not null references events(id) on delete cascade,
-  requested_by uuid references auth.users(id),
-  requested_by_role text not null default 'kunde',   -- 'kunde' | 'kilden'
-  requested_by_name text not null default '',
-  change_type text not null default 'guest_edit',    -- i dag: 'guest_edit' (se apply_change_request)
-  status text not null default 'pending',            -- pending | accepted | rejected
-  before_payload jsonb,
-  after_payload jsonb not null,
-  price_before numeric,
-  price_after numeric,
-  price_delta numeric,
-  comment text,
-  reviewed_by uuid references auth.users(id),
-  reviewed_by_name text,
-  reviewed_at timestamptz,
-  review_comment text,
-  created_at timestamptz not null default now()
-);
-create index on event_change_requests (event_id);
-create index on event_change_requests (event_id, status);
-
--- Globale arrangementsskabeloner ("Heldagskonference", "Bryllup" osv). En enkelt jsonb-spec i stedet for
--- en fuld separat tabelfamilie — skabelonen bruges kun til at forudfylde et NYT arrangement, ikke som en
--- levende reference bagefter, så en fladere struktur er tilstrækkelig og langt enklere at vedligeholde.
-create table event_templates (
-  id uuid primary key default gen_random_uuid(),
-  org_id uuid not null references organisations(id) on delete cascade,
-  name text not null,
-  event_type text not null default 'andet',
-  spec jsonb not null default '{}'::jsonb,   -- {phases:[{label,startOffsetMin,endOffsetMin,roomHint}], catalogItemIds:[], taskTemplates:[{title,owner,daysBeforeEvent,note}], approvalTypes:[], notes:'', defaultOwnerRole:''}
-  archived boolean not null default false,
-  created_by uuid references auth.users(id),
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
-);
-create index on event_templates (org_id);
-
--- Org-genbrugelige opgaveskabeloner ("standardpakke"), samme mønster som catalog_items.
--- Frist er relativ (dage før arrangementet), da skabeloner bruges på tværs af datoer.
-create table task_templates (
-  id uuid primary key default gen_random_uuid(),
-  org_id uuid not null references organisations(id) on delete cascade,
-  title text not null,
-  owner text not null default 'jer',          -- 'jer' | 'kilden'
-  days_before_event integer,                  -- frist = event_date - days_before_event; null = ingen automatisk frist
-  note text not null default '',
-  event_type text,                            -- null = alle typer, ellers samme værdier som events.event_type
-  sort_order integer not null default 0,
-  created_at timestamptz not null default now()
-);
-
 create table activity_log (
   id uuid primary key default gen_random_uuid(),
   event_id uuid not null references events(id) on delete cascade,
@@ -340,7 +244,7 @@ create table activity_log (
   actor_id uuid references auth.users(id),
   actor_name text not null,
   actor_side text not null,                  -- 'kilden' | 'kunde'
-  entry_type text not null,                  -- 'change' | 'view' | 'message'
+  entry_type text not null,                  -- 'change' | 'view' | 'message' | 'note'
   area text not null default 'system',
   label text not null default '',
   from_val text not null default '',
@@ -360,11 +264,10 @@ create index on events       (org_id, event_date);
 -- event_access.user_id er vigtigst: slås op ved hver gæste-login (cloudBoot).
 create index on event_access  (user_id);
 create index on staff         (org_id);
-create index on catalog_items (org_id);
-create index on task_templates(org_id);
 create index on venues        (org_id);
 create index on invites       (org_id);
 create index on rooms         (venue_id);
+create index on event_rooms   (room_id);
 
 -- =====================================================================
 --  2. HJÆLPEFUNKTIONER (security definer — undgår RLS-rekursion)
@@ -422,10 +325,7 @@ $$;
 
 -- Kontaktpersonens navn/titel/billede til gæstens velkomstkort og kontaktkort. Gæsten har ingen RLS-
 -- adgang til staff-tabellen, så dette security-definer-kald er den eneste vej ind — og kun for nogen,
--- der faktisk er gæst eller medarbejder på arrangementet. Returtypen er udvidet fra ren text til en
--- række (navn/titel/billede); et drop er nødvendigt først, da Postgres ikke tillader "create or
--- replace" ved ændret returtype.
-drop function if exists get_event_contact(uuid);
+-- der faktisk er gæst eller medarbejder på arrangementet.
 create or replace function get_event_contact(target_event uuid)
 returns table(name text, title text, avatar_url text) language sql security definer stable set search_path = public as $$
   select s.name, s.title, s.avatar_url from events e join staff s on s.id = e.owner_staff_id
@@ -464,91 +364,10 @@ returns text language sql security definer stable set search_path = public as $$
   select status from events where id = target_event
 $$;
 
--- Gæstens ENESTE vej til at afgøre en godkendelse — ingen direkte UPDATE-RLS-politik for gæster på
--- event_approvals findes, med vilje. Validerer server-side at godkendelsen rent faktisk er sendt
--- ('afventer'), uanset hvad klienten viste, før afgørelsen registreres.
-create or replace function decide_approval(p_id uuid, p_decision text, p_comment text default null)
-returns void language plpgsql security definer set search_path = public as $$
-declare
-  appr event_approvals%rowtype;
-  guest_name text;
-begin
-  if p_decision not in ('godkendt','afvist') then
-    raise exception 'Ugyldig afgørelse';
-  end if;
-  select * into appr from event_approvals where id = p_id;
-  if not found then raise exception 'Godkendelsen findes ikke'; end if;
-  if not is_event_guest(appr.event_id) then
-    raise exception 'Ingen adgang til dette arrangement';
-  end if;
-  if appr.status <> 'afventer' then
-    raise exception 'Denne godkendelse er ikke længere afventer (status: %)', appr.status;
-  end if;
-
-  select display_name into guest_name from event_access
-    where event_id = appr.event_id and user_id = auth.uid() limit 1;
-
-  update event_approvals set
-    status = p_decision,
-    decided_by = auth.uid(),
-    decided_by_name = coalesce(guest_name, 'Gæst'),
-    decided_at = now(),
-    decision_comment = p_comment,
-    updated_at = now()
-  where id = p_id;
-end;
-$$;
-
--- Atomisk anvendelse af et accepteret ændringsforslag (i dag: change_type='guest_edit'). Kun staff kan
--- kalde den (is_org_staff), og hele funktionskroppen kører i kalderens transaktion — fejler et skridt,
--- rulles det hele tilbage, så "accepteret" og "gæstedata opdateret" aldrig kan komme ud af trit.
-create or replace function apply_change_request(p_id uuid, p_comment text default null)
-returns void language plpgsql security definer set search_path = public as $$
-declare
-  req event_change_requests%rowtype;
-  g jsonb;
-  staff_name text;
-  action text;
-begin
-  select * into req from event_change_requests where id = p_id;
-  if not found then raise exception 'Ændringsforslaget findes ikke'; end if;
-  if not is_org_staff(req.event_id) then raise exception 'Ingen adgang'; end if;
-  if req.status <> 'pending' then raise exception 'Forslaget er allerede behandlet'; end if;
-
-  if req.change_type = 'guest_edit' then
-    g := req.after_payload->'guest';
-    action := req.after_payload->>'action';
-    if action = 'insert' then
-      insert into guests (id, event_id, name, category, reception, dinner, dietary, sort_order)
-        values (coalesce((g->>'id')::uuid, gen_random_uuid()), req.event_id, coalesce(g->>'navn',''),
-                coalesce(g->>'kat','voksen'), coalesce((g->>'reception')::boolean, true),
-                coalesce((g->>'middag')::boolean, true), coalesce(g->>'kost',''), 999);
-    elsif action = 'update' then
-      update guests set name = coalesce(g->>'navn', name), category = coalesce(g->>'kat', category),
-        reception = coalesce((g->>'reception')::boolean, reception),
-        dinner = coalesce((g->>'middag')::boolean, dinner),
-        dietary = coalesce(g->>'kost', dietary)
-        where id = (g->>'id')::uuid and event_id = req.event_id;
-    elsif action = 'delete' then
-      delete from guests where id = (g->>'id')::uuid and event_id = req.event_id;
-    else
-      raise exception 'Ukendt handling i ændringsforslaget: %', action;
-    end if;
-  else
-    raise exception 'Ukendt ændringstype: %', req.change_type;
-  end if;
-
-  select name into staff_name from staff where id = auth.uid();
-  update event_change_requests set status = 'accepted', reviewed_by = auth.uid(),
-    reviewed_by_name = coalesce(staff_name, 'Medarbejder'), reviewed_at = now(), review_comment = p_comment
-    where id = p_id;
-end;
-$$;
-
 -- Dublikering sker atomisk server-side (én transaktion, hele funktionskroppen), autoriseret via
 -- is_org_staff() på KILDE-arrangementet. Kopierer kun det, kalderen har valgt via p_options — resten
--- (gæster, event_access, magic links, beskeder, aktivitetslog, godkendelsesafgørelser, uploadede filer)
--- kopieres ALDRIG, uanset options. Det nye arrangement starter altid som 'kladde'.
+-- (gæster, event_access, magic links, beskeder, aktivitetslog) kopieres ALDRIG, uanset options.
+-- Det nye arrangement starter altid som 'kladde'.
 create or replace function duplicate_event(
   p_source_id uuid, p_new_title text, p_new_date date, p_new_venue_id uuid,
   p_options jsonb default '{}'::jsonb
@@ -557,10 +376,7 @@ returns uuid language plpgsql security definer set search_path = public as $$
 declare
   src events%rowtype;
   new_id uuid;
-  shift_minutes integer;
   r record;
-  new_agenda_id uuid;
-  agenda_map jsonb := '{}'::jsonb;
 begin
   select * into src from events where id = p_source_id;
   if not found then raise exception 'Kilde-arrangementet findes ikke'; end if;
@@ -569,71 +385,31 @@ begin
     raise exception 'Lokationen tilhører ikke samme organisation';
   end if;
 
-  shift_minutes := coalesce((p_options->>'shiftMinutes')::integer, 0);
-
   -- owner_staff_id kopieres altid fra kilden (aldrig valgfrit) — et arrangement uden koordinator må
-  -- ikke kunne opstå via duplikering, ligesom det ikke kan ved almindelig oprettelse (createEvent()
-  -- i app/index.html kræver nu et valgt owner_staff_id). "staff"-valget styrer kun sekundær koordinator
-  -- og øvrige tilknyttede medarbejdere (event_staff) — ikke selve ejerskabet.
-  insert into events (venue_id, org_id, title, event_date, offer_total_kr, status, event_type, owner_staff_id)
-    values (coalesce(p_new_venue_id, src.venue_id), src.org_id, p_new_title, p_new_date, 0, 'kladde', src.event_type, src.owner_staff_id)
+  -- ikke kunne opstå via duplikering, ligesom det ikke kan ved almindelig oprettelse.
+  insert into events (venue_id, org_id, title, event_date, offer_total_kr, status, event_type, event_kind, owner_staff_id)
+    values (coalesce(p_new_venue_id, src.venue_id), src.org_id, p_new_title, p_new_date, 0, 'kladde', src.event_type, src.event_kind, src.owner_staff_id)
     returning id into new_id;
 
   if coalesce((p_options->>'staff')::boolean, false) then
-    update events set secondary_staff_id = src.secondary_staff_id where id = new_id;
     insert into event_staff (event_id, staff_id)
       select new_id, staff_id from event_staff where event_id = p_source_id
       on conflict do nothing;
   end if;
 
-  if coalesce((p_options->>'phases')::boolean, false) then
-    insert into event_rooms (event_id, label, room_id, start_time, end_time, sort_order, setup_minutes, teardown_minutes, booking_status)
-      select new_id, label, room_id,
-        (start_time + (shift_minutes || ' minutes')::interval)::time,
-        (end_time + (shift_minutes || ' minutes')::interval)::time,
-        sort_order, setup_minutes, teardown_minutes, 'tentativ'
-      from event_rooms where event_id = p_source_id;
-  end if;
-
-  if coalesce((p_options->>'catalog')::boolean, false) then
-    insert into event_catalog_items (event_id, catalog_item_id)
-      select new_id, catalog_item_id from event_catalog_items where event_id = p_source_id
+  if coalesce((p_options->>'rooms')::boolean, false) then
+    insert into event_rooms (event_id, room_id)
+      select new_id, room_id from event_rooms where event_id = p_source_id
       on conflict do nothing;
   end if;
 
   if coalesce((p_options->>'agenda')::boolean, false) then
     for r in select * from agenda_items where event_id = p_source_id loop
-      insert into agenda_items (event_id, title, owner, status, due_date, note, sort_order, priority)
+      insert into agenda_items (event_id, title, owner, status, due_date, note, sort_order, priority, requires_confirmation)
         values (new_id, r.title, r.owner, 'mangler',
           case when r.due_date is not null then p_new_date + (r.due_date - src.event_date) else null end,
-          r.note, r.sort_order, r.priority)
-        returning id into new_agenda_id;
-      agenda_map := agenda_map || jsonb_build_object(r.id::text, new_agenda_id::text);
+          r.note, r.sort_order, r.priority, r.requires_confirmation);
     end loop;
-
-    if coalesce((p_options->>'notes')::boolean, false) then
-      for r in select n.* from agenda_item_notes n
-        join agenda_items a on a.id = n.agenda_item_id
-        where a.event_id = p_source_id and n.file_path is null loop
-        insert into agenda_item_notes (agenda_item_id, event_id, author_name, author_side, text)
-          values ((agenda_map->>r.agenda_item_id::text)::uuid, new_id, r.author_name, r.author_side, r.text);
-      end loop;
-    end if;
-  end if;
-
-  if coalesce((p_options->>'taskTemplates')::boolean, false) then
-    insert into agenda_items (event_id, title, owner, due_date, note, sort_order)
-      select new_id, t.title, t.owner,
-        case when t.days_before_event is not null then p_new_date - t.days_before_event else null end,
-        coalesce(t.note,''), coalesce(t.sort_order,0)
-      from task_templates t
-      where t.org_id = src.org_id and (t.event_type is null or t.event_type = src.event_type);
-  end if;
-
-  if coalesce((p_options->>'approvalTypes')::boolean, false) then
-    insert into event_approvals (event_id, title, approval_type, status)
-      select new_id, 'Ny '||lower(coalesce(nullif(at.approval_type,''),'godkendelse')), at.approval_type, 'kladde'
-      from (select distinct approval_type from event_approvals where event_id = p_source_id) at;
   end if;
 
   return new_id;
@@ -718,10 +494,11 @@ create trigger on_activity_log_ip
   before insert on activity_log
   for each row execute function stamp_activity_log_ip();
 
--- Gæsten må kun ændre status på egne aftalepunkter — dette trigger klapper
--- ethvert andet felt tilbage til den gamle værdi, uanset hvad et forsøgt
--- API-kald indeholder. RLS (agenda_update) begrænser i forvejen HVILKE
--- rækker gæsten overhovedet kan forsøge at ramme.
+-- Gæsten må kun ændre status på egne aftalepunkter, plus — hvis opgaven kræver bekræftelse
+-- (requires_confirmation) — afgive sin godkend/afvis-beslutning (guest_decision/-comment). Alt andet
+-- klappes tilbage til den gamle værdi, uanset hvad et forsøgt API-kald indeholder. RLS (agenda_update)
+-- begrænser i forvejen HVILKE rækker gæsten overhovedet kan forsøge at ramme (kun egne "jer"-punkter).
+-- guest_decision_at stemples altid server-side, uanset hvem der ændrer guest_decision.
 create or replace function guard_agenda_item_update()
 returns trigger language plpgsql security definer set search_path = public as $$
 begin
@@ -732,7 +509,26 @@ begin
     new.note := old.note;
     new.sort_order := old.sort_order;
     new.event_id := old.event_id;
+    new.assigned_staff_id := old.assigned_staff_id;
+    new.priority := old.priority;
+    new.requires_confirmation := old.requires_confirmation;
+    new.is_guest_list_deadline := old.is_guest_list_deadline;
+
+    if new.guest_decision is distinct from old.guest_decision then
+      if not old.requires_confirmation or old.guest_decision is not null then
+        raise exception 'Denne opgave kan ikke besvares (kræver ikke bekræftelse, eller er allerede besvaret)';
+      end if;
+      if new.guest_decision not in ('godkendt','afvist') then
+        raise exception 'Ugyldig beslutning';
+      end if;
+      new.status := 'aftalt';
+    end if;
   end if;
+
+  if new.guest_decision is distinct from old.guest_decision then
+    new.guest_decision_at := now();
+  end if;
+
   return new;
 end;
 $$;
@@ -740,84 +536,42 @@ create trigger on_agenda_item_update
   before update on agenda_items
   for each row execute function guard_agenda_item_update();
 
--- "Godkendelser må ikke kunne ændres historisk efter beslutningen": når status allerede er godkendt/
--- afvist, klapper dette trigger alle indholdsfelter tilbage til den gamle værdi. Den eneste tilladte
--- ændring efter en afgørelse er status -> 'erstattet' + superseded_by, præcis det en ny version gør ved
--- den gamle. Gælder uanset kaldevej (staff-update eller decide_approval-RPC'en).
-create or replace function guard_approval_update()
-returns trigger language plpgsql security definer set search_path = public as $$
-begin
-  if old.status in ('godkendt','afvist') then
-    new.title := old.title;
-    new.description := old.description;
-    new.approval_type := old.approval_type;
-    new.amount := old.amount;
-    new.currency := old.currency;
-    new.payload := old.payload;
-    new.due_at := old.due_at;
-    new.decided_by := old.decided_by;
-    new.decided_by_name := old.decided_by_name;
-    new.decided_at := old.decided_at;
-    new.decision_comment := old.decision_comment;
-    new.requested_by := old.requested_by;
-    new.requested_by_name := old.requested_by_name;
-    new.requested_at := old.requested_at;
-    if new.status not in (old.status, 'erstattet') then
-      new.status := old.status;
-    end if;
-  end if;
-  new.updated_at := now();
-  return new;
-end;
-$$;
-create trigger on_approval_update before update on event_approvals
-  for each row execute function guard_approval_update();
-
--- Forhindrer dobbeltbooking: samme lokale kan ikke bruges to steder samtidig samme dag, inklusive
--- opsætnings-/oprydningstid rundt om hver fase. Samme lokale samme dag men forskudte tidsrum (med nok
--- luft til opsætning/oprydning) er ok; samme tidsrum i forskellige lokaler er ok.
+-- Forhindrer dobbeltbooking: samme lokale kan ikke bruges til to arrangementer med overlappende
+-- datoer. v1 har ingen fasestruktur/tidspræcision længere — konflikt afgøres på hele arrangementets
+-- dato-interval (event_date..coalesce(end_date,event_date)), krydset med hvert arrangements fælles
+-- start_time/end_time hvis begge er sat (ellers antages hele dagen optaget).
 create or replace function check_room_conflict()
 returns trigger language plpgsql security definer set search_path = public as $$
 declare
-  ev_date date;
-  new_start timestamptz;
-  new_end timestamptz;
+  this_ev events%rowtype;
   conflict_row record;
 begin
-  if new.start_time is null or new.end_time is null or new.room_id is null then
-    return new;   -- intet tidsrum/lokale sat endnu — kan ikke tjekkes
-  end if;
+  select * into this_ev from events where id = new.event_id;
 
-  select event_date into ev_date from events where id = new.event_id;
-  new_start := ev_date + new.start_time - (coalesce(new.setup_minutes,0) || ' minutes')::interval;
-  new_end   := ev_date + new.end_time;
-  if new.end_time <= new.start_time then
-    new_end := new_end + interval '1 day';   -- fase går over midnat
-  end if;
-  new_end := new_end + (coalesce(new.teardown_minutes,0) || ' minutes')::interval;
-
-  select er.label, e2.title, e2.id as other_event_id into conflict_row
+  select e2.title into conflict_row
   from event_rooms er
   join events e2 on e2.id = er.event_id
   where er.room_id = new.room_id
-    and er.start_time is not null and er.end_time is not null
-    and er.id <> new.id
-    and (e2.event_date + er.start_time - (coalesce(er.setup_minutes,0) || ' minutes')::interval) < new_end
-    and new_start < (e2.event_date + er.end_time
-        + (case when er.end_time <= er.start_time then interval '1 day' else interval '0' end)
-        + (coalesce(er.teardown_minutes,0) || ' minutes')::interval)
+    and e2.id <> this_ev.id
+    and e2.archived_at is null
+    and this_ev.event_date <= coalesce(e2.end_date, e2.event_date)
+    and e2.event_date <= coalesce(this_ev.end_date, this_ev.event_date)
+    and (
+      this_ev.start_time is null or this_ev.end_time is null
+      or e2.start_time is null or e2.end_time is null
+      or this_ev.start_time < e2.end_time and e2.start_time < this_ev.end_time
+    )
   limit 1;
 
   if found then
-    raise exception 'Lokalet er allerede booket % – % (% · %), inkl. opsætning/oprydning',
-      new.start_time, new.end_time, conflict_row.title, conflict_row.label;
+    raise exception 'Lokalet er allerede booket til "%" i samme periode', conflict_row.title;
   end if;
 
   return new;
 end;
 $$;
 create trigger on_event_rooms_conflict
-  before insert or update on event_rooms
+  before insert on event_rooms
   for each row execute function check_room_conflict();
 
 -- =====================================================================
@@ -837,13 +591,6 @@ alter table agenda_item_notes enable row level security;
 alter table activity_log  enable row level security;
 alter table rooms         enable row level security;
 alter table event_rooms   enable row level security;
-alter table catalog_items       enable row level security;
-alter table event_catalog_items enable row level security;
-alter table catalog_item_rooms  enable row level security;
-alter table task_templates      enable row level security;
-alter table event_approvals     enable row level security;
-alter table event_change_requests enable row level security;
-alter table event_templates     enable row level security;
 alter table superadmin_invites  enable row level security;
 
 -- Superadmin: læsbar for sig selv, og fuldt læsbar for 'ejer' (til "Verta-brugere"-listen i
@@ -877,7 +624,7 @@ create policy venue_insert on venues for insert with check ( is_org_admin(org_id
 create policy venue_update on venues for update using ( is_org_admin(org_id) ) with check ( is_org_admin(org_id) );
 create policy venue_delete on venues for delete using ( is_org_admin(org_id) );
 
--- Lokaler: læsbare for org'ens folk + brudepar ved lokationen; kun admin redigerer
+-- Lokaler: læsbare for org'ens folk + gæsten ved lokationen; kun admin redigerer
 create policy rooms_read on rooms for select using (
   exists (select 1 from venues v where v.id = rooms.venue_id and v.org_id = my_org())
   or is_superadmin()
@@ -888,40 +635,10 @@ create policy rooms_ins on rooms for insert with check ( is_org_admin((select or
 create policy rooms_upd on rooms for update using ( is_org_admin((select org_id from venues where id = rooms.venue_id)) ) with check ( is_org_admin((select org_id from venues where id = rooms.venue_id)) );
 create policy rooms_del on rooms for delete using ( is_org_admin((select org_id from venues where id = rooms.venue_id)) );
 
--- Lokale pr. fase: begge parter læser; medarbejdere sætter
+-- Hvilke lokaler et arrangement bruger: begge parter læser; medarbejdere sætter
 create policy erooms_read on event_rooms for select using ( is_org_staff(event_id) or is_event_guest(event_id) );
 create policy erooms_ins  on event_rooms for insert with check ( is_org_staff(event_id) );
-create policy erooms_upd  on event_rooms for update using ( is_org_staff(event_id) ) with check ( is_org_staff(event_id) );
 create policy erooms_del  on event_rooms for delete using ( is_org_staff(event_id) );
-
--- Priskatalog: org'ens folk læser hele kataloget (til at tilføje til arrangementer);
--- brudepar må kun se de konkrete varer, der er valgt til deres eget arrangement.
--- Kun admin opretter/ændrer/sletter katalogvarer.
-create policy catalog_read on catalog_items for select using (
-  org_id = my_org() or is_superadmin()
-  or exists (select 1 from event_catalog_items eci
-             join event_access a on a.event_id = eci.event_id
-             where eci.catalog_item_id = catalog_items.id and a.user_id = auth.uid())
-);
-create policy catalog_ins on catalog_items for insert with check ( is_org_admin(org_id) );
-create policy catalog_upd on catalog_items for update using ( is_org_admin(org_id) ) with check ( is_org_admin(org_id) );
-create policy catalog_del on catalog_items for delete using ( is_org_admin(org_id) );
-
--- Hvilke katalogvarer er koblet til et arrangement: begge parter læser; medarbejdere sætter
-create policy eci_read on event_catalog_items for select using ( is_org_staff(event_id) or is_event_guest(event_id) );
-create policy eci_ins  on event_catalog_items for insert with check ( is_org_staff(event_id) );
-create policy eci_del  on event_catalog_items for delete using ( is_org_staff(event_id) );
-
--- Hvilke lokaler en katalogvare kan bruges i: org'ens folk læser; kun admin sætter
-create policy cir_read on catalog_item_rooms for select using (
-  exists (select 1 from catalog_items ci where ci.id = catalog_item_rooms.catalog_item_id and ci.org_id = my_org())
-);
-create policy cir_ins on catalog_item_rooms for insert with check (
-  exists (select 1 from catalog_items ci where ci.id = catalog_item_rooms.catalog_item_id and is_org_admin(ci.org_id))
-);
-create policy cir_del on catalog_item_rooms for delete using (
-  exists (select 1 from catalog_items ci where ci.id = catalog_item_rooms.catalog_item_id and is_org_admin(ci.org_id))
-);
 
 -- Medarbejdere kan se kolleger (til tildeling); kun admin må ændre brugere direkte i tabellen.
 -- En almindelig koordinator redigerer sin EGEN profil (navn/titel/billede/onboarding) udelukkende via
@@ -936,7 +653,7 @@ create policy staff_delete on staff for delete using ( is_org_admin(org_id) );
 create policy invites_admin on invites for all
   using ( is_org_admin(org_id) ) with check ( is_org_admin(org_id) );
 
--- Arrangementer: admin ser alle i org; koordinator ser tildelte; brudepar ser eget
+-- Arrangementer: admin ser alle i org; koordinator ser tildelte; gæst ser eget
 create policy event_read on events for select
   using ( is_org_staff(id) or is_event_guest(id) );
 create policy event_insert on events for insert
@@ -956,11 +673,9 @@ create policy eaccess_insert on event_access for insert with check ( is_org_staf
 create policy eaccess_delete on event_access for delete using ( is_org_staff(event_id) );
 
 -- Gæster: begge parter læser altid. Staff må altid skrive. Gæsten må KUN skrive direkte, mens
--- arrangementet endnu ikke er bekræftet (kladde/tilbud) — derefter er deltagerantal/kategori/kost
--- prisrelevant driftsdata, og ændringer skal i stedet indsendes som et event_change_requests-forslag
--- (se apply_change_request() ovenfor), som staff behandler. Dette er den "tydelige regel" for hvilke
--- felter kunden må ændre direkte kontra hvad der bliver et forslag: det er ikke feltspecifikt (alle
--- guests-felter er i praksis prisrelevante via computeEventTotal), men tidspunktspecifikt.
+-- arrangementet endnu ikke er bekræftet (kladde/tilbud) — derefter er der i v1 ingen formel
+-- ændringsforslag-mekanisme (den er skåret, se roadmap.html): gæsten skriver i stedet en almindelig
+-- besked til koordinator, som selv retter gæstelisten manuelt.
 create policy guests_read on guests for select
   using ( is_org_staff(event_id) or is_event_guest(event_id) );
 create policy guests_staff_insert on guests for insert with check ( is_org_staff(event_id) );
@@ -974,9 +689,9 @@ create policy guests_guest_update on guests for update
 create policy guests_guest_delete on guests for delete
   using ( is_event_guest(event_id) and event_status(event_id) in ('kladde','tilbud') );
 
--- Aftalepunkter: kun koordinator opretter/sletter. Gæsten ser alt, men må
--- kun opdatere status på egne ("jer") punkter — håndhævet i with check
--- her og på kolonneniveau af guard_agenda_item_update()-triggeren ovenfor.
+-- Opgaver: kun koordinator opretter/sletter. Gæsten ser alt, men må kun opdatere status (og, for en
+-- opgave der kræver bekræftelse, sin egen godkend/afvis-beslutning) på egne ("jer") punkter —
+-- håndhævet i with check her og på kolonneniveau af guard_agenda_item_update()-triggeren ovenfor.
 create policy agenda_read on agenda_items for select
   using ( is_org_staff(event_id) or is_event_guest(event_id) );
 create policy agenda_insert on agenda_items for insert
@@ -995,51 +710,13 @@ create policy agenda_notes_insert on agenda_item_notes for insert
 create policy agenda_notes_delete on agenda_item_notes for delete
   using ( is_org_staff(event_id) );
 
--- Opgaveskabeloner: org'ens folk læser; kun admin opretter/ændrer/sletter (som catalog_items).
-create policy task_templates_read on task_templates for select
-  using ( org_id = my_org() or is_superadmin() );
-create policy task_templates_insert on task_templates for insert with check ( is_org_admin(org_id) );
-create policy task_templates_update on task_templates for update using ( is_org_admin(org_id) ) with check ( is_org_admin(org_id) );
-create policy task_templates_delete on task_templates for delete using ( is_org_admin(org_id) );
-
--- Godkendelser: begge parter læser (klienten skjuler kladder for gæsten); kun staff opretter/redigerer/
--- tilbagekalder. Gæsten afgør UDELUKKENDE via decide_approval()-RPC'en ovenfor — ingen guest-update-
--- politik her er en bevidst udeladelse, ikke en forglemmelse.
-create policy approvals_read on event_approvals for select
-  using ( is_org_staff(event_id) or is_event_guest(event_id) );
-create policy approvals_staff_write on event_approvals for insert
-  with check ( is_org_staff(event_id) );
-create policy approvals_staff_update on event_approvals for update
-  using ( is_org_staff(event_id) )
-  with check ( is_org_staff(event_id) );
-create policy approvals_staff_delete on event_approvals for delete
-  using ( is_org_staff(event_id) and status = 'kladde' );
-
--- Ændringsforslag: begge parter læser og opretter (gæsten foreslår, staff kan også oprette til fx
--- dokumentation); kun staff må behandle (godkende via apply_change_request()-RPC'en, eller afvise via
--- en almindelig UPDATE, som ikke rører guests-tabellen og derfor ikke behøver egen RPC).
-create policy change_requests_read on event_change_requests for select
-  using ( is_org_staff(event_id) or is_event_guest(event_id) );
-create policy change_requests_insert on event_change_requests for insert
-  with check ( is_org_staff(event_id) or is_event_guest(event_id) );
-create policy change_requests_staff_update on event_change_requests for update
-  using ( is_org_staff(event_id) )
-  with check ( is_org_staff(event_id) );
-
--- Arrangementsskabeloner: org-ejede, samme mønster som catalog_items/task_templates.
-create policy templates_read on event_templates for select
-  using ( org_id = my_org() or is_superadmin() );
-create policy templates_insert on event_templates for insert with check ( is_org_admin(org_id) );
-create policy templates_update on event_templates for update using ( is_org_admin(org_id) ) with check ( is_org_admin(org_id) );
-create policy templates_delete on event_templates for delete using ( is_org_admin(org_id) );
-
 -- LOG: append-only. Begge parter må indsætte.
 create policy log_insert on activity_log for insert
   with check ( is_org_staff(event_id) or is_event_guest(event_id) );
 -- Medarbejdere ser hele strømmen.
 create policy log_read_staff on activity_log for select
   using ( is_org_staff(event_id) );
--- Brudeparret ser KUN beskeder + kundevendte ændringer (kigge-tid-spærring i db).
+-- Gæsten ser KUN beskeder + kundevendte ændringer (kigge-tid-spærring i db).
 create policy log_read_guest on activity_log for select
   using ( is_event_guest(event_id) and (entry_type = 'message' or customer_visible = true) );
 
@@ -1095,17 +772,18 @@ alter publication supabase_realtime add table agenda_item_notes;
 -- historik). Fjernet: Madkastellet er ikke kunde og må ikke optræde i noget, der kan forveksles med en
 -- rigtig kunde — heller ikke internt testdata, der i praksis lever videre i en delt Supabase-instans.
 -- Erstattet af tre HELT igennem fiktive demo-organisationer, valgt til at dække reelt forskellige
--- profiler: en etableret bryllups-/selskabsvirksomhed med flere lokationer, et etableret konference-
--- center, og en lille, helt nystartet kunde (tynd data, ingen godkendelser endnu — viser hvordan en
--- ny konto reelt ser ud, ikke kun de fyldte eksempler). Hver org har to faste demo-medarbejdere (en
--- admin og en koordinator) med rigtige `staff`-rækker, så alle arrangementer har en navngiven ansvarlig
--- fra start — se kommentaren lige før hver orgs `insert into auth.users` for hvorfor det er en bevidst
--- undtagelse fra den normale regel om, at staff kræver et rigtigt første login. Ingen af de tre kan
--- reelt logges ind på (fiktive .example-mailadresser, ingen rigtig indbakke) — de findes udelukkende
--- for at attribuere demodataens korrespondance/log/ejerskab til nogen. Tilgås derfor i praksis via
--- Kontrolrummet (superadmin), som kan se og handle i orgen uden selv at være tilknyttet som staff.
+-- profiler: en etableret privat selskabsvirksomhed med flere lokationer, et etableret B2B-konference-
+-- center (event_kind='virksomhed'), og en lille, helt nystartet kunde (tynd data, ingen bekræftelses-
+-- opgaver endnu — viser hvordan en ny konto reelt ser ud, ikke kun de fyldte eksempler). Hver org har
+-- to faste demo-medarbejdere (en admin og en koordinator) med rigtige `staff`-rækker, så alle
+-- arrangementer har en navngiven ansvarlig fra start — se kommentaren lige før hver orgs
+-- `insert into auth.users` for hvorfor det er en bevidst undtagelse fra den normale regel om, at staff
+-- kræver et rigtigt første login. Ingen af de tre kan reelt logges ind på (fiktive .example-
+-- mailadresser, ingen rigtig indbakke) — de findes udelukkende for at attribuere demodataens
+-- korrespondance/log/ejerskab til nogen. Tilgås derfor i praksis via Kontrolrummet (superadmin), som
+-- kan se og handle i orgen uden selv at være tilknyttet som staff.
 
--- ---- Org 1: Havbrisen Selskabslokaler (bryllup/private, to lokationer) ----
+-- ---- Org 1: Havbrisen Selskabslokaler (privat, to lokationer) ----
 insert into organisations (id, name, onboarding_dismissed) values
   ('a0000001-0000-0000-0000-000000000000','Havbrisen Selskabslokaler', true);
 
@@ -1117,12 +795,6 @@ insert into rooms (id, venue_id, name, capacity_max, sort_order) values
   ('a0000001-0000-0000-0000-000000000011','a0000001-0000-0000-0000-000000000001','Havsalen',140,0),
   ('a0000001-0000-0000-0000-000000000012','a0000001-0000-0000-0000-000000000001','Terrassen',60,1),
   ('a0000001-0000-0000-0000-000000000021','a0000001-0000-0000-0000-000000000002','Orangeriet',80,0);
-
-insert into catalog_items (id, org_id, name, category, price_kr, basis, child_half, event_type, sort_order) values
-  ('a0000001-0000-0000-0000-0000000000c1','a0000001-0000-0000-0000-000000000000','Bryllupsmenu, 3 retter','menu',895,'middag',true,'bryllup',0),
-  ('a0000001-0000-0000-0000-0000000000c2','a0000001-0000-0000-0000-000000000000','Reception, stående','reception',245,'reception',false,null,1),
-  ('a0000001-0000-0000-0000-0000000000c3','a0000001-0000-0000-0000-000000000000','Kaffe og kage','reception',65,'reception',true,null,2),
-  ('a0000001-0000-0000-0000-0000000000c4','a0000001-0000-0000-0000-000000000000','Bar-pakke, hele aftenen','tilvalg',8500,'fast',false,null,3);
 
 -- Faste demo-medarbejdere: normalt kræver staff en ægte auth.users-login (se kommentaren ovenfor),
 -- men denne org er varigt fiktiv demodata, så identiteterne oprettes direkte og idempotent her —
@@ -1138,12 +810,16 @@ insert into staff (id, org_id, name, role, title) values
   ('a0000001-0000-0000-0000-0000000000a1','a0000001-0000-0000-0000-000000000000','Sofie Lindegaard','admin','Selskabsansvarlig'),
   ('a0000001-0000-0000-0000-0000000000a2','a0000001-0000-0000-0000-000000000000','Anders Mynster','coordinator','Bryllupskoordinator');
 
-insert into events (id, venue_id, org_id, title, event_date, offer_total_kr, status, event_type, owner_staff_id, secondary_staff_id) values
-  ('a0000001-0000-0000-0000-0000000000e1','a0000001-0000-0000-0000-000000000001','a0000001-0000-0000-0000-000000000000','Ida & Kasper','2026-04-18',118400,'afviklet','bryllup','a0000001-0000-0000-0000-0000000000a2',null),
-  ('a0000001-0000-0000-0000-0000000000e2','a0000001-0000-0000-0000-000000000002','a0000001-0000-0000-0000-000000000000','Firmafest · Solstrand Ejendomme','2026-06-06',72300,'afviklet','firmafest','a0000001-0000-0000-0000-0000000000a1',null),
-  ('a0000001-0000-0000-0000-0000000000e3','a0000001-0000-0000-0000-000000000001','a0000001-0000-0000-0000-000000000000','Camilla & Rasmus','2026-09-19',132600,'bekræftet','bryllup','a0000001-0000-0000-0000-0000000000a1','a0000001-0000-0000-0000-0000000000a2'),
-  ('a0000001-0000-0000-0000-0000000000e4','a0000001-0000-0000-0000-000000000002','a0000001-0000-0000-0000-000000000000','Nanna & Frederik','2026-11-14',96000,'tilbud','bryllup','a0000001-0000-0000-0000-0000000000a1',null),
-  ('a0000001-0000-0000-0000-0000000000e5','a0000001-0000-0000-0000-000000000001','a0000001-0000-0000-0000-000000000000','60-års fødselsdag · Elsebeth','2027-01-09',0,'kladde','andet','a0000001-0000-0000-0000-0000000000a2',null);
+insert into events (id, venue_id, org_id, title, event_date, offer_total_kr, status, event_type, event_kind, expected_guests, owner_staff_id) values
+  ('a0000001-0000-0000-0000-0000000000e1','a0000001-0000-0000-0000-000000000001','a0000001-0000-0000-0000-000000000000','Ida & Kasper','2026-04-18',118400,'afviklet','bryllup','privat',28,'a0000001-0000-0000-0000-0000000000a2'),
+  ('a0000001-0000-0000-0000-0000000000e2','a0000001-0000-0000-0000-000000000002','a0000001-0000-0000-0000-000000000000','Firmafest · Solstrand Ejendomme','2026-06-06',72300,'afviklet','firmafest','virksomhed',45,'a0000001-0000-0000-0000-0000000000a1'),
+  ('a0000001-0000-0000-0000-0000000000e3','a0000001-0000-0000-0000-000000000001','a0000001-0000-0000-0000-000000000000','Camilla & Rasmus','2026-09-19',132600,'bekræftet','bryllup','privat',28,'a0000001-0000-0000-0000-0000000000a1'),
+  ('a0000001-0000-0000-0000-0000000000e4','a0000001-0000-0000-0000-000000000002','a0000001-0000-0000-0000-000000000000','Nanna & Frederik','2026-11-14',96000,'tilbud','bryllup','privat',60,'a0000001-0000-0000-0000-0000000000a1'),
+  ('a0000001-0000-0000-0000-0000000000e5','a0000001-0000-0000-0000-000000000001','a0000001-0000-0000-0000-000000000000','60-års fødselsdag · Elsebeth','2027-01-09',0,'kladde','andet','privat',null,'a0000001-0000-0000-0000-0000000000a2');
+
+update events set company_name = 'Solstrand Ejendomme A/S', company_cvr = '29847156',
+  invoice_recipient_name = 'Michael Sørup', invoice_recipient_email = 'okonomi@solstrand.example'
+  where id = 'a0000001-0000-0000-0000-0000000000e2';
 
 insert into event_staff (event_id, staff_id) values
   ('a0000001-0000-0000-0000-0000000000e3','a0000001-0000-0000-0000-0000000000a1'),
@@ -1153,15 +829,14 @@ insert into activity_log (event_id, ts, actor_name, actor_side, entry_type, area
   ('a0000001-0000-0000-0000-0000000000e1','2026-02-01 09:00:00+02','Sofie Lindegaard','kilden','change','system','Primær koordinator','','Anders Mynster',false,'Anders Mynster tilknyttet som koordinator',''),
   ('a0000001-0000-0000-0000-0000000000e2','2026-04-01 09:00:00+02','Sofie Lindegaard','kilden','change','system','Primær koordinator','','Sofie Lindegaard',false,'Sofie Lindegaard tilknyttet som koordinator',''),
   ('a0000001-0000-0000-0000-0000000000e3','2026-05-01 09:00:00+02','Sofie Lindegaard','kilden','change','system','Primær koordinator','','Sofie Lindegaard',false,'Sofie Lindegaard tilknyttet som koordinator',''),
-  ('a0000001-0000-0000-0000-0000000000e3','2026-05-01 09:01:00+02','Sofie Lindegaard','kilden','change','system','Sekundær koordinator','','Anders Mynster',false,'Anders Mynster tilknyttet som sekundær koordinator',''),
   ('a0000001-0000-0000-0000-0000000000e4','2026-07-28 10:00:00+02','Sofie Lindegaard','kilden','change','system','Primær koordinator','','Sofie Lindegaard',false,'Sofie Lindegaard tilknyttet som koordinator',''),
   ('a0000001-0000-0000-0000-0000000000e5','2026-08-12 14:00:00+02','Sofie Lindegaard','kilden','change','system','Primær koordinator','','Anders Mynster',false,'Anders Mynster tilknyttet som koordinator','');
 
--- Flagskib: Camilla & Rasmus — fuldt udbygget (faser, gæsteliste, opgaver, godkendelser, korrespondance)
-insert into event_rooms (event_id, label, room_id, start_time, end_time, sort_order, setup_minutes, teardown_minutes, booking_status) values
-  ('a0000001-0000-0000-0000-0000000000e3','Reception','a0000001-0000-0000-0000-000000000012','16:00','17:30',1,30,0,'bekræftet'),
-  ('a0000001-0000-0000-0000-0000000000e3','Middag','a0000001-0000-0000-0000-000000000011','17:30','22:00',2,30,0,'bekræftet'),
-  ('a0000001-0000-0000-0000-0000000000e3','Fest','a0000001-0000-0000-0000-000000000011','22:00','01:00',3,0,60,'bekræftet');
+-- Flagskib: Camilla & Rasmus — fuldt udbygget (lokaler, gæsteliste, opgaver, bekræftelser, korrespondance)
+insert into event_rooms (event_id, room_id) values
+  ('a0000001-0000-0000-0000-0000000000e3','a0000001-0000-0000-0000-000000000011'),
+  ('a0000001-0000-0000-0000-0000000000e3','a0000001-0000-0000-0000-000000000012');
+update events set start_time = '16:00', end_time = '01:00' where id = 'a0000001-0000-0000-0000-0000000000e3';
 
 insert into guests (event_id, name, category, reception, dinner, dietary, sort_order)
 select 'a0000001-0000-0000-0000-0000000000e3', name, 'voksen', true, true, dietary, ord from (values
@@ -1178,27 +853,21 @@ insert into guests (event_id, name, category, reception, dinner, dietary, sort_o
   ('a0000001-0000-0000-0000-0000000000e3','Noah (baby)','baby',false,false,'',26),
   ('a0000001-0000-0000-0000-0000000000e3','Villads Bang','',true,false,'',27);
 
-insert into agenda_items (event_id, title, owner, status, due_date, sort_order, priority) values
-  ('a0000001-0000-0000-0000-0000000000e3','Godkend bordplan','jer','udkast','2026-08-25',0,'normal'),
-  ('a0000001-0000-0000-0000-0000000000e3','Bekræft allergiliste til køkkenet','jer','aftalt','2026-08-05',1,'normal'),
-  ('a0000001-0000-0000-0000-0000000000e3','Send sangliste til bryllupstale','jer','mangler','2026-09-05',2,'lav'),
-  ('a0000001-0000-0000-0000-0000000000e3','Book blomsterdekoratør','kilden','aftalt','2026-07-01',3,'normal'),
-  ('a0000001-0000-0000-0000-0000000000e3','Bekræft AV-udstyr til talerne','kilden','udkast','2026-09-01',4,'kritisk'),
-  ('a0000001-0000-0000-0000-0000000000e3','Sæt bordplan op i Havsalen','kilden','mangler','2026-09-12',5,'normal'),
-  ('a0000001-0000-0000-0000-0000000000e3','Bekræft endeligt gæsteantal','kilden','mangler','2026-08-29',6,'kritisk');
-
-insert into event_approvals (event_id, title, description, approval_type, status, version, amount, requested_by_name, requested_at, decided_by_name, decided_at) values
-  ('a0000001-0000-0000-0000-0000000000e3','Tilbud — Camilla & Rasmus','Samlet tilbud for lokale, menu og bar-pakke.','tilbud','godkendt',1,132600,'Sofie Lindegaard','2026-06-02 10:00+02','Camilla',       '2026-06-05 19:40+02'),
-  ('a0000001-0000-0000-0000-0000000000e3','Bordplan, Havsalen','Bordopstilling til 24 voksne + 2 børn, rund borde à 8.','bordplan','afventer',1,null,'Sofie Lindegaard','2026-08-20 09:15+02',null,null);
+insert into agenda_items (event_id, title, owner, status, due_date, sort_order, priority, requires_confirmation, guest_decision, guest_decision_at, is_guest_list_deadline) values
+  ('a0000001-0000-0000-0000-0000000000e3','Godkend bordplan','jer','aftalt','2026-08-25',0,'normal',true,'godkendt','2026-08-22 20:10+02',false),
+  ('a0000001-0000-0000-0000-0000000000e3','Bekræft allergiliste til køkkenet','jer','aftalt','2026-08-05',1,'normal',false,null,null,false),
+  ('a0000001-0000-0000-0000-0000000000e3','Send sangliste til bryllupstale','jer','mangler','2026-09-05',2,'lav',false,null,null,false),
+  ('a0000001-0000-0000-0000-0000000000e3','Bekræft endeligt gæsteantal','jer','mangler','2026-08-29',3,'kritisk',false,null,null,true),
+  ('a0000001-0000-0000-0000-0000000000e3','Book blomsterdekoratør','kilden','aftalt','2026-07-01',4,'normal',false,null,null,false),
+  ('a0000001-0000-0000-0000-0000000000e3','Bekræft AV-udstyr til talerne','kilden','udkast','2026-09-01',5,'kritisk',false,null,null,false),
+  ('a0000001-0000-0000-0000-0000000000e3','Sæt bordplan op i Havsalen','kilden','mangler','2026-09-12',6,'normal',false,null,null,false);
 
 insert into activity_log (event_id, ts, actor_name, actor_side, entry_type, area, label, from_val, to_val, customer_visible, friendly, message_text) values
-  ('a0000001-0000-0000-0000-0000000000e3','2026-06-05 19:41:00+02','Camilla','kunde','change','godkendelse','Tilbud','afventer','godkendt',true,'Tilbud godkendt af Camilla',''),
   ('a0000001-0000-0000-0000-0000000000e3','2026-07-14 11:02:00+02','Rasmus','kunde','message','','','','',true,'','Hej Sofie! Vi vil gerne tilføje en ven i sidste øjeblik — er der plads til én mere ved bord 3?'),
   ('a0000001-0000-0000-0000-0000000000e3','2026-07-14 13:20:00+02','Sofie Lindegaard','kilden','message','','','','',true,'','Hej Rasmus, helt sikkert — jeg har lige tilføjet Villads til gæstelisten, så I kan se ham i oversigten.'),
   ('a0000001-0000-0000-0000-0000000000e3','2026-07-14 13:21:00+02','Sofie Lindegaard','kilden','change','gæst','Gæst tilføjet','','',true,'Gæst tilføjet: Villads Bang',''),
-  ('a0000001-0000-0000-0000-0000000000e3','2026-08-20 09:16:00+02','Sofie Lindegaard','kilden','change','godkendelse','Bordplan','','afventer',false,'Bordplan sendt til godkendelse hos kunden',''),
   ('a0000001-0000-0000-0000-0000000000e3','2026-08-22 20:05:00+02','Camilla','kunde','message','','','','',true,'','Bordplanen ser fin ud, men kan I flytte mine forældre væk fra højtaleren ved DJ-boothet?'),
-  ('a0000001-0000-0000-0000-0000000000e3','2026-08-23 08:40:00+02','Sofie Lindegaard','kilden','note','','','','',false,'','Internt: har flyttet bord 2 væk fra scenen — afventer stadig kundens endelige godkendelse af bordplanen, før vi låser den.');
+  ('a0000001-0000-0000-0000-0000000000e3','2026-08-23 08:40:00+02','Sofie Lindegaard','kilden','note','','','','',false,'','Internt: har flyttet bord 2 væk fra scenen — kunden har godkendt bordplanen som helhed.');
 
 -- Let indhold på de øvrige Havbrisen-arrangementer (ikke tomme, men langt fra flagskibets dybde)
 insert into guests (event_id, name, category, reception, dinner, dietary, sort_order) values
@@ -1212,7 +881,7 @@ insert into guests (event_id, name, category, reception, dinner, dietary, sort_o
   ('a0000001-0000-0000-0000-0000000000e4','Grethe Nanna-mor','voksen',true,false,'',2);
 
 insert into agenda_items (event_id, title, owner, status, due_date, sort_order, priority) values
-  ('a0000001-0000-0000-0000-0000000000e4','Vælg menu fra kataloget','jer','mangler','2026-09-10',0,'normal'),
+  ('a0000001-0000-0000-0000-0000000000e4','Vælg menu','jer','mangler','2026-09-10',0,'normal'),
   ('a0000001-0000-0000-0000-0000000000e4','Book prøvesmagning','kilden','mangler','2026-09-05',1,'normal'),
   ('a0000001-0000-0000-0000-0000000000e5','Aftal dato endeligt med familien','jer','mangler','2026-10-01',0,'normal');
 
@@ -1220,7 +889,7 @@ insert into activity_log (event_id, ts, actor_name, actor_side, entry_type, area
   ('a0000001-0000-0000-0000-0000000000e4','2026-08-01 10:00:00+02','Sofie Lindegaard','kilden','message','','','','',true,'','Hej Nanna og Frederik — tillykke med jeres kommende bryllup! Jeg har oprettet jeres side her, så I kan følge med i planlægningen.'),
   ('a0000001-0000-0000-0000-0000000000e4','2026-08-02 16:30:00+02','Nanna','kunde','message','','','','',true,'','Tak! Vi glæder os. Hvornår skal vi senest have valgt menu?');
 
--- ---- Org 2: Domicil Konference & Møder (konference/business, én lokation) ----
+-- ---- Org 2: Domicil Konference & Møder (B2B, én lokation) ----
 insert into organisations (id, name, onboarding_dismissed) values
   ('a0000002-0000-0000-0000-000000000000','Domicil Konference & Møder', true);
 
@@ -1231,12 +900,6 @@ insert into rooms (id, venue_id, name, capacity_max, sort_order) values
   ('a0000002-0000-0000-0000-000000000011','a0000002-0000-0000-0000-000000000001','Plenum',200,0),
   ('a0000002-0000-0000-0000-000000000012','a0000002-0000-0000-0000-000000000001','Mødelokale 3',24,1),
   ('a0000002-0000-0000-0000-000000000013','a0000002-0000-0000-0000-000000000001','Mødelokale 4',24,2);
-
-insert into catalog_items (id, org_id, name, category, price_kr, basis, child_half, event_type, sort_order) values
-  ('a0000002-0000-0000-0000-0000000000c1','a0000002-0000-0000-0000-000000000000','Heldagspakke, konference','menu',1450,'middag',false,'konference',0),
-  ('a0000002-0000-0000-0000-0000000000c2','a0000002-0000-0000-0000-000000000000','Morgenmad, buffet','reception',165,'reception',false,null,1),
-  ('a0000002-0000-0000-0000-0000000000c3','a0000002-0000-0000-0000-000000000000','Eftermiddagskaffe','reception',55,'reception',false,null,2),
-  ('a0000002-0000-0000-0000-0000000000c4','a0000002-0000-0000-0000-000000000000','AV-teknikerassistance','tilvalg',3200,'fast',false,null,3);
 
 -- Faste demo-medarbejdere: se den udførlige kommentar ved Org 1 ovenfor for hvorfor auth.users/staff
 -- oprettes direkte her i stedet for via invites.
@@ -1249,11 +912,20 @@ insert into staff (id, org_id, name, role, title) values
   ('a0000002-0000-0000-0000-0000000000a1','a0000002-0000-0000-0000-000000000000','Peter Vang','admin','Konferenceansvarlig'),
   ('a0000002-0000-0000-0000-0000000000a2','a0000002-0000-0000-0000-000000000000','Mette Kold','coordinator','Eventkoordinator');
 
-insert into events (id, venue_id, org_id, title, event_date, offer_total_kr, status, event_type, owner_staff_id, secondary_staff_id) values
-  ('a0000002-0000-0000-0000-0000000000e1','a0000002-0000-0000-0000-000000000001','a0000002-0000-0000-0000-000000000000','Nordisk Forsikring — Generalforsamling','2026-03-25',84600,'afviklet','konference','a0000002-0000-0000-0000-0000000000a2',null),
-  ('a0000002-0000-0000-0000-0000000000e2','a0000002-0000-0000-0000-000000000001','a0000002-0000-0000-0000-000000000000','TechSummit Øst 2026','2026-10-01',156800,'bekræftet','konference','a0000002-0000-0000-0000-0000000000a1','a0000002-0000-0000-0000-0000000000a2'),
-  ('a0000002-0000-0000-0000-0000000000e3','a0000002-0000-0000-0000-000000000001','a0000002-0000-0000-0000-000000000000','Byggeriets Dag','2026-11-25',210000,'tilbud','konference','a0000002-0000-0000-0000-0000000000a1',null),
-  ('a0000002-0000-0000-0000-0000000000e4','a0000002-0000-0000-0000-000000000001','a0000002-0000-0000-0000-000000000000','Intern strategidag · Vindstød A/S','2027-01-20',0,'kladde','firmafest','a0000002-0000-0000-0000-0000000000a2',null);
+insert into events (id, venue_id, org_id, title, event_date, end_date, offer_total_kr, status, event_type, event_kind, expected_guests, owner_staff_id) values
+  ('a0000002-0000-0000-0000-0000000000e1','a0000002-0000-0000-0000-000000000001','a0000002-0000-0000-0000-000000000000','Nordisk Forsikring — Generalforsamling','2026-03-25',null,84600,'afviklet','konference','virksomhed',60,'a0000002-0000-0000-0000-0000000000a2'),
+  ('a0000002-0000-0000-0000-0000000000e2','a0000002-0000-0000-0000-000000000001','a0000002-0000-0000-0000-000000000000','TechSummit Øst 2026','2026-10-01','2026-10-02',156800,'bekræftet','konference','virksomhed',22,'a0000002-0000-0000-0000-0000000000a1'),
+  ('a0000002-0000-0000-0000-0000000000e3','a0000002-0000-0000-0000-000000000001','a0000002-0000-0000-0000-000000000000','Byggeriets Dag','2026-11-25',null,210000,'tilbud','konference','virksomhed',null,'a0000002-0000-0000-0000-0000000000a1'),
+  ('a0000002-0000-0000-0000-0000000000e4','a0000002-0000-0000-0000-000000000001','a0000002-0000-0000-0000-000000000000','Intern strategidag · Vindstød A/S','2027-01-20',null,0,'kladde','firmafest','virksomhed',null,'a0000002-0000-0000-0000-0000000000a2');
+
+update events set company_name = 'Nordisk Forsikring A/S', company_cvr = '18293746',
+  invoice_recipient_name = 'Birgitte Holm', invoice_recipient_email = 'faktura@nordiskforsikring.example'
+  where id = 'a0000002-0000-0000-0000-0000000000e1';
+update events set company_name = 'TechSummit ApS', company_cvr = '33019284',
+  invoice_recipient_name = 'Henrik Bloch', invoice_recipient_email = 'okonomi@techsummit.example', po_number = 'PO-88213'
+  where id = 'a0000002-0000-0000-0000-0000000000e2';
+update events set company_name = 'Vindstød A/S', company_cvr = '55102938'
+  where id = 'a0000002-0000-0000-0000-0000000000e4';
 
 insert into event_staff (event_id, staff_id) values
   ('a0000002-0000-0000-0000-0000000000e2','a0000002-0000-0000-0000-0000000000a1'),
@@ -1262,17 +934,15 @@ insert into event_staff (event_id, staff_id) values
 insert into activity_log (event_id, ts, actor_name, actor_side, entry_type, area, label, from_val, to_val, customer_visible, friendly, message_text) values
   ('a0000002-0000-0000-0000-0000000000e1','2026-01-15 09:00:00+02','Peter Vang','kilden','change','system','Primær koordinator','','Mette Kold',false,'Mette Kold tilknyttet som koordinator',''),
   ('a0000002-0000-0000-0000-0000000000e2','2026-06-01 09:00:00+02','Peter Vang','kilden','change','system','Primær koordinator','','Peter Vang',false,'Peter Vang tilknyttet som koordinator',''),
-  ('a0000002-0000-0000-0000-0000000000e2','2026-06-01 09:01:00+02','Peter Vang','kilden','change','system','Sekundær koordinator','','Mette Kold',false,'Mette Kold tilknyttet som sekundær koordinator',''),
   ('a0000002-0000-0000-0000-0000000000e3','2026-07-20 09:00:00+02','Peter Vang','kilden','change','system','Primær koordinator','','Peter Vang',false,'Peter Vang tilknyttet som koordinator',''),
   ('a0000002-0000-0000-0000-0000000000e4','2026-08-13 09:00:00+02','Peter Vang','kilden','change','system','Primær koordinator','','Mette Kold',false,'Mette Kold tilknyttet som koordinator','');
 
--- Flagskib: TechSummit Øst 2026
-insert into event_rooms (event_id, label, room_id, start_time, end_time, sort_order, setup_minutes, teardown_minutes, booking_status) values
-  ('a0000002-0000-0000-0000-0000000000e2','Registrering','a0000002-0000-0000-0000-000000000011','08:00','09:00',1,15,0,'bekræftet'),
-  ('a0000002-0000-0000-0000-0000000000e2','Keynote','a0000002-0000-0000-0000-000000000011','09:00','10:30',2,0,0,'bekræftet'),
-  ('a0000002-0000-0000-0000-0000000000e2','Spor A','a0000002-0000-0000-0000-000000000012','11:00','12:30',3,15,15,'bekræftet'),
-  ('a0000002-0000-0000-0000-0000000000e2','Spor B','a0000002-0000-0000-0000-000000000013','11:00','12:30',4,15,15,'bekræftet'),
-  ('a0000002-0000-0000-0000-0000000000e2','Frokost','a0000002-0000-0000-0000-000000000011','12:30','13:30',5,0,0,'bekræftet');
+-- Flagskib: TechSummit Øst 2026 (to-dages B2B-konference)
+insert into event_rooms (event_id, room_id) values
+  ('a0000002-0000-0000-0000-0000000000e2','a0000002-0000-0000-0000-000000000011'),
+  ('a0000002-0000-0000-0000-0000000000e2','a0000002-0000-0000-0000-000000000012'),
+  ('a0000002-0000-0000-0000-0000000000e2','a0000002-0000-0000-0000-000000000013');
+update events set start_time = '08:00', end_time = '17:00' where id = 'a0000002-0000-0000-0000-0000000000e2';
 
 insert into guests (event_id, name, category, reception, dinner, dietary, sort_order)
 select 'a0000002-0000-0000-0000-0000000000e2', name, 'voksen', true, true, dietary, ord from (values
@@ -1283,23 +953,17 @@ select 'a0000002-0000-0000-0000-0000000000e2', name, 'voksen', true, true, dieta
   ('Rasmus Hedegaard','',16),('Maja Lindgren','',17),('Simon Brunsgaard','',18),('Emilie Skov','',19)
 ) as g(name, dietary, ord);
 
-insert into agenda_items (event_id, title, owner, status, due_date, sort_order, priority) values
-  ('a0000002-0000-0000-0000-0000000000e2','Send endelig deltagerliste','jer','udkast','2026-09-15',0,'normal'),
-  ('a0000002-0000-0000-0000-0000000000e2','Godkend AV-opsætning i Plenum','jer','mangler','2026-09-20',1,'kritisk'),
-  ('a0000002-0000-0000-0000-0000000000e2','Bekræft diætbehov til frokost','jer','aftalt','2026-08-30',2,'normal'),
-  ('a0000002-0000-0000-0000-0000000000e2','Book teknikerassistance til Spor A/B','kilden','aftalt','2026-08-01',3,'normal'),
-  ('a0000002-0000-0000-0000-0000000000e2','Sæt skiltning op ved registrering','kilden','mangler','2026-09-28',4,'normal'),
-  ('a0000002-0000-0000-0000-0000000000e2','Test livestream fra Plenum','kilden','udkast','2026-09-25',5,'kritisk');
-
-insert into event_approvals (event_id, title, description, approval_type, status, version, amount, requested_by_name, requested_at, decided_by_name, decided_at) values
-  ('a0000002-0000-0000-0000-0000000000e2','Tilbud — TechSummit Øst 2026','Lokaler, forplejning og AV-udstyr for hele dagen.','tilbud','godkendt',1,156800,'Peter Vang','2026-07-10 09:00+02','Henrik Bloch','2026-07-12 14:10+02'),
-  ('a0000002-0000-0000-0000-0000000000e2','Deltagerantal, endeligt','Låst deltagerantal til catering og skiltning.','deltagerantal','afventer',1,null,'Peter Vang','2026-09-10 08:30+02',null,null);
+insert into agenda_items (event_id, title, owner, status, due_date, sort_order, priority, requires_confirmation, guest_decision, guest_decision_at, is_guest_list_deadline) values
+  ('a0000002-0000-0000-0000-0000000000e2','Godkend AV-opsætning i Plenum','jer','mangler','2026-09-20',0,'kritisk',true,null,null,false),
+  ('a0000002-0000-0000-0000-0000000000e2','Bekræft diætbehov til frokost','jer','aftalt','2026-08-30',1,'normal',false,null,null,false),
+  ('a0000002-0000-0000-0000-0000000000e2','Bekræft endeligt deltagerantal','jer','mangler','2026-09-15',2,'kritisk',false,null,null,true),
+  ('a0000002-0000-0000-0000-0000000000e2','Book teknikerassistance til mødelokalerne','kilden','aftalt','2026-08-01',3,'normal',false,null,null,false),
+  ('a0000002-0000-0000-0000-0000000000e2','Sæt skiltning op ved registrering','kilden','mangler','2026-09-28',4,'normal',false,null,null,false),
+  ('a0000002-0000-0000-0000-0000000000e2','Test livestream fra Plenum','kilden','udkast','2026-09-25',5,'kritisk',false,null,null,false);
 
 insert into activity_log (event_id, ts, actor_name, actor_side, entry_type, area, label, from_val, to_val, customer_visible, friendly, message_text) values
-  ('a0000002-0000-0000-0000-0000000000e2','2026-07-12 14:11:00+02','Henrik Bloch','kunde','change','godkendelse','Tilbud','afventer','godkendt',true,'Tilbud godkendt af Henrik Bloch',''),
-  ('a0000002-0000-0000-0000-0000000000e2','2026-08-28 10:15:00+02','Henrik Bloch','kunde','message','','','','',true,'','Hej Peter — kan I bekræfte at der er ledningsfrit netværk til alle 20 deltagere i både Plenum og de to mødelokaler?'),
+  ('a0000002-0000-0000-0000-0000000000e2','2026-08-28 10:15:00+02','Henrik Bloch','kunde','message','','','','',true,'','Hej Peter — kan I bekræfte at der er ledningsfrit netværk til alle deltagere i både Plenum og de to mødelokaler?'),
   ('a0000002-0000-0000-0000-0000000000e2','2026-08-28 11:02:00+02','Peter Vang','kilden','message','','','','',true,'','Hej Henrik, ja — vi har en dedikeret konference-SSID med kapacitet til 300 samtidige enheder. Jeg sender adgangskoden dagen før.'),
-  ('a0000002-0000-0000-0000-0000000000e2','2026-09-10 08:31:00+02','Peter Vang','kilden','change','godkendelse','Deltagerantal','','afventer',false,'Deltagerantal sendt til godkendelse hos kunden',''),
   ('a0000002-0000-0000-0000-0000000000e2','2026-09-11 09:00:00+02','Henrik Bloch','kunde','message','','','','',true,'','Vi ender nok på 22-23 deltagere i alt — må jeg vende tilbage med det præcise tal i næste uge?'),
   ('a0000002-0000-0000-0000-0000000000e2','2026-09-11 09:20:00+02','Peter Vang','kilden','note','','','','',false,'','Internt: afventer endeligt tal fra kunden — holder foreløbig 25 pladser reserveret i Plenum til frokost.');
 
@@ -1329,10 +993,6 @@ insert into rooms (id, venue_id, name, capacity_max, sort_order) values
   ('a0000003-0000-0000-0000-000000000011','a0000003-0000-0000-0000-000000000001','Laden',90,0),
   ('a0000003-0000-0000-0000-000000000012','a0000003-0000-0000-0000-000000000001','Gårdhaven',120,1);
 
-insert into catalog_items (id, org_id, name, category, price_kr, basis, child_half, event_type, sort_order) values
-  ('a0000003-0000-0000-0000-0000000000c1','a0000003-0000-0000-0000-000000000000','Gårdmenu, 2 retter','menu',645,'middag',true,null,0),
-  ('a0000003-0000-0000-0000-0000000000c2','a0000003-0000-0000-0000-000000000000','Grill-buffet','menu',385,'middag',true,null,1);
-
 -- Faste demo-medarbejdere: se den udførlige kommentar ved Org 1 ovenfor for hvorfor auth.users/staff
 -- oprettes direkte her i stedet for via invites.
 insert into auth.users (instance_id, id, aud, role, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at) values
@@ -1344,9 +1004,11 @@ insert into staff (id, org_id, name, role, title) values
   ('a0000003-0000-0000-0000-0000000000a1','a0000003-0000-0000-0000-000000000000','Anders Pihl','admin','Gårdejer'),
   ('a0000003-0000-0000-0000-0000000000a2','a0000003-0000-0000-0000-000000000000','Julie Holm','coordinator','Eventkoordinator');
 
-insert into events (id, venue_id, org_id, title, event_date, offer_total_kr, status, event_type, owner_staff_id) values
-  ('a0000003-0000-0000-0000-0000000000e1','a0000003-0000-0000-0000-000000000001','a0000003-0000-0000-0000-000000000000','Prøvesmagning · Studiegruppen','2026-09-05',8200,'tilbud','andet','a0000003-0000-0000-0000-0000000000a1'),
-  ('a0000003-0000-0000-0000-0000000000e2','a0000003-0000-0000-0000-000000000001','a0000003-0000-0000-0000-000000000000','Firmasommerfest · Nordly A/S','2027-06-12',0,'kladde','firmafest','a0000003-0000-0000-0000-0000000000a2');
+insert into events (id, venue_id, org_id, title, event_date, offer_total_kr, status, event_type, event_kind, expected_guests, owner_staff_id) values
+  ('a0000003-0000-0000-0000-0000000000e1','a0000003-0000-0000-0000-000000000001','a0000003-0000-0000-0000-000000000000','Prøvesmagning · Studiegruppen','2026-09-05',8200,'tilbud','andet','privat',3,'a0000003-0000-0000-0000-0000000000a1'),
+  ('a0000003-0000-0000-0000-0000000000e2','a0000003-0000-0000-0000-000000000001','a0000003-0000-0000-0000-000000000000','Firmasommerfest · Nordly A/S','2027-06-12',0,'kladde','firmafest','virksomhed',null,'a0000003-0000-0000-0000-0000000000a2');
+
+update events set company_name = 'Nordly A/S' where id = 'a0000003-0000-0000-0000-0000000000e2';
 
 insert into activity_log (event_id, ts, actor_name, actor_side, entry_type, area, label, from_val, to_val, customer_visible, friendly, message_text) values
   ('a0000003-0000-0000-0000-0000000000e1','2026-08-05 09:00:00+02','Anders Pihl','kilden','change','system','Primær koordinator','','Anders Pihl',false,'Anders Pihl tilknyttet som koordinator',''),
@@ -1378,7 +1040,7 @@ insert into activity_log (event_id, ts, actor_name, actor_side, entry_type, area
 --
 -- Herefter styrer du resten fra konsollen: opret lokationer, inviter
 -- koordinatorer (de forfremmes automatisk ved første login), og tildel
--- kunder til arrangementer. Superadmin lander i stedet i kontrolrummet,
+-- gæster til arrangementer. Superadmin lander i stedet i kontrolrummet,
 -- hvor alle tre demo-organisationer allerede kan åbnes med det samme —
 -- uden noget bootstrap-trin, da superadmin-adgang ikke er org-scoped.
 --
