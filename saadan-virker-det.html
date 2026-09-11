@@ -99,6 +99,7 @@ section{padding:64px 0;border-top:1px solid var(--line)}
 .rolepanel[hidden]{display:none}
 .shotgrid{display:grid;grid-template-columns:1fr 1fr;gap:26px}
 @media(max-width:760px){.shotgrid{grid-template-columns:1fr}}
+.shotgrid:has(> figure:only-child){grid-template-columns:1fr;max-width:480px;margin:0 auto}
 .shotgrid figure{margin:0}
 .shotgrid img{width:100%;height:auto;display:block;border-radius:var(--radius);border:1px solid var(--line-strong);box-shadow:0 14px 30px rgba(18,21,27,.10)}
 .shotgrid figcaption{margin-top:13px;font-size:13.5px;color:var(--ink-70);line-height:1.5}
@@ -143,8 +144,7 @@ footer.site .fnote{margin-top:10px;font-size:12.5px;color:var(--ink-45);line-hei
     <div class="wrap">
       <span class="eyebrow">Sådan virker det</span>
       <h1>Fra kladde til afviklet arrangement.</h1>
-      <p class="sub">Ethvert arrangement i Verta bevæger sig gennem fire tydelige stadier —
-        synlige for hele jeres team med det samme. Sådan ser hvert af dem ud i praksis.</p>
+      <p class="sub">Ethvert arrangement bevæger sig gennem fire tydelige stadier — synlige for hele jeres team med det samme.</p>
     </div>
   </section>
 
@@ -193,9 +193,7 @@ footer.site .fnote{margin-top:10px;font-size:12.5px;color:var(--ink-45);line-hei
       <div class="section-head">
         <span class="eyebrow">Én side, tre visninger</span>
         <h2>Samme arrangement — set med tre forskellige øjne.</h2>
-        <p style="margin-top:14px;font-size:16px;color:var(--ink-70);line-height:1.6">Der findes ikke tre
-          separate systemer, der skal holdes synkroniseret. Ét arrangement, én database — men admin,
-          koordinator og kunden ser hver deres udsnit, tilpasset hvad de reelt skal bruge.</p>
+        <p style="margin-top:14px;font-size:16px;color:var(--ink-70);line-height:1.6">Ét arrangement, én database — men admin, koordinator og kunden ser hver deres udsnit, tilpasset hvad de reelt skal bruge.</p>
       </div>
 
       <figure class="hubfig">
@@ -259,10 +257,6 @@ footer.site .fnote{margin-top:10px;font-size:12.5px;color:var(--ink-45);line-hei
             <img src="/screenshots/admin-forside.png" alt="Admins forside med KPI-tal for hele organisationen og listen over alle arrangementer" loading="lazy">
             <figcaption><b>Forsiden</b>Nøgletal for hele organisationen — arrangementer, kommende uge og bekræftede, samlet ét sted.</figcaption>
           </figure>
-          <figure>
-            <img src="/screenshots/admin-lokalekalender.png" alt="Lokalekalender der viser bookinger pr. lokale med automatisk konfliktkontrol og kapacitetstal" loading="lazy">
-            <figcaption><b>Lokalekalender</b>Bookinger pr. lokale og kapacitet — konflikter er umulige at gemme.</figcaption>
-          </figure>
         </div>
       </div>
 
@@ -272,10 +266,6 @@ footer.site .fnote{margin-top:10px;font-size:12.5px;color:var(--ink-45);line-hei
             <img src="/screenshots/koordinator-forside.png" alt="Koordinatorens forside med kun egne arrangementer, adskilt fra resten af organisationen" loading="lazy">
             <figcaption><b>Forsiden</b>Kun egne arrangementer — ingen støj fra resten af organisationen.</figcaption>
           </figure>
-          <figure>
-            <img src="/screenshots/koordinator-opgaver.png" alt="Opgaver-fanen med Jeres ansvar og Kildens ansvar, samt en opgave der afventer kundens bekræftelse" loading="lazy">
-            <figcaption><b>Opgaver</b>Aftalepunkter og kundebekræftelser samlet i én liste, ansvar tydeligt delt.</figcaption>
-          </figure>
         </div>
       </div>
 
@@ -284,10 +274,6 @@ footer.site .fnote{margin-top:10px;font-size:12.5px;color:var(--ink-45);line-hei
           <figure>
             <img src="/screenshots/kunde-oversigt.png" alt="Kundens oversigt over eget arrangement, med udestående opgaver, gæsteliste-tal og tilbudsbeløb" loading="lazy">
             <figcaption><b>Oversigt</b>Samme arrangement, kundens udsnit — ingen interne noter eller opslags-tider.</figcaption>
-          </figure>
-          <figure>
-            <img src="/screenshots/kunde-opgaver.png" alt="Kundens opgaveliste med en opgave, der kræver bekræftelse — godkend eller afvis" loading="lazy">
-            <figcaption><b>Opgaver</b>Godkend eller afvis udvalgte opgaver direkte — intet forsvinder i en mailtråd.</figcaption>
           </figure>
         </div>
       </div>
@@ -312,8 +298,7 @@ footer.site .fnote{margin-top:10px;font-size:12.5px;color:var(--ink-45);line-hei
 <footer class="site">
   <div class="wrap">
     <span class="serif-i fmark">Verta</span>
-    <p class="fnote">Arrangementskoordination for værter. Denne side er et tidligt udkast —
-      indhold, pris og kontaktveje er endnu ikke endelige.</p>
+    <p class="fnote">Arrangementskoordination for værter.</p>
   </div>
 </footer>
 

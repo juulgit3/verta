@@ -4,13 +4,13 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Kontakt — Verta</title>
-<meta name="description" content="Ofte stillede spørgsmål om Verta. Direkte kontaktvej er under opsætning.">
+<meta name="description" content="Skriv til os om jeres virksomhed, så vender vi tilbage — eller find svar på de mest almindelige spørgsmål om Verta.">
 <link rel="canonical" href="https://verta.dk/kontakt">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Verta">
 <meta property="og:url" content="https://verta.dk/kontakt">
 <meta property="og:title" content="Kontakt — Verta">
-<meta property="og:description" content="Ofte stillede spørgsmål om Verta. Direkte kontaktvej er under opsætning.">
+<meta property="og:description" content="Skriv til os om jeres virksomhed, så vender vi tilbage — eller find svar på de mest almindelige spørgsmål om Verta.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Familjen+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -77,6 +77,19 @@ section{padding:64px 0;border-top:1px solid var(--line)}
 .faqitem h3{font-size:15px;font-weight:700}
 .faqitem p{margin-top:8px;font-size:14.5px;color:var(--ink-70);line-height:1.6}
 
+.contactform{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:36px 32px;max-width:640px}
+.contactform .row2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:560px){.contactform .row2{grid-template-columns:1fr}}
+.contactform .field{margin-bottom:14px}
+.contactform label{display:block;font-size:12.5px;font-weight:700;color:var(--ink-70);margin-bottom:6px}
+.contactform input,.contactform textarea{width:100%;border:1px solid var(--line-strong);border-radius:var(--radius);
+  padding:11px 12px;font:inherit;font-size:14px;background:#fff;color:var(--ink);box-sizing:border-box}
+.contactform input:focus,.contactform textarea:focus{outline:2px solid var(--blue);outline-offset:1px}
+.contactform textarea{min-height:110px;resize:vertical}
+.contactform .formnote{margin-top:14px;font-size:12.5px;color:var(--ink-45)}
+.formsuccess{background:var(--card);border:1px solid var(--moss);border-radius:var(--radius);padding:18px 22px;
+  color:var(--ink);font-size:14.5px;max-width:640px}
+
 .finalcta{background:var(--ink);color:var(--paper);border-radius:var(--radius);padding:64px 44px;text-align:center}
 .finalcta h2{font-family:'Instrument Serif',Georgia,serif;font-style:italic;font-weight:400;
   font-size:clamp(28px,5vw,42px);color:#fff}
@@ -114,9 +127,27 @@ footer.site .fnote{margin-top:10px;font-size:12.5px;color:var(--ink-45);line-hei
   <section class="pagehero" style="border-top:0">
     <div class="wrap">
       <span class="eyebrow">Kontakt</span>
-      <h1>Vi er ved at sætte en direkte kontaktvej op.</h1>
-      <p class="sub">Der er endnu ingen kontaktformular, telefon eller mailadresse offentliggjort
-        her på siden. Indtil da kan du finde svar på de mest almindelige spørgsmål herunder.</p>
+      <h1>Skriv til os.</h1>
+      <p class="sub">Fortæl os kort om jeres virksomhed og hvad I leder efter — vi svarer hurtigt.
+        Eller find svar på de mest almindelige spørgsmål herunder.</p>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <div id="formSuccess" class="formsuccess" style="display:none;margin-bottom:24px">Tak! Vi har modtaget jeres besked og vender tilbage snarest.</div>
+      <form class="contactform" name="kontakt" method="POST" data-netlify="true" netlify-honeypot="bot-field" action="/kontakt?sendt=1">
+        <input type="hidden" name="form-name" value="kontakt">
+        <p style="position:absolute;left:-9999px"><label>Udfyld ikke dette felt: <input name="bot-field"></label></p>
+        <div class="row2">
+          <div class="field"><label for="cfName">Navn</label><input id="cfName" name="navn" type="text" required></div>
+          <div class="field"><label for="cfEmail">Mail</label><input id="cfEmail" name="mail" type="email" required></div>
+        </div>
+        <div class="field"><label for="cfOrg">Virksomhed</label><input id="cfOrg" name="virksomhed" type="text"></div>
+        <div class="field"><label for="cfMsg">Besked</label><textarea id="cfMsg" name="besked" required></textarea></div>
+        <button class="btn primary" type="submit">Send besked</button>
+        <p class="formnote">Eller skriv direkte til <a href="mailto:larsjuul3@gmail.com" style="text-decoration:underline">larsjuul3@gmail.com</a>.</p>
+      </form>
     </div>
   </section>
 
@@ -149,18 +180,9 @@ footer.site .fnote{margin-top:10px;font-size:12.5px;color:var(--ink-45);line-hei
         </div>
         <div class="faqitem">
           <h3>Hvad koster det?</h3>
-          <p>Vi har endnu ikke en fast prisliste — se <a href="/pris" style="text-decoration:underline">pris-siden</a>
-            for, hvad prisen sandsynligvis kommer til at afhænge af.</p>
+          <p>Fra 799 kr./md. for én lokation, ekskl. moms — se <a href="/pris" style="text-decoration:underline">pris-siden</a>
+            for, hvad den endelige pris afhænger af.</p>
         </div>
-      </div>
-    </div>
-  </section>
-
-  <section>
-    <div class="wrap">
-      <div class="finalcta">
-        <h2 class="serif-i">Kontaktvejen er under opsætning.</h2>
-        <p>Vi arbejder på en fungerende måde at tage imod henvendelser her på siden. Tjek tilbage snart.</p>
       </div>
     </div>
   </section>
@@ -170,8 +192,7 @@ footer.site .fnote{margin-top:10px;font-size:12.5px;color:var(--ink-45);line-hei
 <footer class="site">
   <div class="wrap">
     <span class="serif-i fmark">Verta</span>
-    <p class="fnote">Arrangementskoordination for værter. Denne side er et tidligt udkast —
-      indhold, pris og kontaktveje er endnu ikke endelige.</p>
+    <p class="fnote">Arrangementskoordination for værter.</p>
   </div>
 </footer>
 
@@ -207,6 +228,9 @@ document.querySelectorAll('#siteNav a').forEach(function(a){
     if(btn) btn.setAttribute('aria-expanded','false');
   });
 });
+if(location.search.indexOf('sendt=1')>-1){
+  var fs=document.getElementById('formSuccess'); if(fs) fs.style.display='block';
+}
 </script>
 </body>
 </html>
