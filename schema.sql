@@ -27,6 +27,14 @@ drop table if exists venues             cascade;
 drop table if exists superadmins        cascade;
 drop table if exists superadmin_invites cascade;
 drop table if exists organisations      cascade;
+-- Løsstående funktioner fra før v1, der IKKE forsvinder automatisk med tabellerne ovenfor (de er
+-- ikke triggere/views afhængige af tabellen i Postgres' forstand, kun almindelige RPC'er, der
+-- forespørger den) — droppet eksplicit, ellers overlever de som forældreløse, men stadig kaldbare
+-- RPC'er, der fejler ved kald (fanget af Supabase-linteren efter første v1-kørsel mod en database,
+-- der havde kørt det gamle skema).
+drop function if exists apply_change_request(uuid, text);
+drop function if exists decide_approval(uuid, text, text);
+drop function if exists guard_approval_update();
 
 -- =====================================================================
 --  1. TABELLER
