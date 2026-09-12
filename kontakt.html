@@ -78,10 +78,11 @@ section{padding:64px 0;border-top:1px solid var(--line)}
 .faqitem p{margin-top:8px;font-size:14.5px;color:var(--ink-70);line-height:1.6}
 
 .aboutcard{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:26px 28px;
-  max-width:640px;display:flex;gap:16px;align-items:flex-start}
-.aboutcard .avatar{width:44px;height:44px;border-radius:50%;background:var(--blue);color:#fff;
-  display:flex;align-items:center;justify-content:center;font-weight:700;font-size:15px;flex-shrink:0;
-  font-family:'Instrument Serif',Georgia,serif;font-style:italic}
+  max-width:640px;display:flex;gap:18px;align-items:flex-start}
+.aboutcard .avatar{width:64px;height:64px;border-radius:50%;background:var(--blue);color:#fff;
+  display:flex;align-items:center;justify-content:center;font-weight:700;font-size:19px;flex-shrink:0;
+  font-family:'Instrument Serif',Georgia,serif;font-style:italic;overflow:hidden}
+.aboutcard .avatar img{width:100%;height:100%;object-fit:cover;display:block}
 .aboutcard h3{font-size:15px;font-weight:700}
 .aboutcard .role{font-size:12.5px;color:var(--ink-45);margin-top:2px}
 .aboutcard p{margin-top:10px;font-size:14px;color:var(--ink-70);line-height:1.6}
@@ -144,7 +145,7 @@ footer.site .fnote{margin-top:10px;font-size:12.5px;color:var(--ink-45);line-hei
   <section>
     <div class="wrap">
       <div class="aboutcard" style="margin-bottom:32px">
-        <div class="avatar">LØ</div>
+        <div class="avatar" id="aboutAvatar"><img src="/images/lars.jpg" alt="Lars Østergaard" onerror="this.parentElement.textContent='LØ';"></div>
         <div>
           <h3>Lars Østergaard</h3>
           <div class="role">Mange års erfaring fra event- og restaurationsbranchen</div>
