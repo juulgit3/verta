@@ -80,8 +80,8 @@ details[open] > summary .fold-chev,details[open] .fold-chev{transform:rotate(90d
 nav.tabs{display:flex;gap:2px;margin:26px 0 20px;border-bottom:1px solid var(--line);overflow-x:auto;overflow-y:hidden;
   scrollbar-width:none;-ms-overflow-style:none;
   background:
-    linear-gradient(to right, var(--paper) 50%, rgba(234,237,230,0)),
-    linear-gradient(to left, var(--paper) 50%, rgba(234,237,230,0)) 100% 0,
+    linear-gradient(to right, var(--paper) 50%, rgba(248,250,252,0)),
+    linear-gradient(to left, var(--paper) 50%, rgba(248,250,252,0)) 100% 0,
     radial-gradient(farthest-side at 0 50%, rgba(18,21,27,.16), rgba(18,21,27,0)),
     radial-gradient(farthest-side at 100% 50%, rgba(18,21,27,.16), rgba(18,21,27,0)) 100% 0;
   background-repeat:no-repeat; background-color:var(--paper);
@@ -195,12 +195,12 @@ select.status:focus-visible,input:focus-visible,button:focus-visible{outline:2px
 
 footer.legal{margin-top:28px;font-size:12px;color:var(--ink-40);line-height:1.6}
 
-#superadminBar{background:var(--ink);border-bottom:3px solid var(--amber)}
+#superadminBar,#archivedBar{background:var(--ink);border-bottom:3px solid var(--amber)}
 .sabar-inner{max-width:960px;margin:0 auto;padding:9px 18px;display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap}
 .sabar-label{font-size:12.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--amber)}
-.sabar-label #sabarOrg{color:rgba(234,237,230,.65);font-weight:600;text-transform:none;letter-spacing:0}
+.sabar-label #sabarOrg{color:rgba(248,250,252,.65);font-weight:600;text-transform:none;letter-spacing:0}
 .sabar-label #sabarActorNote{color:var(--amber);font-weight:700;text-transform:none;letter-spacing:0}
-.sabar-btn{background:rgba(234,237,230,.08);border-color:rgba(234,237,230,.25);color:rgba(234,237,230,.85)}
+.sabar-btn{background:rgba(248,250,252,.08);border-color:rgba(248,250,252,.25);color:rgba(248,250,252,.85)}
 #sabarActorSelect option{background:var(--ink);color:#fff}
 .sabar-btn:hover{border-color:var(--amber);color:#fff}
 
@@ -349,7 +349,7 @@ input[type=file].search{padding:6px 8px;font-size:13px;min-width:0}
 </div>
 <div id="archivedBar" style="display:none">
   <div class="sabar-inner">
-    <span class="sabar-label">🔒 Arkiveret arrangement<span class="note" style="color:rgba(234,237,230,.65);font-weight:600;text-transform:none;letter-spacing:0"> · skrivebeskyttet, gemt for historikkens skyld</span></span>
+    <span class="sabar-label">🔒 Arkiveret arrangement<span class="note" style="color:rgba(248,250,252,.65);font-weight:600;text-transform:none;letter-spacing:0"> · skrivebeskyttet, gemt for historikkens skyld</span></span>
     <button class="btn sabar-btn" id="archivedReopen">Genåbn arrangementet</button>
   </div>
 </div>
