@@ -6,16 +6,16 @@
 <title>Verta</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Familjen+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&family=Instrument+Serif:ital@1&display=swap" rel="stylesheet">
 <style>
 :root{
-  --ink:#12151B; --ink-60:rgba(18,21,27,.60); --ink-40:rgba(18,21,27,.40);
-  --line:rgba(18,21,27,.14); --paper:#EAEDE6; --card:#FBFBF9;
-  --blue:#1435D6; --amber:#A8681C; --moss:#3E6B4C; --radius:3px;
+  --ink:#0F172A; --ink-60:#64748B; --ink-40:#94A3B8;
+  --line:#E2E8F0; --paper:#F8FAFC; --card:#FFFFFF;
+  --blue:#2563EB; --amber:#B45309; --moss:#059669; --radius:8px;
 }
 *{box-sizing:border-box}
 html,body{margin:0;padding:0}
-body{background:var(--paper);color:var(--ink);font-family:'Familjen Grotesk',system-ui,sans-serif;font-size:16px;line-height:1.45;-webkit-font-smoothing:antialiased}
+body{background:var(--paper);color:var(--ink);font-family:'Plus Jakarta Sans',system-ui,sans-serif;font-size:16px;line-height:1.45;-webkit-font-smoothing:antialiased}
 .wrap{max-width:960px;margin:0 auto;padding:24px 18px 96px}
 h1,h2,h3{margin:0}
 button{font:inherit;color:inherit}
@@ -36,14 +36,14 @@ input,select,textarea{font:inherit;color:inherit}
 .whoami{font-size:12px;color:var(--ink-40)}
 
 .hero{margin:28px 0 8px}
-.hero h1{font-family:'Instrument Serif',serif;font-style:italic;font-size:clamp(44px,10vw,84px);line-height:.92;letter-spacing:-.02em;font-weight:400}
+.hero h1{font-weight:800;font-size:clamp(34px,7vw,60px);line-height:1.05;letter-spacing:-.02em}
 .hero .sub{margin-top:14px;display:flex;gap:10px;flex-wrap:wrap;align-items:center}
 
 .chip{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--line);background:var(--card);border-radius:99px;padding:5px 12px;font-size:13px;font-weight:500;white-space:nowrap}
 .chip .dot{width:7px;height:7px;border-radius:99px;background:var(--ink-40)}
-.chip.warn{border-color:rgba(168,104,28,.4);color:var(--amber)} .chip.warn .dot{background:var(--amber)}
-.chip.ok{border-color:rgba(62,107,76,.35);color:var(--moss)} .chip.ok .dot{background:var(--moss)}
-.chip.blue{border-color:rgba(20,53,214,.3);color:var(--blue)} .chip.blue .dot{background:var(--blue)}
+.chip.warn{border-color:rgba(180,83,9,.35);color:var(--amber)} .chip.warn .dot{background:var(--amber)}
+.chip.ok{border-color:rgba(5,150,105,.3);color:var(--moss)} .chip.ok .dot{background:var(--moss)}
+.chip.blue{border-color:rgba(37,99,235,.3);color:var(--blue)} .chip.blue .dot{background:var(--blue)}
 
 /* Ét sammenhængende forløb, ikke fire løse tags — segmenterne er visuelt fusioneret i én bar
    (border-radius sidder på selve .statussteps, ikke på de enkelte .sstep), med tynde skillelinjer
@@ -54,7 +54,7 @@ input,select,textarea{font:inherit;color:inherit}
 .sstep{appearance:none;-webkit-appearance:none;font-family:inherit;line-height:normal;font-size:10.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;
   padding:6px 12px;border:0;border-right:1px solid var(--line);color:var(--ink-40);background:var(--card);white-space:nowrap}
 .sstep:last-child{border-right:0}
-.sstep.done{color:var(--moss);background:rgba(62,107,76,.08)}
+.sstep.done{color:var(--moss);background:rgba(5,150,105,.08)}
 .sstep.current{color:#fff;background:var(--blue)}
 .sstep.interactive{cursor:pointer;font:inherit;letter-spacing:inherit;text-transform:inherit}
 .sstep.interactive:hover{background:rgba(18,21,27,.08)}
@@ -112,10 +112,10 @@ nav.tabs button:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
 .stat{display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px dotted var(--line);font-size:14px}
 .stat:last-child{border-bottom:0}
 .stat b{font-weight:600;font-variant-numeric:tabular-nums}
-.big{font-family:'Instrument Serif',serif;font-size:40px;line-height:1;font-variant-numeric:tabular-nums}
+.big{font-weight:800;font-size:34px;line-height:1;font-variant-numeric:tabular-nums}
 
-.recon{margin-top:14px;border-left:3px solid var(--blue);background:rgba(20,53,214,.05);padding:12px 14px;border-radius:0 var(--radius) var(--radius) 0}
-.recon.off{border-left-color:var(--amber);background:rgba(168,104,28,.07)}
+.recon{margin-top:14px;border-left:3px solid var(--blue);background:rgba(37,99,235,.05);padding:12px 14px;border-radius:0 var(--radius) var(--radius) 0}
+.recon.off{border-left-color:var(--amber);background:rgba(180,83,9,.07)}
 .recon .t{font-weight:700;font-size:14px}
 .recon .d{font-size:13px;color:var(--ink-60);margin-top:2px}
 
@@ -186,7 +186,7 @@ select.status:focus-visible,input:focus-visible,button:focus-visible{outline:2px
 .compose .hint{font-size:12px;color:var(--ink-40);max-width:60%}
 .msg{border-left:3px solid var(--ink);border-radius:0 var(--radius) var(--radius) 0;background:#fff;padding:11px 14px;margin:10px 0}
 .msg.kunde{border-left-color:var(--blue)}
-.msg.internal{background:rgba(168,104,28,.06);border-left-color:var(--amber)}
+.msg.internal{background:rgba(180,83,9,.06);border-left-color:var(--amber)}
 .msg .mhead{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:3px}
 .msg .mwho{font-weight:600;font-size:13.5px}
 .msg .mtime{font-size:12px;color:var(--ink-40);font-variant-numeric:tabular-nums;white-space:nowrap}
@@ -248,7 +248,7 @@ body.has-mobile-nav .onboard-widget{bottom:calc(72px + env(safe-area-inset-botto
 input[type=file].search{padding:6px 8px;font-size:13px;min-width:0}
 
 /* gemt-feedback på inline-redigering */
-.flash-saved{background:rgba(62,107,76,.16)!important;transition:background .7s ease}
+.flash-saved{background:rgba(5,150,105,.16)!important;transition:background .7s ease}
 .field-saving{opacity:.6;border-color:var(--amber)!important}
 
 /* opgave-noter og filer */
@@ -388,7 +388,7 @@ input[type=file].search{padding:6px 8px;font-size:13px;min-width:0}
   <div id="gate" style="display:none;visibility:visible;position:fixed;inset:0;background:var(--paper);z-index:50;align-items:center;justify-content:center;padding:20px">
     <div style="max-width:380px;width:100%;background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:26px">
       <div class="mark" style="margin-bottom:6px">Verta</div>
-      <h2 style="font-family:'Instrument Serif',serif;font-style:italic;font-size:30px;font-weight:400;margin:0 0 4px">Log ind</h2>
+      <h2 style="font-weight:800;font-size:24px;margin:0 0 4px">Log ind</h2>
       <p id="gateMsg" class="note" style="color:var(--ink-60);font-size:14px;margin:0 0 16px">Skriv din mail — du får et link, du logger ind med. Ingen adgangskode.</p>
       <input id="gateEmail" class="search" style="width:100%;margin-bottom:10px" type="email" placeholder="dig@eksempel.dk" autocomplete="email">
       <input id="gatePassword" type="password" class="search" style="width:100%;margin-bottom:10px;display:none" placeholder="Kodeord" autocomplete="current-password">
@@ -399,7 +399,7 @@ input[type=file].search{padding:6px 8px;font-size:13px;min-width:0}
   </div>
   <div id="passwordModal" style="display:none;position:fixed;inset:0;background:rgba(18,21,27,.45);z-index:60;align-items:center;justify-content:center;padding:20px">
     <div style="max-width:380px;width:100%;background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:22px">
-      <h2 style="font-family:'Instrument Serif',serif;font-style:italic;font-size:24px;font-weight:400;margin:0 0 14px">Sæt kodeord</h2>
+      <h2 style="font-weight:800;font-size:19px;margin:0 0 14px">Sæt kodeord</h2>
       <p class="note" style="margin:0 0 14px;font-size:13.5px;line-height:1.5">Så kan du logge ind med kodeord i stedet for at vente på en mail, næste gang.</p>
       <div style="display:flex;flex-direction:column;gap:10px">
         <div class="field"><label for="pwNew">Nyt kodeord</label><input id="pwNew" type="password" class="search" placeholder="Mindst 8 tegn" style="width:100%" autocomplete="new-password"></div>
@@ -420,7 +420,7 @@ input[type=file].search{padding:6px 8px;font-size:13px;min-width:0}
 <div id="onboardingWidget" class="onboard-widget" style="display:none"></div>
 <div id="taskModal" style="display:none;position:fixed;inset:0;background:rgba(18,21,27,.45);z-index:60;align-items:center;justify-content:center;padding:20px">
   <div style="max-width:420px;width:100%;background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:22px">
-    <h2 style="font-family:'Instrument Serif',serif;font-style:italic;font-size:24px;font-weight:400;margin:0 0 14px">Opret opgave</h2>
+    <h2 style="font-weight:800;font-size:19px;margin:0 0 14px">Opret opgave</h2>
     <div style="display:flex;flex-direction:column;gap:10px">
       <div class="field"><label for="tmTitel">Titel</label><input id="tmTitel" class="search" placeholder="Fx Bordplan" style="width:100%"></div>
       <div class="field"><label for="tmEjer">Ansvarlig</label><select id="tmEjer" class="search" style="width:100%">
@@ -1203,7 +1203,7 @@ function buildImportPreview(rows){
 }
 MODAL_RENDERERS.bulkAddNames = function(){
   return `
-  <h2 style="font-family:'Instrument Serif',serif;font-style:italic;font-size:24px;font-weight:400;margin:0 0 14px">Indsæt flere navne</h2>
+  <h2 style="font-weight:800;font-size:19px;margin:0 0 14px">Indsæt flere navne</h2>
   <p style="font-size:14px;color:var(--ink-60);margin:0 0 12px">Ét navn pr. linje — de tilføjes alle som voksne til reception og middag, klar til at rette bagefter.</p>
   <textarea id="banNames" class="search" rows="8" style="width:100%;resize:vertical" placeholder="Emily Hansen
 Lars Jensen
@@ -1234,7 +1234,7 @@ MODAL_RENDERERS.import = function(){
   const step=state.modal.step||'pick';
   if(step==='pick'){
     return `
-    <h2 style="font-family:'Instrument Serif',serif;font-style:italic;font-size:24px;font-weight:400;margin:0 0 14px">Importér gæster</h2>
+    <h2 style="font-weight:800;font-size:19px;margin:0 0 14px">Importér gæster</h2>
     <p style="font-size:14px;color:var(--ink-60);margin:0 0 12px">CSV eller Excel-eksporteret CSV. Kolonner: Navn, Kategori, Reception, Middag, Særlig kost.</p>
     <button class="btn" id="impTemplateBtn">Download skabelon</button>
     <div class="field" style="margin-top:14px"><label for="impFile">Vælg fil</label><input type="file" id="impFile" accept=".csv,text/csv" class="search" style="width:100%"></div>
@@ -1250,7 +1250,7 @@ MODAL_RENDERERS.import = function(){
   const dupes=preview.parsed.filter(r=>r.duplicateOf);
   const missingNames=preview.parsed.filter(r=>r.errors.includes('Mangler navn')).length;
   return `
-  <h2 style="font-family:'Instrument Serif',serif;font-style:italic;font-size:24px;font-weight:400;margin:0 0 14px">Forhåndsvisning</h2>
+  <h2 style="font-weight:800;font-size:19px;margin:0 0 14px">Forhåndsvisning</h2>
   <div class="row" style="gap:16px;flex-wrap:wrap;margin-bottom:10px">
     <span class="chip ok"><span class="dot"></span>${valid.length} gyldige</span>
     <span class="chip ${invalid.length?'warn':''}"><span class="dot"></span>${invalid.length} med fejl</span>
@@ -1938,7 +1938,7 @@ MODAL_RENDERERS.moreMenu = function(){
   const primaryIds=(MOBILE_NAV_PRIMARY[state.rolle]||MOBILE_NAV_PRIMARY.kunde).map(p=>p[0]);
   const rest=TABS[state.rolle].filter(([id])=>!primaryIds.includes(id));
   return `
-  <h2 style="font-family:'Instrument Serif',serif;font-style:italic;font-size:24px;font-weight:400;margin:0 0 14px">Mere</h2>
+  <h2 style="font-weight:800;font-size:19px;margin:0 0 14px">Mere</h2>
   <div style="display:flex;flex-direction:column;gap:6px">
     ${rest.map(([id,label])=>`<button type="button" class="btn" data-mbn-goto="${id}" style="width:100%;justify-content:flex-start">${esc(label)}${id==='beskeder'&&unread(state.rolle)?` (${unread(state.rolle)})`:''}</button>`).join('')}
   </div>
@@ -1952,7 +1952,7 @@ MODAL_BINDERS.moreMenu = function(){
    siden hver gang. Samme felt-id'er og samme createEvent() som før, kun placeringen er ændret. */
 MODAL_RENDERERS.newEvent = function(){
   return `
-  <h2 style="font-family:'Instrument Serif',serif;font-style:italic;font-size:24px;font-weight:400;margin:0 0 14px">Nyt arrangement</h2>
+  <h2 style="font-weight:800;font-size:19px;margin:0 0 14px">Nyt arrangement</h2>
   <div class="formgrid">
     <div class="field" style="grid-column:span 2"><label for="neTitle">Titel</label><input id="neTitle" class="search" placeholder="Fx Sofie &amp; Anton" style="width:100%"></div>
     <div class="field"><label for="neVenue">Lokation</label><select id="neVenue" class="search" style="width:100%">
@@ -1990,7 +1990,7 @@ MODAL_BINDERS.newEvent = function(){
 MODAL_RENDERERS.profile = function(){
   const onboardingDone = !state.staffOnboarding || state.staffOnboarding.dismissed;
   return `
-  <h2 style="font-family:'Instrument Serif',serif;font-style:italic;font-size:24px;font-weight:400;margin:0 0 14px">Min profil</h2>
+  <h2 style="font-weight:800;font-size:19px;margin:0 0 14px">Min profil</h2>
   <div class="row" style="gap:14px;align-items:center;margin-bottom:16px">
     ${avatarHtml(state.actor.navn, state.myAvatarUrl, 56)}
     <div class="field" style="flex:1"><label for="pfAvatarFile">Profilbillede</label><input type="file" id="pfAvatarFile" accept="image/*" class="search" style="width:100%"></div>
@@ -2768,7 +2768,7 @@ function viewSuperadminHome(){
 }
 MODAL_RENDERERS.newCustomer = function(){
   return `
-  <h2 style="font-family:'Instrument Serif',serif;font-style:italic;font-size:24px;font-weight:400;margin:0 0 14px">Ny kunde</h2>
+  <h2 style="font-weight:800;font-size:19px;margin:0 0 14px">Ny kunde</h2>
   <div class="row" style="gap:8px;flex-wrap:wrap">
     <input id="ncOrgName" class="search" placeholder="Organisationens navn" style="flex:2;min-width:200px">
     <input id="ncAdminName" class="search" placeholder="Admins navn" style="flex:1;min-width:160px">
@@ -2788,7 +2788,7 @@ MODAL_BINDERS.newCustomer = function(){
 };
 MODAL_RENDERERS.newDemo = function(){
   return `
-  <h2 style="font-family:'Instrument Serif',serif;font-style:italic;font-size:24px;font-weight:400;margin:0 0 14px">Ny demo-organisation</h2>
+  <h2 style="font-weight:800;font-size:19px;margin:0 0 14px">Ny demo-organisation</h2>
   <div class="row" style="gap:8px;flex-wrap:wrap">
     <input id="doName" class="search" placeholder="Navn, fx Demo — Prospect A" style="flex:2;min-width:220px">
     <label class="row" style="gap:6px;font-size:13px"><input type="checkbox" id="doSeed" checked>Fyld med fiktive eksempeldata</label>
@@ -2805,7 +2805,7 @@ MODAL_BINDERS.newDemo = function(){
 };
 MODAL_RENDERERS.inviteSuperadmin = function(){
   return `
-  <h2 style="font-family:'Instrument Serif',serif;font-style:italic;font-size:24px;font-weight:400;margin:0 0 14px">Inviter Verta-bruger</h2>
+  <h2 style="font-weight:800;font-size:19px;margin:0 0 14px">Inviter Verta-bruger</h2>
   <div class="row" style="gap:8px;flex-wrap:wrap">
     <input id="siName" class="search" placeholder="Navn" style="flex:1;min-width:160px">
     <input id="siEmail" type="email" class="search" placeholder="Mail" style="flex:1;min-width:180px">
@@ -3111,7 +3111,7 @@ async function handoverEvent(newOwnerId, moveTasks, note){
 MODAL_RENDERERS.handover = function(){
   const currentName=(state.roster.find(r=>r.id===state.ownerStaffId)||{}).name||'Ingen';
   return `
-  <h2 style="font-family:'Instrument Serif',serif;font-style:italic;font-size:24px;font-weight:400;margin:0 0 14px">Overdrag arrangement</h2>
+  <h2 style="font-weight:800;font-size:19px;margin:0 0 14px">Overdrag arrangement</h2>
   <div class="stat"><span>Nuværende ejer</span><b>${esc(currentName)}</b></div>
   <div class="field" style="margin-top:10px"><label for="hoNewOwner">Ny ejer</label><select id="hoNewOwner" class="search" style="width:100%">
     <option value="">Vælg…</option>
@@ -3369,7 +3369,7 @@ async function createEvent(){
 }
 MODAL_RENDERERS.duplicate = function(){
   return `
-  <h2 style="font-family:'Instrument Serif',serif;font-style:italic;font-size:24px;font-weight:400;margin:0 0 14px">Duplikér arrangement</h2>
+  <h2 style="font-weight:800;font-size:19px;margin:0 0 14px">Duplikér arrangement</h2>
   <div class="formgrid">
     <div class="field" style="grid-column:span 2"><label for="dupTitle">Ny titel</label><input id="dupTitle" class="search" value="${esc((state.eventTitle||'')+' (kopi)')}" style="width:100%"></div>
     <div class="field"><label for="dupDate">Ny dato</label><input id="dupDate" type="date" class="search" style="width:100%"></div>
@@ -3506,7 +3506,7 @@ function viewLokationDetail(){
 }
 MODAL_RENDERERS.newVenue = function(){
   return `
-  <h2 style="font-family:'Instrument Serif',serif;font-style:italic;font-size:24px;font-weight:400;margin:0 0 14px">Ny lokation</h2>
+  <h2 style="font-weight:800;font-size:19px;margin:0 0 14px">Ny lokation</h2>
   <div class="field"><label for="venName">Navn</label><input id="venName" class="search" placeholder="Fx Havnelageret" style="width:100%"></div>
   <div class="row" style="margin-top:14px;justify-content:flex-end;gap:8px">
     <button class="btn" data-modal-close>Annullér</button>
@@ -3588,7 +3588,7 @@ function pickerHeaderHtml(){
     <div class="row" style="justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:10px;margin:20px 0 16px">
       <div>
         <div class="eyebrow">${esc(nowDate().toLocaleDateString('da-DK',{weekday:'long',day:'numeric',month:'long'}))}</div>
-        <h1 style="font-family:'Instrument Serif',serif;font-style:italic;font-weight:400;font-size:28px;margin:2px 0 0">${greeting()}, ${esc(currentActor().navn)}</h1>
+        <h1 style="font-weight:800;font-size:23px;margin:2px 0 0">${greeting()}, ${esc(currentActor().navn)}</h1>
       </div>
       <div class="row noprint" style="gap:8px">
         <button class="btn" id="openKalenderBtn">Lokalekalender</button>

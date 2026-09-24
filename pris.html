@@ -13,30 +13,32 @@
 <meta property="og:description" content="Vi former prismodellen sammen med de første kunder — skriv til os, så finder vi en model, der giver mening for jer.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Familjen+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&family=Instrument+Serif:ital@1&display=swap" rel="stylesheet">
 <style>
 :root{
-  --ink:#12151B; --ink-70:rgba(18,21,27,.70); --ink-45:rgba(18,21,27,.45);
-  --line:rgba(18,21,27,.14); --line-strong:rgba(18,21,27,.22);
-  --paper:#EAEDE6; --card:#FBFBF9;
-  --blue:#1435D6; --blue-soft:rgba(20,53,214,.07);
-  --moss:#3E6B4C; --amber:#A8681C; --radius:3px;
+  --ink:#0F172A; --ink-70:#64748B; --ink-45:#94A3B8;
+  --line:#E2E8F0; --line-strong:#CBD5E1;
+  --paper:#F8FAFC; --card:#FFFFFF;
+  --blue:#2563EB; --blue-soft:#EFF4FF;
+  --moss:#059669; --amber:#B45309; --radius:8px;
+  --shadow-1:0 1px 2px 0 rgba(15,23,42,.04), 0 4px 12px -2px rgba(15,23,42,.03);
+  --shadow-2:0 4px 6px -1px rgba(15,23,42,.06), 0 12px 24px -4px rgba(15,23,42,.08);
 }
 *{box-sizing:border-box}
 html{scroll-behavior:smooth}
 html,body{margin:0;padding:0}
-body{background:var(--paper);color:var(--ink);font-family:'Familjen Grotesk',system-ui,sans-serif;font-size:16px;line-height:1.55;-webkit-font-smoothing:antialiased}
+body{background:var(--paper);color:var(--ink);font-family:'Plus Jakarta Sans',system-ui,sans-serif;font-size:16px;line-height:1.55;-webkit-font-smoothing:antialiased}
 .wrap{max-width:1080px;margin:0 auto;padding:0 22px}
-h1,h2,h3{margin:0;text-wrap:balance}
+h1,h2,h3{margin:0;text-wrap:balance;letter-spacing:-.02em}
 p{margin:0}
 a{color:inherit;text-decoration:none}
 .serif-i{font-family:'Instrument Serif',Georgia,serif;font-style:italic}
-.eyebrow{font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-45);font-weight:700}
+.eyebrow{font-family:'Inter',system-ui,sans-serif;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--blue);font-weight:700;background:var(--blue-soft);display:inline-block;padding:5px 13px;border-radius:99px}
 
-header.site{position:sticky;top:0;z-index:20;background:rgba(234,237,230,.88);backdrop-filter:blur(6px);border-bottom:1px solid var(--line)}
+header.site{position:sticky;top:0;z-index:20;background:rgba(248,250,252,.9);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
 .nav{position:relative;display:flex;align-items:center;justify-content:space-between;padding:16px 0;gap:20px}
 .nav .mark{font-size:23px;color:var(--blue)}
-.nav-links{display:flex;gap:26px;font-size:14.5px;font-weight:600;color:var(--ink-70)}
+.nav-links{display:flex;gap:26px;font-family:'Inter',system-ui,sans-serif;font-size:13.5px;font-weight:600;color:var(--ink-70)}
 .nav-links a:hover{color:var(--ink)}
 .nav-links a.active{color:var(--blue)}
 .nav-toggle{display:none;align-items:center;justify-content:center;width:44px;height:44px;
@@ -46,59 +48,60 @@ header.site{position:sticky;top:0;z-index:20;background:rgba(234,237,230,.88);ba
   .nav-links{display:none}
   .nav-links.open{display:flex;flex-direction:column;position:absolute;top:100%;left:0;right:0;
     background:var(--paper);border-bottom:1px solid var(--line);padding:6px 22px 18px;gap:2px;
-    box-shadow:0 10px 18px rgba(18,21,27,.10)}
+    box-shadow:var(--shadow-1)}
   .nav-links.open a{padding:13px 4px;font-size:15.5px;border-bottom:1px solid var(--line)}
   .nav-links.open a:last-child{border-bottom:0}
   .nav-toggle{display:inline-flex}
 }
 
 .btn{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--line-strong);background:var(--card);
-  border-radius:var(--radius);padding:10px 18px;font-size:14px;font-weight:700;cursor:pointer;
-  font-family:inherit;color:var(--ink);transition:transform .1s ease,filter .15s ease}
-.btn:hover{border-color:var(--ink)}
-.btn:active{transform:scale(.96)}
+  border-radius:6px;padding:10px 18px;font-family:'Inter',system-ui,sans-serif;font-size:13.5px;font-weight:700;cursor:pointer;
+  color:var(--ink);transition:filter .15s ease,border-color .15s ease}
+.btn:hover{border-color:var(--ink-45)}
+.btn:active{transform:scale(.97)}
 .btn.primary{background:var(--blue);border-color:var(--blue);color:#fff}
 .btn.primary:hover{filter:brightness(1.08)}
 .btn.ghost{background:transparent;border-color:transparent;padding:10px 4px}
 
-.pagehero{padding:64px 0 0}
-.pagehero h1{font-family:'Instrument Serif',Georgia,serif;font-style:italic;font-weight:400;
-  font-size:clamp(34px,5.4vw,52px);line-height:1.08;letter-spacing:-.01em;margin-top:14px}
-.pagehero .sub{margin-top:18px;font-size:17px;line-height:1.6;color:var(--ink-70);max-width:54ch}
+.pagehero{padding:60px 0 0}
+.pagehero h1{font-weight:800;
+  font-size:clamp(32px,5vw,46px);line-height:1.14;margin-top:16px}
+.pagehero .sub{margin-top:18px;font-family:'Inter',system-ui,sans-serif;font-size:16px;line-height:1.65;color:var(--ink-70);max-width:54ch}
 
-section{padding:64px 0;border-top:1px solid var(--line)}
+section{padding:72px 0;border-top:1px solid var(--line)}
 .section-head{max-width:640px;margin-bottom:44px}
-.section-head h2{font-family:'Instrument Serif',Georgia,serif;font-style:italic;font-weight:400;
-  font-size:clamp(28px,4vw,38px);margin-top:12px}
+.section-head h2{font-weight:800;
+  font-size:clamp(26px,3.6vw,34px);margin-top:12px}
+.section-head p{margin-top:14px;font-family:'Inter',system-ui,sans-serif;font-size:15px;color:var(--ink-70);line-height:1.65}
 
-.pricebox{background:var(--card);border:1px solid var(--blue);box-shadow:0 0 0 1px var(--blue) inset;border-radius:var(--radius);
-  padding:44px 40px;display:flex;justify-content:space-between;align-items:center;gap:30px;flex-wrap:wrap}
+.pricebox{background:var(--card);border:1px solid var(--blue);box-shadow:var(--shadow-2);border-radius:var(--radius);
+  padding:40px 36px;display:flex;justify-content:space-between;align-items:center;gap:28px;flex-wrap:wrap}
 .pricebox .ptext{max-width:52ch}
-.pricebox h3{font-size:19px;font-weight:700}
-.pricebox p{margin-top:10px;font-size:14.5px;color:var(--ink-70);line-height:1.6}
+.pricebox h3{font-size:18px;font-weight:700;margin-top:10px}
+.pricebox p{margin-top:10px;font-family:'Inter',system-ui,sans-serif;font-size:14px;color:var(--ink-70);line-height:1.6}
 
-.pricefactors{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
+.pricefactors{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
 @media(max-width:760px){.pricefactors{grid-template-columns:1fr}}
-.pfactor{border-top:1px solid var(--line-strong);padding:22px 0}
-.pfactor h3{font-size:14.5px;font-weight:700}
-.pfactor p{margin-top:8px;font-size:13.5px;color:var(--ink-70);line-height:1.55}
+.pfactor{border-top:1px solid var(--line-strong);padding:20px 0}
+.pfactor h3{font-size:14px;font-weight:700}
+.pfactor p{margin-top:8px;font-family:'Inter',system-ui,sans-serif;font-size:13px;color:var(--ink-70);line-height:1.55}
 
 .faq{max-width:720px}
 .faqitem{border-top:1px solid var(--line);padding:20px 0}
 .faqitem:last-child{border-bottom:1px solid var(--line)}
 .faqitem h3{font-size:15px;font-weight:700}
-.faqitem p{margin-top:8px;font-size:14.5px;color:var(--ink-70);line-height:1.6}
+.faqitem p{margin-top:8px;font-family:'Inter',system-ui,sans-serif;font-size:13.5px;color:var(--ink-70);line-height:1.6}
 
-.finalcta{background:var(--ink);color:var(--paper);border-radius:var(--radius);padding:64px 44px;text-align:center}
-.finalcta h2{font-family:'Instrument Serif',Georgia,serif;font-style:italic;font-weight:400;
-  font-size:clamp(28px,5vw,42px);color:#fff}
-.finalcta p{margin-top:14px;font-size:15.5px;color:rgba(234,237,230,.68);max-width:46ch;margin-left:auto;margin-right:auto}
+.finalcta{background:var(--ink);color:var(--paper);border-radius:var(--radius);padding:60px 44px;text-align:center}
+.finalcta h2{font-weight:800;
+  font-size:clamp(26px,4.6vw,38px);color:#fff}
+.finalcta p{margin-top:14px;font-family:'Inter',system-ui,sans-serif;font-size:15px;color:rgba(248,250,252,.66);max-width:46ch;margin-left:auto;margin-right:auto}
 .finalcta .ctas{margin-top:26px;display:flex;gap:14px;justify-content:center;flex-wrap:wrap}
-.finalcta .btn.ghost{color:rgba(234,237,230,.75);border:1px solid rgba(234,237,230,.22)}
+.finalcta .btn.ghost{color:rgba(248,250,252,.75);border:1px solid rgba(248,250,252,.2)}
 
-footer.site{padding:44px 0 60px}
-footer.site .fmark{font-size:19px;color:var(--blue)}
-footer.site .fnote{margin-top:10px;font-size:12.5px;color:var(--ink-45);line-height:1.7;max-width:56ch}
+footer.site{padding:40px 0 56px}
+footer.site .fmark{font-size:18px;color:var(--blue)}
+footer.site .fnote{margin-top:10px;font-family:'Inter',system-ui,sans-serif;font-size:12px;color:var(--ink-45);line-height:1.7;max-width:56ch}
 </style>
 </head>
 <body>
@@ -202,7 +205,7 @@ footer.site .fnote{margin-top:10px;font-size:12.5px;color:var(--ink-45);line-hei
   <section>
     <div class="wrap">
       <div class="finalcta">
-        <h2 class="serif-i">Lad os finde en pris, der giver mening.</h2>
+        <h2>Lad os finde en pris, der giver mening.</h2>
         <p>Ingen forpligtelser — bare et ærligt bud ud fra jeres virkelighed.</p>
         <div class="ctas">
           <a class="btn primary" href="/kontakt">Skriv til os →</a>
