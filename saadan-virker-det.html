@@ -13,30 +13,32 @@
 <meta property="og:description" content="Fra kladde til afviklet arrangement — sådan bevæger et arrangement sig gennem Verta, trin for trin.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Familjen+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&family=Instrument+Serif:ital@1&display=swap" rel="stylesheet">
 <style>
 :root{
-  --ink:#12151B; --ink-70:rgba(18,21,27,.70); --ink-45:rgba(18,21,27,.45);
-  --line:rgba(18,21,27,.14); --line-strong:rgba(18,21,27,.22);
-  --paper:#EAEDE6; --card:#FBFBF9;
-  --blue:#1435D6; --blue-soft:rgba(20,53,214,.07);
-  --moss:#3E6B4C; --amber:#A8681C; --radius:3px;
+  --ink:#0F172A; --ink-70:#64748B; --ink-45:#94A3B8;
+  --line:#E2E8F0; --line-strong:#CBD5E1;
+  --paper:#F8FAFC; --card:#FFFFFF;
+  --blue:#2563EB; --blue-soft:#EFF4FF;
+  --moss:#059669; --amber:#B45309; --radius:8px;
+  --shadow-1:0 1px 2px 0 rgba(15,23,42,.04), 0 4px 12px -2px rgba(15,23,42,.03);
+  --shadow-2:0 4px 6px -1px rgba(15,23,42,.06), 0 12px 24px -4px rgba(15,23,42,.08);
 }
 *{box-sizing:border-box}
 html{scroll-behavior:smooth}
 html,body{margin:0;padding:0}
-body{background:var(--paper);color:var(--ink);font-family:'Familjen Grotesk',system-ui,sans-serif;font-size:16px;line-height:1.55;-webkit-font-smoothing:antialiased}
+body{background:var(--paper);color:var(--ink);font-family:'Plus Jakarta Sans',system-ui,sans-serif;font-size:16px;line-height:1.55;-webkit-font-smoothing:antialiased}
 .wrap{max-width:1080px;margin:0 auto;padding:0 22px}
-h1,h2,h3{margin:0;text-wrap:balance}
+h1,h2,h3{margin:0;text-wrap:balance;letter-spacing:-.02em}
 p{margin:0}
 a{color:inherit;text-decoration:none}
 .serif-i{font-family:'Instrument Serif',Georgia,serif;font-style:italic}
-.eyebrow{font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-45);font-weight:700}
+.eyebrow{font-family:'Inter',system-ui,sans-serif;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--blue);font-weight:700;background:var(--blue-soft);display:inline-block;padding:5px 13px;border-radius:99px}
 
-header.site{position:sticky;top:0;z-index:20;background:rgba(234,237,230,.88);backdrop-filter:blur(6px);border-bottom:1px solid var(--line)}
+header.site{position:sticky;top:0;z-index:20;background:rgba(248,250,252,.9);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
 .nav{position:relative;display:flex;align-items:center;justify-content:space-between;padding:16px 0;gap:20px}
 .nav .mark{font-size:23px;color:var(--blue)}
-.nav-links{display:flex;gap:26px;font-size:14.5px;font-weight:600;color:var(--ink-70)}
+.nav-links{display:flex;gap:26px;font-family:'Inter',system-ui,sans-serif;font-size:13.5px;font-weight:600;color:var(--ink-70)}
 .nav-links a:hover{color:var(--ink)}
 .nav-links a.active{color:var(--blue)}
 .nav-toggle{display:none;align-items:center;justify-content:center;width:44px;height:44px;
@@ -46,75 +48,74 @@ header.site{position:sticky;top:0;z-index:20;background:rgba(234,237,230,.88);ba
   .nav-links{display:none}
   .nav-links.open{display:flex;flex-direction:column;position:absolute;top:100%;left:0;right:0;
     background:var(--paper);border-bottom:1px solid var(--line);padding:6px 22px 18px;gap:2px;
-    box-shadow:0 10px 18px rgba(18,21,27,.10)}
+    box-shadow:var(--shadow-1)}
   .nav-links.open a{padding:13px 4px;font-size:15.5px;border-bottom:1px solid var(--line)}
   .nav-links.open a:last-child{border-bottom:0}
   .nav-toggle{display:inline-flex}
 }
 
 .btn{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--line-strong);background:var(--card);
-  border-radius:var(--radius);padding:10px 18px;font-size:14px;font-weight:700;cursor:pointer;
-  font-family:inherit;color:var(--ink);transition:transform .1s ease,filter .15s ease}
-.btn:hover{border-color:var(--ink)}
-.btn:active{transform:scale(.96)}
+  border-radius:6px;padding:10px 18px;font-family:'Inter',system-ui,sans-serif;font-size:13.5px;font-weight:700;cursor:pointer;
+  color:var(--ink);transition:filter .15s ease,border-color .15s ease}
+.btn:hover{border-color:var(--ink-45)}
+.btn:active{transform:scale(.97)}
 .btn.primary{background:var(--blue);border-color:var(--blue);color:#fff}
 .btn.primary:hover{filter:brightness(1.08)}
 .btn.ghost{background:transparent;border-color:transparent;padding:10px 4px}
 
-.pagehero{padding:64px 0 0}
-.pagehero h1{font-family:'Instrument Serif',Georgia,serif;font-style:italic;font-weight:400;
-  font-size:clamp(34px,5.4vw,52px);line-height:1.08;letter-spacing:-.01em;margin-top:14px}
-.pagehero .sub{margin-top:18px;font-size:17px;line-height:1.6;color:var(--ink-70);max-width:54ch}
+.pagehero{padding:60px 0 0}
+.pagehero h1{font-weight:800;
+  font-size:clamp(32px,5vw,46px);line-height:1.14;margin-top:16px}
+.pagehero .sub{margin-top:18px;font-family:'Inter',system-ui,sans-serif;font-size:16px;line-height:1.65;color:var(--ink-70);max-width:54ch}
 
-section{padding:64px 0;border-top:1px solid var(--line)}
+section{padding:72px 0;border-top:1px solid var(--line)}
 .section-head{max-width:640px;margin-bottom:44px}
-.section-head h2{font-family:'Instrument Serif',Georgia,serif;font-style:italic;font-weight:400;
-  font-size:clamp(28px,4vw,38px);margin-top:12px}
+.section-head h2{font-weight:800;
+  font-size:clamp(26px,3.6vw,34px);margin-top:12px}
+.section-head p{margin-top:14px;font-family:'Inter',system-ui,sans-serif;font-size:15px;color:var(--ink-70);line-height:1.65}
 
-.stagegrid{display:flex;gap:10px;flex-wrap:wrap;margin:22px 0 0}
-.stage{font-size:12px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;
-  padding:8px 16px;border-radius:99px;border:1px solid var(--line-strong);color:var(--ink-45)}
+.stagegrid{display:flex;gap:10px;flex-wrap:wrap;margin:22px 0 0;align-items:center}
+.stage{font-family:'Inter',system-ui,sans-serif;font-size:11.5px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;
+  padding:7px 15px;border-radius:99px;border:1px solid var(--line-strong);color:var(--ink-45)}
 .stage.current{border-color:var(--blue);color:#fff;background:var(--blue)}
 .stagearrow{color:var(--ink-45);align-self:center}
 
-.steps{display:grid;grid-template-columns:repeat(4,1fr);gap:24px;margin-top:20px}
+.steps{display:grid;grid-template-columns:repeat(4,1fr);gap:22px;margin-top:8px}
 @media(max-width:860px){.steps{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:520px){.steps{grid-template-columns:1fr}}
-.step{position:relative;padding-top:8px;border-top:1px solid var(--line-strong)}
-.step .num{font-family:'Instrument Serif',Georgia,serif;font-style:italic;font-size:34px;color:var(--blue);display:block;margin-top:16px}
-.step h3{margin-top:10px;font-size:16px;font-weight:700}
-.step p{margin-top:8px;font-size:14px;color:var(--ink-70);line-height:1.55}
+.step{padding-top:16px;border-top:2px solid var(--blue)}
+.step .num{font-family:'Inter',system-ui,sans-serif;font-weight:800;font-size:13px;color:var(--blue)}
+.step h3{margin-top:10px;font-size:15.5px;font-weight:700}
+.step p{margin-top:8px;font-family:'Inter',system-ui,sans-serif;font-size:13.5px;color:var(--ink-70);line-height:1.55}
 
-.hubfig{margin:0 0 48px;background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:38px 32px 30px}
+.hubfig{margin:0 0 44px;background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:36px 30px 26px;box-shadow:var(--shadow-1)}
 .hubfig svg{width:100%;height:auto;display:block}
-.hubfig figcaption{margin-top:20px;font-size:12.5px;color:var(--ink-45);text-align:center}
+.hubfig figcaption{margin-top:18px;font-family:'Inter',system-ui,sans-serif;font-size:12px;color:var(--ink-45);text-align:center}
 
-.roletabs{display:flex;gap:28px;border-bottom:1px solid var(--line-strong);margin-bottom:30px;flex-wrap:wrap}
-.roletabs button{background:none;border:none;padding:12px 2px;font:inherit;font-size:15px;font-weight:700;
+.roletabs{display:flex;gap:26px;border-bottom:1px solid var(--line-strong);margin-bottom:28px;flex-wrap:wrap}
+.roletabs button{background:none;border:none;padding:12px 2px;font:inherit;font-family:'Inter',system-ui,sans-serif;font-size:14px;font-weight:700;
   color:var(--ink-45);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;transition:color .15s ease}
 .roletabs button[aria-selected="true"]{color:var(--blue);border-bottom-color:var(--blue)}
 .roletabs button:hover{color:var(--ink)}
 
-.roledisclaimer{font-size:12.5px;color:var(--ink-45);margin-bottom:26px}
+.roledisclaimer{font-family:'Inter',system-ui,sans-serif;font-size:12.5px;color:var(--ink-45);margin-bottom:24px}
 .rolepanel[hidden]{display:none}
-.shotgrid{display:grid;grid-template-columns:1fr 1fr;gap:26px}
-@media(max-width:760px){.shotgrid{grid-template-columns:1fr}}
-.shotgrid:has(> figure:only-child){grid-template-columns:1fr;max-width:480px;margin:0 auto}
+.shotgrid{display:grid;grid-template-columns:1fr;max-width:640px;margin:0 auto}
 .shotgrid figure{margin:0}
-.shotgrid img{width:100%;height:auto;display:block;border-radius:var(--radius);border:1px solid var(--line-strong);box-shadow:0 14px 30px rgba(18,21,27,.10)}
-.shotgrid figcaption{margin-top:13px;font-size:13.5px;color:var(--ink-70);line-height:1.5}
-.shotgrid figcaption b{display:block;color:var(--ink);font-size:14.5px;margin-bottom:2px}
+.shotgrid img{width:100%;height:auto;display:block;border-radius:var(--radius);border:1px solid var(--line);box-shadow:var(--shadow-2)}
+.shotgrid figcaption{margin-top:13px;font-family:'Inter',system-ui,sans-serif;font-size:13px;color:var(--ink-70);line-height:1.5;text-align:center}
+.shotgrid figcaption b{display:block;color:var(--ink);font-size:14px;margin-bottom:2px}
 
-.finalcta{background:var(--ink);color:var(--paper);border-radius:var(--radius);padding:64px 44px;text-align:center}
-.finalcta h2{font-family:'Instrument Serif',Georgia,serif;font-style:italic;font-weight:400;
-  font-size:clamp(28px,5vw,42px);color:#fff}
-.finalcta p{margin-top:14px;font-size:15.5px;color:rgba(234,237,230,.68);max-width:46ch;margin-left:auto;margin-right:auto}
+.finalcta{background:var(--ink);color:var(--paper);border-radius:var(--radius);padding:60px 44px;text-align:center}
+.finalcta h2{font-weight:800;
+  font-size:clamp(26px,4.6vw,38px);color:#fff}
+.finalcta p{margin-top:14px;font-family:'Inter',system-ui,sans-serif;font-size:15px;color:rgba(248,250,252,.66);max-width:46ch;margin-left:auto;margin-right:auto}
 .finalcta .ctas{margin-top:26px;display:flex;gap:14px;justify-content:center;flex-wrap:wrap}
-.finalcta .btn.ghost{color:rgba(234,237,230,.75);border:1px solid rgba(234,237,230,.22)}
+.finalcta .btn.ghost{color:rgba(248,250,252,.75);border:1px solid rgba(248,250,252,.2)}
 
-footer.site{padding:44px 0 60px}
-footer.site .fmark{font-size:19px;color:var(--blue)}
-footer.site .fnote{margin-top:10px;font-size:12.5px;color:var(--ink-45);line-height:1.7;max-width:56ch}
+footer.site{padding:40px 0 56px}
+footer.site .fmark{font-size:18px;color:var(--blue)}
+footer.site .fnote{margin-top:10px;font-family:'Inter',system-ui,sans-serif;font-size:12px;color:var(--ink-45);line-height:1.7;max-width:56ch}
 </style>
 </head>
 <body>
@@ -161,25 +162,25 @@ footer.site .fnote{margin-top:10px;font-size:12.5px;color:var(--ink-45);line-hei
       </div>
       <div class="steps">
         <div class="step">
-          <span class="num serif-i">01</span>
+          <span class="num">01</span>
           <h3>Kladde — opret det</h3>
           <p>Titel, dato, lokation og type — arrangementet er klar på under et minut. En tjekliste
             guider jer videre til lokaler og tilbudsbeløb.</p>
         </div>
         <div class="step">
-          <span class="num serif-i">02</span>
+          <span class="num">02</span>
           <h3>Tilbud — byg det</h3>
           <p>Book de lokaler, I skal bruge, og sæt et tilbudsbeløb. Del et sikkert login-link med
             kunden, når I er klar.</p>
         </div>
         <div class="step">
-          <span class="num serif-i">03</span>
+          <span class="num">03</span>
           <h3>Bekræftet — følg det sammen</h3>
           <p>Kunden kan bekræfte udvalgte opgaver direkte i systemet. Ændringer herfra foregår som
             en besked til jer — intet forsvinder i en separat mailtråd.</p>
         </div>
         <div class="step">
-          <span class="num serif-i">04</span>
+          <span class="num">04</span>
           <h3>Afviklet — kør dagen og luk af</h3>
           <p>Driftsdokumenter printes til køkken og personale. En afsluttende tjekliste viser, om
             noget stadig er åbent, før I lukker.</p>
@@ -218,26 +219,26 @@ footer.site .fnote{margin-top:10px;font-size:12.5px;color:var(--ink-45);line-hei
           <path d="M250,170 C 336,170 336,283 566,283" fill="none" stroke="var(--amber)" stroke-width="1.6" stroke-linecap="round" marker-end="url(#arrowAmber)"></path>
 
           <rect x="16" y="130" width="230" height="80" rx="6" fill="var(--blue)" filter="url(#hubShadow)"></rect>
-          <text x="131" y="163" text-anchor="middle" font-family="Familjen Grotesk, sans-serif" font-size="15" font-weight="700" fill="#fff">Ét arrangement</text>
-          <text x="131" y="184" text-anchor="middle" font-family="Familjen Grotesk, sans-serif" font-size="11.5" fill="rgba(255,255,255,.75)">Samme data, opdateret i realtid</text>
+          <text x="131" y="163" text-anchor="middle" font-family="Plus Jakarta Sans, sans-serif" font-size="15" font-weight="700" fill="#fff">Ét arrangement</text>
+          <text x="131" y="184" text-anchor="middle" font-family="Plus Jakarta Sans, sans-serif" font-size="11.5" fill="rgba(255,255,255,.75)">Samme data, opdateret i realtid</text>
 
           <rect x="568" y="20" width="276" height="78" rx="6" fill="#fff" filter="url(#hubShadow)"></rect>
           <rect x="568" y="20" width="5" height="78" rx="2.5" fill="var(--blue)"></rect>
-          <text x="598" y="49" font-family="Familjen Grotesk, sans-serif" font-size="14" font-weight="700" fill="var(--ink)">Admin</text>
-          <text x="598" y="70" font-family="Familjen Grotesk, sans-serif" font-size="12" fill="var(--ink-70)">Ser alle lokationer og</text>
-          <text x="598" y="86" font-family="Familjen Grotesk, sans-serif" font-size="12" fill="var(--ink-70)">arrangementer i organisationen</text>
+          <text x="598" y="49" font-family="Plus Jakarta Sans, sans-serif" font-size="14" font-weight="700" fill="var(--ink)">Admin</text>
+          <text x="598" y="70" font-family="Plus Jakarta Sans, sans-serif" font-size="12" fill="var(--ink-70)">Ser alle lokationer og</text>
+          <text x="598" y="86" font-family="Plus Jakarta Sans, sans-serif" font-size="12" fill="var(--ink-70)">arrangementer i organisationen</text>
 
           <rect x="568" y="132" width="276" height="78" rx="6" fill="#fff" filter="url(#hubShadow)"></rect>
           <rect x="568" y="132" width="5" height="78" rx="2.5" fill="var(--moss)"></rect>
-          <text x="598" y="161" font-family="Familjen Grotesk, sans-serif" font-size="14" font-weight="700" fill="var(--ink)">Koordinator</text>
-          <text x="598" y="182" font-family="Familjen Grotesk, sans-serif" font-size="12" fill="var(--ink-70)">Ser egne arrangementer og</text>
-          <text x="598" y="198" font-family="Familjen Grotesk, sans-serif" font-size="12" fill="var(--ink-70)">dagens opgaver</text>
+          <text x="598" y="161" font-family="Plus Jakarta Sans, sans-serif" font-size="14" font-weight="700" fill="var(--ink)">Koordinator</text>
+          <text x="598" y="182" font-family="Plus Jakarta Sans, sans-serif" font-size="12" fill="var(--ink-70)">Ser egne arrangementer og</text>
+          <text x="598" y="198" font-family="Plus Jakarta Sans, sans-serif" font-size="12" fill="var(--ink-70)">dagens opgaver</text>
 
           <rect x="568" y="244" width="276" height="78" rx="6" fill="#fff" filter="url(#hubShadow)"></rect>
           <rect x="568" y="244" width="5" height="78" rx="2.5" fill="var(--amber)"></rect>
-          <text x="598" y="273" font-family="Familjen Grotesk, sans-serif" font-size="14" font-weight="700" fill="var(--ink)">Kunden</text>
-          <text x="598" y="294" font-family="Familjen Grotesk, sans-serif" font-size="12" fill="var(--ink-70)">Egen side — uden interne</text>
-          <text x="598" y="310" font-family="Familjen Grotesk, sans-serif" font-size="12" fill="var(--ink-70)">noter og kigge-tider</text>
+          <text x="598" y="273" font-family="Plus Jakarta Sans, sans-serif" font-size="14" font-weight="700" fill="var(--ink)">Kunden</text>
+          <text x="598" y="294" font-family="Plus Jakarta Sans, sans-serif" font-size="12" fill="var(--ink-70)">Egen side — uden interne</text>
+          <text x="598" y="310" font-family="Plus Jakarta Sans, sans-serif" font-size="12" fill="var(--ink-70)">noter og kigge-tider</text>
         </svg>
         <figcaption>Tre roller, ét datagrundlag — adgang håndhævet i databasen, ikke kun i brugerfladen.</figcaption>
       </figure>
@@ -283,7 +284,7 @@ footer.site .fnote{margin-top:10px;font-size:12.5px;color:var(--ink-45);line-hei
   <section>
     <div class="wrap">
       <div class="finalcta">
-        <h2 class="serif-i">Se det med jeres egne arrangementer.</h2>
+        <h2>Se det med jeres egne arrangementer.</h2>
         <p>Vi viser gerne, hvordan et rigtigt arrangement bevæger sig gennem alle fire stadier.</p>
         <div class="ctas">
           <a class="btn primary" href="/funktioner">Se funktionerne →</a>
