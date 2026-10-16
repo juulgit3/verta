@@ -117,8 +117,8 @@ footer.site .fnote{margin-top:10px;font-family:'Inter',system-ui,sans-serif;font
     <div class="wrap">
       <span class="eyebrow">Sikkerhed</span>
       <h1>Data adskilt pr. virksomhed, pr. rolle.</h1>
-      <p class="sub">Verta er bygget på Postgres med rækkeniveau-sikkerhed (Row Level Security)
-        — ikke applikationskode, der forsøger at huske, hvem der må se hvad.</p>
+      <p class="sub">Adskillelsen sker i selve databasen, hver gang data hentes
+        — ikke i appens kode, hvor en fejl kunne glemme det.</p>
     </div>
   </section>
 
@@ -130,9 +130,8 @@ footer.site .fnote{margin-top:10px;font-family:'Inter',system-ui,sans-serif;font
       <div class="secgrid">
         <div class="seccard">
           <h3>Rollebaseret adgang i databasen</h3>
-          <p>Hver forespørgsel filtreres af databasens egne sikkerhedsregler (RLS), ikke af
-            frontend-kode. En kunde kan aldrig forespørge sig til et andet arrangement, uanset
-            hvad brugerfladen viser.</p>
+          <p>Hvert opslag tjekkes af databasens egne sikkerhedsregler, ikke af appens kode. En
+            kunde kan aldrig få adgang til et andet arrangement, uanset hvad der vises på skærmen.</p>
         </div>
         <div class="seccard">
           <h3>Adskilt pr. organisation</h3>
