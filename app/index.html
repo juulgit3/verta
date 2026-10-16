@@ -210,7 +210,7 @@ footer.legal{margin-top:28px;font-size:12px;color:var(--ink-40);line-height:1.6}
 .fab:hover{filter:brightness(1.1)}
 .fab:active{transform:scale(.96)}
 
-/* Koordinatorens "lær værktøjet"-tjekliste, se markOnboardingStep(). Bevidst i modsatte hjørne af
+/* "Lær værktøjet"-tjekliste (admin og koordinator), se markOnboardingStep(). Bevidst i modsatte hjørne af
    .fab, så de to flydende elementer aldrig overlapper. */
 .onboard-widget{position:fixed;left:20px;bottom:calc(20px + env(safe-area-inset-bottom));z-index:39}
 .onboard-pill{border:0;border-radius:99px;background:var(--ink);color:#fff;font-weight:700;font-size:13px;
@@ -724,11 +724,15 @@ const FAB_CONTEXT = {
   punkter:{label:'+ Opgave', onClick:()=>openTaskModal('')},
   oversigt:{label:'+ Opgave', onClick:()=>openTaskModal('')}
 };
-/* Koordinatorens "lær værktøjet"-tjekliste (hjørne-widget). Kun for almindelige koordinatorer — admin
-   har allerede sin egen "Kom godt i gang"-tjekliste (org-opsætning), og superadmin/impersonation er
-   ikke en reel nyoprettet bruger. Hvert punkt krydses af automatisk, når handlingen reelt udføres et
-   sted i appen (se markOnboardingStep-kaldene ved openEvent/pushMessage/updatePunktStatus/osv.) — ikke
-   ved at brugeren selv klikker "set", for at lære ved at gøre frem for at læse en manual. */
+/* "Lær værktøjet"-tjekliste (hjørne-widget). For admin og koordinator — admin har DERUDOVER sin egen
+   "Kom godt i gang"-tjekliste (org-opsætning: lokation/kolleger/første arrangement), som er en
+   forudsætning, ikke en erstatning: begge roller skal stadig opdage Beskeder/Opgaver/Dokumenter/
+   gæstelink. orgSetupComplete() sikrer blot, at denne widget ikke vises oven i org-opsætningskortet
+   for admin, mens det stadig står åbent — se onboardingActive(). Superadmin/impersonation er ikke en
+   reel nyoprettet bruger og ser aldrig widgetten. Hvert punkt krydses af automatisk, når handlingen
+   reelt udføres et sted i appen (se markOnboardingStep-kaldene ved openEvent/pushMessage/
+   updatePunktStatus/osv.) — ikke ved at brugeren selv klikker "set", for at lære ved at gøre frem for
+   at læse en manual. */
 const ONBOARDING_STEPS = [
   {key:'open_event', label:'Åbn et arrangement'},
   {key:'send_message', label:'Send en besked'},
@@ -738,12 +742,23 @@ const ONBOARDING_STEPS = [
   {key:'view_documents', label:'Se Dokumenter-fanen'},
   {key:'profile_filled', label:'Udfyld din profil (billede og titel)'}
 ];
+/* Admin har sin egen org-opsætningstjekliste (checklistHtml i viewAdminHome) som forudsætning —
+   "lær værktøjet"-tjeklisten herunder var oprindeligt kun for koordinator, ud fra at admin allerede
+   havde sin egen guide. Men den admin, der reelt sætter en helt ny organisation op, er typisk præcis
+   lige så ny en bruger som en nyinviteret koordinator, og fik hidtil aldrig vist Beskeder/Opgaver/
+   Dokumenter/gæstelink-trinene. orgSetupComplete() sikrer blot, at widgettens trin ikke konkurrerer
+   visuelt med org-opsætningskortet, mens det stadig vises — den kan praktisk talt ikke nås før
+   org-opsætningen er færdig alligevel, da de fleste af handlingerne kræver et arrangement at åbne. */
+function orgSetupComplete(){
+  return !!state.orgOnboardingDismissed || (((state.venues||[]).length>0) && ((state.events||[]).length>0));
+}
 function onboardingActive(){
-  return state.rolle==='kilden' && !state.isAdmin && state.staffOnboarding && !state.staffOnboarding.dismissed
+  return state.rolle==='kilden' && state.staffOnboarding && !state.staffOnboarding.dismissed
+    && (!state.isAdmin || orgSetupComplete())
     && ONBOARDING_STEPS.some(s=>!state.staffOnboarding.steps[s.key]);
 }
 function onboardingEligible(){
-  return state.rolle==='kilden' && !state.isAdmin && !!state.staffOnboarding;
+  return state.rolle==='kilden' && !!state.staffOnboarding;
 }
 async function markOnboardingStep(key){
   if(!onboardingEligible()) return;
@@ -2015,7 +2030,7 @@ MODAL_RENDERERS.profile = function(){
     <div class="field"><label for="pfPwNew">Nyt kodeord</label><input id="pfPwNew" type="password" class="search" placeholder="Mindst 8 tegn" style="width:100%" autocomplete="new-password"></div>
     <div class="field"><label for="pfPwConfirm">Bekræft kodeord</label><input id="pfPwConfirm" type="password" class="search" style="width:100%" autocomplete="new-password"></div>
   </div>
-  ${!state.isAdmin?`<div style="border-top:1px solid var(--line);margin:20px 0 16px"></div>
+  ${state.staffOnboarding?`<div style="border-top:1px solid var(--line);margin:20px 0 16px"></div>
   <div class="eyebrow" style="margin-bottom:10px">Introduktion</div>
   ${onboardingDone
     ? `<div class="row" style="justify-content:space-between;align-items:center;gap:10px">
