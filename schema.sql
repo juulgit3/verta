@@ -873,7 +873,7 @@ insert into agenda_items (event_id, title, owner, status, due_date, sort_order, 
 insert into activity_log (event_id, ts, actor_name, actor_side, entry_type, area, label, from_val, to_val, customer_visible, friendly, message_text) values
   ('a0000001-0000-0000-0000-0000000000e3','2026-07-14 11:02:00+02','Rasmus','kunde','message','','','','',true,'','Hej Sofie! Vi vil gerne tilføje en ven i sidste øjeblik — er der plads til én mere ved bord 3?'),
   ('a0000001-0000-0000-0000-0000000000e3','2026-07-14 13:20:00+02','Sofie Lindegaard','kilden','message','','','','',true,'','Hej Rasmus, helt sikkert — jeg har lige tilføjet Villads til gæstelisten, så I kan se ham i oversigten.'),
-  ('a0000001-0000-0000-0000-0000000000e3','2026-07-14 13:21:00+02','Sofie Lindegaard','kilden','change','gæst','Gæst tilføjet','','',true,'Gæst tilføjet: Villads Bang',''),
+  ('a0000001-0000-0000-0000-0000000000e3','2026-07-14 13:21:00+02','Sofie Lindegaard','kilden','change','gaester','Gæst tilføjet','','',true,'Gæst tilføjet: Villads Bang',''),
   ('a0000001-0000-0000-0000-0000000000e3','2026-08-22 20:05:00+02','Camilla','kunde','message','','','','',true,'','Bordplanen ser fin ud, men kan I flytte mine forældre væk fra højtaleren ved DJ-boothet?'),
   ('a0000001-0000-0000-0000-0000000000e3','2026-08-23 08:40:00+02','Sofie Lindegaard','kilden','note','','','','',false,'','Internt: har flyttet bord 2 væk fra scenen — kunden har godkendt bordplanen som helhed.');
 
