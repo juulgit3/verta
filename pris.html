@@ -4,13 +4,13 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Pris — Verta</title>
-<meta name="description" content="Vi former prismodellen sammen med de første kunder — skriv til os, så finder vi en model, der giver mening for jer.">
+<meta name="description" content="Fra 499 kr./md. for én lokation. Prisen vokser i trin med antal lokationer og brugere — ikke med antal arrangementer eller gæster.">
 <link rel="canonical" href="https://verta.dk/pris">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Verta">
 <meta property="og:url" content="https://verta.dk/pris">
 <meta property="og:title" content="Pris — Verta">
-<meta property="og:description" content="Vi former prismodellen sammen med de første kunder — skriv til os, så finder vi en model, der giver mening for jer.">
+<meta property="og:description" content="Fra 499 kr./md. for én lokation. Prisen vokser i trin med antal lokationer og brugere — ikke med antal arrangementer eller gæster.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&family=Instrument+Serif:ital@1&display=swap" rel="stylesheet">
@@ -86,6 +86,35 @@ section{padding:72px 0;border-top:1px solid var(--line)}
 .pfactor h3{font-size:14px;font-weight:700}
 .pfactor p{margin-top:8px;font-family:'Inter',system-ui,sans-serif;font-size:13px;color:var(--ink-70);line-height:1.55}
 
+.pricehero{background:var(--card);border:1px solid var(--blue);box-shadow:var(--shadow-2);border-radius:var(--radius);
+  padding:44px 40px;display:flex;justify-content:space-between;align-items:flex-end;gap:32px;flex-wrap:wrap}
+.pricehero .pnum{font-weight:800;font-size:clamp(40px,6vw,56px);line-height:1}
+.pricehero .pnum sup{font-family:'Inter',system-ui,sans-serif;font-size:16px;font-weight:600;color:var(--ink-70);margin-left:6px}
+.pricehero .pdesc{margin-top:12px;font-family:'Inter',system-ui,sans-serif;font-size:14px;color:var(--ink-70);max-width:40ch;line-height:1.6}
+.pricehero .pdesc strong{color:var(--ink)}
+
+.laddertable{margin-top:28px;border-top:1px solid var(--line)}
+.ladderrow{display:flex;justify-content:space-between;align-items:baseline;gap:16px;padding:16px 0;border-bottom:1px solid var(--line)}
+.ladderrow .lname{font-family:'Inter',system-ui,sans-serif;font-size:14.5px;font-weight:600}
+.ladderrow .lname span{display:block;font-weight:400;color:var(--ink-70);font-size:13px;margin-top:2px}
+.ladderrow .lprice{font-family:'Inter',system-ui,sans-serif;font-size:14.5px;font-weight:700;white-space:nowrap}
+
+.examplegrid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+@media(max-width:760px){.examplegrid{grid-template-columns:1fr}}
+.examplecard{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:24px}
+.examplecard h3{font-size:15px;font-weight:700}
+.examplecard .org{font-family:'Inter',system-ui,sans-serif;font-size:12.5px;color:var(--ink-70);margin-top:4px}
+.examplecard .epice{margin-top:16px;font-weight:800;font-size:26px}
+.examplecard .epice span{font-family:'Inter',system-ui,sans-serif;font-size:13px;font-weight:600;color:var(--ink-70)}
+.examplecard .ebreak{margin-top:10px;font-family:'Inter',system-ui,sans-serif;font-size:12.5px;color:var(--ink-70);line-height:1.6}
+
+.addongrid{display:grid;grid-template-columns:repeat(2,1fr);gap:18px}
+@media(max-width:760px){.addongrid{grid-template-columns:1fr}}
+.addoncard{background:var(--blue-soft);border-radius:var(--radius);padding:26px}
+.addoncard h3{font-size:15px;font-weight:700}
+.addoncard .aprice{margin-top:6px;font-weight:800;font-size:22px;color:var(--blue)}
+.addoncard p{margin-top:10px;font-family:'Inter',system-ui,sans-serif;font-size:13.5px;color:var(--ink-70);line-height:1.6}
+
 .faq{max-width:720px}
 .faqitem{border-top:1px solid var(--line);padding:20px 0}
 .faqitem:last-child{border-bottom:1px solid var(--line)}
@@ -130,23 +159,37 @@ footer.site .fnote{margin-top:10px;font-family:'Inter',system-ui,sans-serif;font
   <section class="pagehero" style="border-top:0">
     <div class="wrap">
       <span class="eyebrow">Pris</span>
-      <h1>Vi former prismodellen sammen med de første kunder.</h1>
-      <p class="sub">Verta er tidligt i udviklingen. I stedet for at gætte på en prisliste, der
-        ikke passer til jeres virkelighed, sætter vi den sammen med de første virksomheder, der
-        tager værktøjet i brug.</p>
+      <h1>En lav startpris, der vokser i takt med jeres behov.</h1>
+      <p class="sub">Prisen afhænger af antal lokationer og medarbejdere — aldrig af hvor mange
+        arrangementer I kører, eller hvor mange gæster der logger ind. Så I kan lægge alt ind i
+        Verta uden at holde regnskab med det.</p>
     </div>
   </section>
 
   <section>
     <div class="wrap">
-      <div class="pricebox">
+      <div class="pricehero">
         <div class="ptext">
-          <span class="eyebrow" style="color:var(--blue)">Fra 799 kr./md. for én lokation, ekskl. moms</span>
-          <h3 style="margin-top:8px">Skriv til os, så finder vi en pris der passer</h3>
-          <p>Et vejledende udgangspunkt — den endelige pris afhænger af jeres antal lokationer
-            og medarbejdere. Skriv til os, så ser vi på det sammen.</p>
+          <span class="eyebrow" style="color:var(--blue)">Grundpris</span>
+          <div class="pnum">499 kr.<sup>/md., ekskl. moms</sup></div>
+          <p class="pdesc"><strong>Inkl. 1 lokation og 2 brugere.</strong> Ubegrænsede
+            arrangementer, gæster og dokumenter — altid, uanset hvor meget I bruger værktøjet.</p>
         </div>
         <a class="btn primary" href="/kontakt">Kontakt os</a>
+      </div>
+      <div class="laddertable">
+        <div class="ladderrow">
+          <div class="lname">Ekstra lokation, nr. 2-5<span>Fx flere selskabslokaler eller huse under samme organisation</span></div>
+          <div class="lprice">+299 kr./md. pr. stk.</div>
+        </div>
+        <div class="ladderrow">
+          <div class="lname">Ekstra lokation, nr. 6+<span>Prisen falder, jo flere lokationer I har</span></div>
+          <div class="lprice">+229 kr./md. pr. stk.</div>
+        </div>
+        <div class="ladderrow">
+          <div class="lname">Ekstra bruger<span>Koordinatorer og admins — jeres kunder/gæster er altid gratis</span></div>
+          <div class="lprice">+99 kr./md. pr. stk.</div>
+        </div>
       </div>
     </div>
   </section>
@@ -154,24 +197,48 @@ footer.site .fnote{margin-top:10px;font-family:'Inter',system-ui,sans-serif;font
   <section>
     <div class="wrap">
       <div class="section-head">
-        <h2>Det, prisen sandsynligvis vil afhænge af.</h2>
-        <p>Vi har ikke låst modellen endnu, men det er de faktorer, vi overvejer prisen ud fra.</p>
+        <h2>Tre eksempler på, hvad det betyder i praksis.</h2>
+        <p>Beregnet ud fra grundpris + tillæg ovenfor, ekskl. moms.</p>
       </div>
-      <div class="pricefactors">
-        <div class="pfactor">
-          <h3>Antal lokationer</h3>
-          <p>Én lokation med et par lokaler er en anden virkelighed end ni lokationer og
-            30+ lokaler under samme organisation.</p>
+      <div class="examplegrid">
+        <div class="examplecard">
+          <h3>Lærkevang Gårdkøkken</h3>
+          <p class="org">1 lokation · 2 brugere</p>
+          <div class="epice">499 kr.<span>/md.</span></div>
+          <p class="ebreak">Grundprisen alene — ingen tillæg.</p>
         </div>
-        <div class="pfactor">
-          <h3>Antal brugere</h3>
-          <p>Hvor mange medarbejdere skal have adgang som koordinator eller admin — ikke
-            hvor mange kunder, der logger ind (det er altid gratis for dem).</p>
+        <div class="examplecard">
+          <h3>Havbrisen Selskabslokaler</h3>
+          <p class="org">1 lokation · 4 brugere</p>
+          <div class="epice">697 kr.<span>/md.</span></div>
+          <p class="ebreak">Grundpris + 2 ekstra brugere (2 × 99 kr.).</p>
         </div>
-        <div class="pfactor">
-          <h3>Opsætning og migrering</h3>
-          <p>Om I starter med ét kommende arrangement som test, eller skal have flere
-            lokationer og lokaler sat op fra dag ét.</p>
+        <div class="examplecard">
+          <h3>Domicil Konference &amp; Møder</h3>
+          <p class="org">3 lokationer · 6 brugere</p>
+          <div class="epice">1.493 kr.<span>/md.</span></div>
+          <p class="ebreak">Grundpris + 2 ekstra lokationer (2 × 299 kr.) + 4 ekstra brugere (4 × 99 kr.).</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <div class="section-head">
+        <h2>Spar på vejen.</h2>
+      </div>
+      <div class="addongrid">
+        <div class="addoncard">
+          <h3>Betal årligt</h3>
+          <div class="aprice">Spar 15%</div>
+          <p>Bind jer til et år i stedet for måned til måned, og få 15% rabat på hele regningen.</p>
+        </div>
+        <div class="addoncard">
+          <h3>Hjælp til opstart</h3>
+          <div class="aprice">3.000 kr. (valgfrit)</div>
+          <p>Engangsbeløb for hjælp til at få lokationer, lokaler og de første arrangementer sat
+            korrekt op fra dag ét. Helt valgfrit — mange klarer det selv.</p>
         </div>
       </div>
     </div>
@@ -186,17 +253,21 @@ footer.site .fnote{margin-top:10px;font-family:'Inter',system-ui,sans-serif;font
         <div class="faqitem">
           <h3>Koster det noget for vores kunder at bruge deres side?</h3>
           <p>Nej. Jeres kunder logger ind gratis via mail-link — prisen er udelukkende for jer
-            som virksomhed.</p>
+            som virksomhed, og den ændrer sig ikke med antal gæster eller arrangementer.</p>
+        </div>
+        <div class="faqitem">
+          <h3>Hvorfor stiger prisen ikke med antal arrangementer?</h3>
+          <p>Fordi I skal kunne lægge alt ind i Verta — også den lille julefrokost og det
+            enkeltstående møde — uden at tænke på, om det udløser en ekstra regning.</p>
         </div>
         <div class="faqitem">
           <h3>Er der binding?</h3>
-          <p>Ikke besluttet endnu — det er noget af det, vi tager med i den indledende snak,
-            baseret på hvad der giver mening for de første kunder.</p>
+          <p>Betal måned til måned uden binding, eller vælg årlig betaling og få 15% rabat.</p>
         </div>
         <div class="faqitem">
           <h3>Kan vi starte i det små og udvide senere?</h3>
-          <p>Ja. De fleste vil sandsynligvis starte med én lokation eller ét kommende
-            arrangement som test, og udvide derfra.</p>
+          <p>Ja. De fleste starter med én lokation, og tilføjer flere lokationer eller brugere,
+            når behovet er der — prisen følger automatisk med i samme trin som ovenfor.</p>
         </div>
       </div>
     </div>
@@ -205,8 +276,8 @@ footer.site .fnote{margin-top:10px;font-family:'Inter',system-ui,sans-serif;font
   <section>
     <div class="wrap">
       <div class="finalcta">
-        <h2>Lad os finde en pris, der giver mening.</h2>
-        <p>Ingen forpligtelser — bare et ærligt bud ud fra jeres virkelighed.</p>
+        <h2>Klar til at prøve Verta?</h2>
+        <p>Skriv til os, og vi sætter jer op med den pris, der passer til jeres lokationer og team.</p>
         <div class="ctas">
           <a class="btn primary" href="/kontakt">Skriv til os →</a>
         </div>
