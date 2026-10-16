@@ -459,7 +459,7 @@ const sb = window.supabase.createClient(SUPA.url, SUPA.anon);
 
 let state = { gaester:[], punkter:[], log:[],
               tab:'oversigt', soeg:'', rolle:'kilden', logType:'alle', logWho:'alle', logArea:'alle',
-              logDays:'14', logFrom:'', logTo:'', logSearch:'', logShowTech:false,
+              logDays:'alle', logFrom:'', logTo:'', logSearch:'', logShowTech:false,
               lastRead:{kilden:0, kunde:0}, phases:[], venueRooms:[], staffList:[], invitesList:[], venuesFull:[],
               venueDetailId:null, venueUpcomingCounts:{}, venueDetailEvents:[], venueDetailRoomEvents:{},
               eventCatalog:[], orgCatalog:[], newCatalogItemRoomIds:[],
@@ -467,7 +467,7 @@ let state = { gaester:[], punkter:[], log:[],
               isSuperadmin:false, isSuperadminOwner:false, viewAsCoordinator:false, allOrgs:[], superadmins:[], superadminInvites:[], guestLink:'', guestLinkEventId:null, guestLinkBusy:false,
               guestWelcome:false, contact:{name:'',title:'',avatar_url:''}, orgOnboardingDismissed:false, orgCatalogCount:0, orgStaffCount:0,
               myTitle:'', myAvatarUrl:'', staffOnboarding:null, onboardingCollapsed:false, eventArchived:false,
-              agendaNotes:{}, openTaskNotes:new Set(), openDoneGroups:new Set(), openSetupFolds:new Set(),
+              agendaNotes:{}, openTaskNotes:new Set(), openDoneGroups:new Set(), openSetupFolds:new Set(), guestFilterOpen:false,
               superadminActor:null, impersonating:null, roster:[],
               pickerSort:'dato', pickerSearch:'', pickerFilterStatus:'alle',
               modal:null, guestSel:new Set(), guestBulkFilter:{kat:'alle', reception:'alle', middag:'alle', kost:'alle'},
@@ -831,7 +831,7 @@ function viewAdmin(){
     <header><h2>Arrangementdetaljer</h2></header>
     <div class="row" style="gap:14px 8px;flex-wrap:wrap;align-items:flex-start">
       <div class="field" style="flex:2;min-width:180px"><label for="edTitle">Titel</label><input id="edTitle" class="search" placeholder="Titel" value="${esc(state.eventTitle||'')}" style="width:100%"></div>
-      <div class="field" style="flex:1;min-width:140px"><label for="edVenue">Lokation</label><select id="edVenue" class="search" style="width:100%">
+      <div class="field" style="flex:1;min-width:180px"><label for="edVenue">Lokation</label><select id="edVenue" class="search" style="width:100%">
         ${(state.venues||[]).map(v=>`<option value="${v.id}" ${v.id===state.venueId?'selected':''}>${esc(v.name)}</option>`).join('')}
       </select></div>
       <div class="field" style="flex:1;min-width:140px"><label for="edDate">Dato</label><input id="edDate" type="date" class="search" value="${state.eventDate||''}" style="width:100%"></div>
@@ -1037,8 +1037,11 @@ function viewGaester(){
   const locked=guestEditsAreLocked();
   const selCount=[...state.guestSel].filter(id=>state.gaester.find(g=>g.id===id)).length;
   const bf=state.guestBulkFilter||{};
+  const bfActive = (bf.kat&&bf.kat!=='alle') || (bf.reception&&bf.reception!=='alle') || (bf.middag&&bf.middag!=='alle') || (bf.kost&&bf.kost!=='alle') || bf.dup;
   const filterBar = !locked ? `
-    <div class="row noprint" style="gap:8px;flex-wrap:wrap;margin-bottom:10px">
+    <details class="noprint" data-guest-filter-fold style="margin-bottom:10px" ${(bfActive||state.guestFilterOpen)?'open':''}>
+      <summary class="fold-summary"><span class="fold-chev">▸</span>Filtrér gæsteliste${bfActive?'<span class="notes-badge" style="margin-left:4px">aktiv</span>':''}</summary>
+      <div class="row" style="gap:8px;flex-wrap:wrap;margin-top:10px">
       <select id="gfKat" class="search" style="max-width:130px">
         <option value="alle" ${(!bf.kat||bf.kat==='alle')?'selected':''}>Alle kategorier</option>
         <option value="voksen" ${bf.kat==='voksen'?'selected':''}>Voksen</option>
@@ -1061,7 +1064,8 @@ function viewGaester(){
         ${Object.entries(DIET_TAG_LABEL).map(([v,l])=>`<option value="${v}" ${bf.kost===v?'selected':''}>${l}</option>`).join('')}
       </select>
       <label class="row" style="gap:5px;font-size:12.5px;color:var(--ink-60)"><input type="checkbox" id="gfDup" ${bf.dup?'checked':''}>Kun dubletter</label>
-    </div>` : '';
+      </div>
+    </details>` : '';
   const tabel = `
   <section class="card">
     <header><h2>Gæsteliste</h2><span class="note">${state.gaester.length} personer · driver antal, kost og pris</span></header>
@@ -1731,6 +1735,7 @@ function viewDokumenter(){
 function tid(ts){ return new Date(ts).toLocaleString('da-DK',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}); }
 const AREA_TXT = {gaester:'Gæster',punkter:'Punkter',pris:'Pris',system:'System'};
 const STATUS_LABEL = {mangler:'Mangler', udkast:'Udkast', aftalt:'Udført'};
+const ROLE_LABEL = {coordinator:'Koordinator', admin:'Admin'};
 /* Label for et opgave-/aftalepunkts ejer ('jer'=kunden, 'kilden'=organisationen) — afhænger af hvem der ser på det, aldrig et hardkodet firmanavn. */
 function ejerLabel(ejer){
   if(ejer==='jer') return state.rolle==='kilden' ? 'Kunden' : 'Jer';
@@ -1778,7 +1783,7 @@ function logLine(e){
   if(e.type==='message') return `<span class="tag">Besked</span><span class="msgq">”${esc(e.text||'')}”</span>`;
   if(e.type==='note') return `<span class="tag">Intern note</span><span class="msgq">”${esc(e.text||'')}”</span>`;
   const desc = e.friendly ? esc(e.friendly) : `${esc(e.label)}${(e.from||e.to)?` <span class="delta">${e.from?esc(e.from):'—'}<span class="arrow">→</span>${esc(e.to)}</span>`:''}`;
-  return `<span class="tag">${AREA_TXT[e.area]}</span>${desc}`;
+  return `<span class="tag">${AREA_TXT[e.area]||'Ændring'}</span>${desc}`;
 }
 /* Detached <a>.click() virker ikke pålideligt i alle browsere/kontekster — elementet skal sidde i DOM'et,
    når klikket udløses. append→click→remove, plus en forsinket revokeObjectURL (ikke med det samme, da
@@ -2333,6 +2338,7 @@ function bind(){
     if(el.open) state.openSetupFolds.add(el.dataset.setupFold);
     else state.openSetupFolds.delete(el.dataset.setupFold);
   });
+  const guestFilterFold=document.querySelector('[data-guest-filter-fold]'); if(guestFilterFold) guestFilterFold.ontoggle=()=>{ state.guestFilterOpen=guestFilterFold.open; };
   document.querySelectorAll('[data-task-notes]').forEach(el=>el.ontoggle=()=>{
     if(el.open) state.openTaskNotes.add(el.dataset.taskNotes);
     else state.openTaskNotes.delete(el.dataset.taskNotes);
@@ -3653,8 +3659,8 @@ function viewBrugere(){
       </span>
       <span class="row" style="gap:8px">
         <select class="status" data-role-user="${s.id}" ${s.id===state.userId?'disabled':''}>
-          <option value="coordinator" ${s.role==='coordinator'?'selected':''}>coordinator</option>
-          <option value="admin" ${s.role==='admin'?'selected':''}>admin</option>
+          <option value="coordinator" ${s.role==='coordinator'?'selected':''}>${ROLE_LABEL.coordinator}</option>
+          <option value="admin" ${s.role==='admin'?'selected':''}>${ROLE_LABEL.admin}</option>
         </select>
         ${s.id===state.userId?'':`<button class="btn" data-remove-user="${s.id}">Fjern</button>`}
       </span>
@@ -3663,15 +3669,15 @@ function viewBrugere(){
   <section class="card">
     <header><h2>Ventende invitationer</h2><span class="note">${(state.invitesList||[]).length}</span></header>
     ${(state.invitesList||[]).length?(state.invitesList||[]).map(i=>`<div class="stat">
-      <span>${esc(i.name)} <span class="note">${esc(i.email)} · ${i.role}</span></span>
+      <span>${esc(i.name)} <span class="note">${esc(i.email)} · ${ROLE_LABEL[i.role]||i.role}</span></span>
       <button class="btn" data-cancel-invite="${i.id}">Fortryd</button>
     </div>`).join(''):'<div class="empty">Ingen ventende invitationer.</div>'}
     <div class="row" style="margin-top:12px;flex-wrap:wrap;gap:8px">
       <input id="invName" class="search" placeholder="Navn" style="flex:1;min-width:140px">
       <input id="invEmail" class="search" type="email" placeholder="Mail" style="flex:1;min-width:180px">
       <select id="invRole" class="search" style="flex:1;min-width:120px">
-        <option value="coordinator">coordinator</option>
-        <option value="admin">admin</option>
+        <option value="coordinator">${ROLE_LABEL.coordinator}</option>
+        <option value="admin">${ROLE_LABEL.admin}</option>
       </select>
       <button class="btn primary" id="invSend">Invitér</button>
     </div>
